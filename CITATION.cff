@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "LiDAR Scanner for iPhone and iPad"
+message: "If you use this software in research, please cite the software and the specific release used."
+type: software
+authors:
+  - family-names: Hagmann
+    given-names: Dominik
+repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
+license: MIT
+version: 0.1.0
+date-released: 2026-09-14
+keywords:
+  - LiDAR
+  - point cloud
+  - iOS
+  - iPadOS
+  - ARKit
+  - 3D scanning
+  - archaeology
