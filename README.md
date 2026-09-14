@@ -18,12 +18,6 @@ The app uses Apple ARKit scene depth to capture 3D points directly on supported 
 - Native iPhone and iPad support
 - No external runtime dependencies
 
-## Why no 2,000,000-point limit?
-
-A fixed point limit is unnecessary for the acquisition model used here. During scanning, points are serialized in compact 15-byte records and appended to a temporary point stream on disk. RAM usage therefore does not grow linearly with the total scan size. In practice, scan size is constrained by device storage, I/O throughput, thermal state, battery, and the density settings rather than by an arbitrary hard-coded number of points.
-
-The app still reports the live point count and approximate raw data size so the operator can decide when a scan has become sufficiently large.
-
 ## Requirements
 
 - Xcode 16 or later recommended
