@@ -77,17 +77,6 @@ Coordinates are stored in the ARKit world coordinate system in metres.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the acquisition and export pipeline.
 
-## Roadmap
-
-- On-device scan library and metadata
-- XYZ / CSV export
-- Optional confidence value in exported data
-- Voxel-grid decimation and duplicate suppression
-- Scan resume / recovery after interruptions
-- Optional georeferencing / GNSS metadata
-- Improved thermal and storage monitoring
-- Larger-scene field validation
-
 ## Scientific and field use
 
 The project is designed with transparent data acquisition in mind. For scientific use, device model, OS version, capture density, acquisition conditions, and subsequent processing should be documented together with the exported point cloud.
