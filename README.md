@@ -10,7 +10,7 @@ During scanning, points are serialized in compact 15-byte records and appended t
 
 Numerous iPhone and iPad applications already support LiDAR scanning, photogrammetry, meshing, texturing, or complete 3D-model workflows, and many use paid or subscription-based export features. Direct export of a simple point cloud, however, is not always the central workflow. **LiDAR Scanner deliberately does less.**
 
-The aim is to provide a straightforward way to acquire and export a minimally application-processed XYZ+RGB point cloud that can subsequently be inspected, cleaned, registered, analysed, or otherwise processed in dedicated software such as [CloudCompare](https://www.cloudcompare.org/). The app does not perform mesh reconstruction, hole filling, voxel filtering, or other geometric post-processing before export. ARKit depth data are nevertheless already processed and sensor-fused by the Apple platform, so the exported data should not be interpreted as unprocessed raw sensor measurements.
+The aim is to provide a straightforward way to acquire and export a minimally application-processed XYZ+RGB point cloud that can subsequently be inspected, cleaned, registered, analysed, or otherwise processed in dedicated software such as <a href="https://www.cloudcompare.org/" target="_blank" rel="noopener noreferrer">CloudCompare ↗</a>. The app does not perform mesh reconstruction, hole filling, voxel filtering, or other geometric post-processing before export. ARKit depth data are nevertheless already processed and sensor-fused by the Apple platform, so the exported data should not be interpreted as unprocessed raw sensor measurements.
 
 The app was conceived primarily from the perspective of **archaeological fieldwork**, where rapid 3D recording can complement conventional documentation of excavation features, stratigraphic situations, architectural remains, sections, and other built or excavated structures. The same deliberately simple workflow can also be useful in other field sciences, for example for geological outcrops, geomorphological observations, forestry, cave documentation, or comparable small- to medium-scale recording tasks.
 
@@ -35,7 +35,7 @@ It is intended as a lightweight field-documentation tool, not as a replacement f
 - A LiDAR-equipped iPhone or iPad
 - Physical device required for LiDAR capture
 
-The project configuration is stored in [`project.yml`](project.yml) and can be generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+The project configuration is stored in [`project.yml`](project.yml) and can be generated with <a href="https://github.com/yonaskolb/XcodeGen" target="_blank" rel="noopener noreferrer">XcodeGen ↗</a>.
 
 ```bash
 brew install xcodegen
@@ -104,7 +104,7 @@ If you use **LiDAR Scanner for iPhone and iPad** in research, teaching, or publi
 
 Suggested citation for the current version:
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 0.1.0) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
+> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 0.1.0) [Computer software]. GitHub. <a href="https://github.com/Dominik-Hagmann/lidar-scanner-ios" target="_blank" rel="noopener noreferrer">https://github.com/Dominik-Hagmann/lidar-scanner-ios ↗</a>
 
 For reproducible scientific work, please cite the specific version or release used. A DOI can be added through Zenodo when a versioned release is archived.
 
@@ -112,23 +112,21 @@ For reproducible scientific work, please cite the specific version or release us
 
 The following publications provide context for the use, accuracy, limitations, and field applications of LiDAR integrated into Apple mobile devices:
 
-- Antón, D., Mayoral-Valsera, J., Simón-Vallejo, M. D., Parrilla-Giráldez, R., & Cortés-Sánchez, M. (2025). Built-in smartphone LiDAR for archaeological and speleological research. *Journal of Archaeological Science, 181*, 106330. https://doi.org/10.1016/j.jas.2025.106330
-- Bhatta, B. P., Shah, A., Chaulagain, M. K., Dhungana, A., Mandal, L., Koirala, P., Thapa, S., & Panday, U. S. (2025). Comparative Assessment of Archaeological Scene Reconstruction Using iPhone LiDAR Scanner. *Journal on Geoinformatics, Nepal, 24*, 9–19. https://doi.org/10.3126/njg.v24i1.79342
-- Costantino, D., Vozza, G., Pepe, M., & Alfio, V. S. (2022). Smartphone LiDAR Technologies for Surveying and Reality Modelling in Urban Scenarios: Evaluation Methods, Performance and Challenges. *Applied System Innovation, 5*(4), 63. https://doi.org/10.3390/asi5040063
-- Dora, D., & Lazaridis, G. (2026). Low-cost smartphone LiDAR for 3D cave mapping: comparing mobile and terrestrial laser scanning methods. *Geology Today*. https://doi.org/10.1111/gto.70022
-- Furlan, L. M., & Piazentim, E. G. (2025). Smartphone-based LiDAR for generating Digital Outcrop Models (DOMs) with field validation. *Discover Geoscience, 3*, 137. https://doi.org/10.1007/s44288-025-00253-z
-- Gollob, C., Ritter, T., Kraßnitzer, R., Tockner, A., & Nothdurft, A. (2021). Measurement of Forest Inventory Parameters with Apple iPad Pro and Integrated LiDAR Technology. *Remote Sensing, 13*(16), 3129. https://doi.org/10.3390/rs13163129
-- Luetzenburg, G., Kroon, A., & Bjørk, A. A. (2021). Evaluation of the Apple iPhone 12 Pro LiDAR for an Application in Geosciences. *Scientific Reports, 11*, 22221. https://doi.org/10.1038/s41598-021-01763-9
-- Luetzenburg, G., Kroon, A., Kjeldsen, K. K., Splinter, K. D., & Bjørk, A. A. (2024). High-resolution topographic surveying and change detection with the iPhone LiDAR. *Nature Protocols, 19*, 3520–3541. https://doi.org/10.1038/s41596-024-01024-9
-- Paukkonen, N. (2023). Towards a Mobile 3D Documentation Solution. Video-Based Photogrammetry and iPhone 12 Pro as Fieldwork Documentation Tools. *Journal of Computer Applications in Archaeology, 6*(1), 143–154. https://doi.org/10.5334/jcaa.135
-- Soyluoğlu, M., Orabi, R., Hermon, S., & Bakirtzis, N. (2025). Digitizing Challenging Heritage Sites with the Use of iPhone LiDAR and Photogrammetry: The Case-Study of Sourp Magar Monastery in Cyprus. *Geomatics, 5*(3), 44. https://doi.org/10.3390/geomatics5030044
-
-## AI-assisted development disclosure
-
-This project was developed through an AI-assisted coding workflow using **ChatGPT by OpenAI**, under human direction and review by Dominik Hagmann. In informal terms, substantial parts of the initial codebase, project structure, and documentation were "vibe-coded" with ChatGPT. The resulting implementation was subsequently reviewed, tested, and validated by Dominik Hagmann during development.
-
-The exact ChatGPT model used during every stage of the initial development was not recorded reliably; the repository therefore does not attribute the code to a specific model where that cannot be verified. See [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) for details.
+- Antón, D., Mayoral-Valsera, J., Simón-Vallejo, M. D., Parrilla-Giráldez, R., & Cortés-Sánchez, M. (2025). Built-in smartphone LiDAR for archaeological and speleological research. *Journal of Archaeological Science, 181*, 106330. <a href="https://doi.org/10.1016/j.jas.2025.106330" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Bhatta, B. P., Shah, A., Chaulagain, M. K., Dhungana, A., Mandal, L., Koirala, P., Thapa, S., & Panday, U. S. (2025). Comparative Assessment of Archaeological Scene Reconstruction Using iPhone LiDAR Scanner. *Journal on Geoinformatics, Nepal, 24*, 9–19. <a href="https://doi.org/10.3126/njg.v24i1.79342" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Costantino, D., Vozza, G., Pepe, M., & Alfio, V. S. (2022). Smartphone LiDAR Technologies for Surveying and Reality Modelling in Urban Scenarios: Evaluation Methods, Performance and Challenges. *Applied System Innovation, 5*(4), 63. <a href="https://doi.org/10.3390/asi5040063" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Dora, D., & Lazaridis, G. (2026). Low-cost smartphone LiDAR for 3D cave mapping: comparing mobile and terrestrial laser scanning methods. *Geology Today*. <a href="https://doi.org/10.1111/gto.70022" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Furlan, L. M., & Piazentim, E. G. (2025). Smartphone-based LiDAR for generating Digital Outcrop Models (DOMs) with field validation. *Discover Geoscience, 3*, 137. <a href="https://doi.org/10.1007/s44288-025-00253-z" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Gollob, C., Ritter, T., Kraßnitzer, R., Tockner, A., & Nothdurft, A. (2021). Measurement of Forest Inventory Parameters with Apple iPad Pro and Integrated LiDAR Technology. *Remote Sensing, 13*(16), 3129. <a href="https://doi.org/10.3390/rs13163129" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Luetzenburg, G., Kroon, A., & Bjørk, A. A. (2021). Evaluation of the Apple iPhone 12 Pro LiDAR for an Application in Geosciences. *Scientific Reports, 11*, 22221. <a href="https://doi.org/10.1038/s41598-021-01763-9" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Luetzenburg, G., Kroon, A., Kjeldsen, K. K., Splinter, K. D., & Bjørk, A. A. (2024). High-resolution topographic surveying and change detection with the iPhone LiDAR. *Nature Protocols, 19*, 3520–3541. <a href="https://doi.org/10.1038/s41596-024-01024-9" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Paukkonen, N. (2023). Towards a Mobile 3D Documentation Solution. Video-Based Photogrammetry and iPhone 12 Pro as Fieldwork Documentation Tools. *Journal of Computer Applications in Archaeology, 6*(1), 143–154. <a href="https://doi.org/10.5334/jcaa.135" target="_blank" rel="noopener noreferrer">DOI ↗</a>
+- Soyluoğlu, M., Orabi, R., Hermon, S., & Bakirtzis, N. (2025). Digitizing Challenging Heritage Sites with the Use of iPhone LiDAR and Photogrammetry: The Case-Study of Sourp Magar Monastery in Cyprus. *Geomatics, 5*(3), 44. <a href="https://doi.org/10.3390/geomatics5030044" target="_blank" rel="noopener noreferrer">DOI ↗</a>
 
 ## License
 
 MIT License. See [`LICENSE`](LICENSE).
+
+## AI-assisted development disclosure
+
+This project was developed through an AI-assisted, informally **“vibe-coded”** workflow using **ChatGPT powered by GPT-6 Astra (OpenAI)**, under the direction, review, testing, and validation of Dominik Hagmann. GPT-6 Astra contributed to the generation and revision of source code, project structure, configuration files, and documentation. See [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) for further details.
