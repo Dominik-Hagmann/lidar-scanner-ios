@@ -100,7 +100,7 @@ The project is designed with transparent data acquisition in mind. For scientifi
 
 ## AI-assisted development disclosure
 
-This project was developed through an AI-assisted coding workflow using **ChatGPT by OpenAI**, under human direction and review by Dominik Hagmann. In informal terms, substantial parts of the initial codebase, project structure, and documentation were "vibe-coded" with ChatGPT. AI-generated code may contain errors or unsuitable implementation choices and should be independently tested and validated before use in scientific, professional, or production workflows.
+This project was developed through an AI-assisted coding workflow using **ChatGPT by OpenAI**, under human direction and review by Dominik Hagmann. In informal terms, substantial parts of the initial codebase, project structure, and documentation were "vibe-coded" with ChatGPT. The resulting implementation was subsequently reviewed, tested, and validated by Dominik Hagmann during development.
 
 The exact ChatGPT model used during every stage of the initial development was not recorded reliably; the repository therefore does not attribute the code to a specific model where that cannot be verified. See [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) for details.
 
