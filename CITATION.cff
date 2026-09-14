@@ -9,7 +9,7 @@ version: 1.0.0
 date-released: 2026-09-14
 repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 url: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
-abstract: "A lightweight open-source iPhone and iPad application for acquiring LiDAR-derived XYZ+RGB point clouds and exporting them as PLY files for subsequent processing in dedicated point-cloud software."
+abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds and exporting them as binary or ASCII PLY and XYZ files with accompanying metadata."
 license: MIT
 keywords:
   - LiDAR

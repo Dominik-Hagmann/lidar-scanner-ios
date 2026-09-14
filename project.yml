@@ -1,12 +1,15 @@
 name: LiDARScanner
 options:
-  bundleIdPrefix: at.dominikhagmann
+  bundleIdPrefix: at.lidarscanner
   deploymentTarget:
     iOS: "17.0"
 settings:
   base:
+    CLANG_CXX_LANGUAGE_STANDARD: "c++17"
+    CLANG_CXX_LIBRARY: "libc++"
+    GCC_C_LANGUAGE_STANDARD: "gnu17"
+    SWIFT_STRICT_CONCURRENCY: minimal
     SWIFT_VERSION: "5.0"
-    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
 targets:
   LiDARScanner:
     type: application
@@ -15,17 +18,16 @@ targets:
       - path: LiDARScanner
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: at.dominikhagmann.LiDARScanner
-        PRODUCT_NAME: "LiDAR Scanner"
-        MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "1"
-        TARGETED_DEVICE_FAMILY: "1,2"
-        SUPPORTS_MACCATALYST: NO
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "LiDAR Scanner"
-        INFOPLIST_KEY_NSCameraUsageDescription: "LiDAR Scanner requires camera access to capture LiDAR depth and colour information."
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: LiDARScanner/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: at.lidarscanner.scanner
+        PRODUCT_NAME: LiDARScanner
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_OBJC_BRIDGING_HEADER: LiDARScanner/LiDARScanner-Bridging-Header.h
+        TARGETED_DEVICE_FAMILY: "1,2"
     scheme:
       gatherCoverageData: false

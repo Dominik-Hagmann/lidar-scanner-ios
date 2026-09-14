@@ -21,10 +21,13 @@ xcuserdata/
 # Swift Package Manager
 .build/
 .swiftpm/
-Package.resolved
 
-# XcodeGen-generated project
-LiDARScanner.xcodeproj/
+# Xcode archives and intermediates
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.hmap
 
 # Local scans / exports
 *.pcbin
