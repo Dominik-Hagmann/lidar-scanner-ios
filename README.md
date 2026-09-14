@@ -98,6 +98,12 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the acquisition and expor
 
 The project is designed with transparent data acquisition in mind. For scientific use, device model, OS version, capture density, acquisition conditions, and subsequent processing should be documented together with the exported point cloud.
 
+## AI-assisted development disclosure
+
+This project was developed through an AI-assisted coding workflow using **ChatGPT by OpenAI**, under human direction and review by Dominik Hagmann. In informal terms, substantial parts of the initial codebase, project structure, and documentation were "vibe-coded" with ChatGPT. AI-generated code may contain errors or unsuitable implementation choices and should be independently tested and validated before use in scientific, professional, or production workflows.
+
+The exact ChatGPT model used during every stage of the initial development was not recorded reliably; the repository therefore does not attribute the code to a specific model where that cannot be verified. See [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) for details.
+
 ## Citation
 
 Citation metadata are provided in [`CITATION.cff`](CITATION.cff). Versioned releases can later be archived through Zenodo to obtain a DOI.
