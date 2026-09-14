@@ -42,7 +42,7 @@ open LiDARScanner.xcodeproj
 Alternatively, run:
 
 ```bash
-./scripts/bootstrap.sh
+bash scripts/bootstrap.sh
 ```
 
 ## Using the app
