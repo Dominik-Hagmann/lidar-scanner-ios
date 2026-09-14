@@ -83,7 +83,7 @@ property uchar blue
 
 Coordinates are stored in the ARKit world coordinate system in metres.
 
-## Planned additions
+## Roadmap
 
 The scope is intentionally narrow. Two small additions are currently envisaged:
 
