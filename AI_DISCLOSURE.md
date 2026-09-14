@@ -12,16 +12,14 @@ The exact ChatGPT model used during every stage of the initial development was n
 
 Where future development sessions are documented with a known model or tool version, that information may be recorded in commits, release notes, or other provenance documentation.
 
-## Responsibility and validation
+## Validation
 
-AI-assisted generation does not imply that the resulting software has been independently verified, formally validated, or audited. Generated code can contain implementation errors, inefficient design choices, undocumented assumptions, or platform-specific problems.
+The AI-assisted implementation was reviewed, tested, and validated by Dominik Hagmann during development. This validation covered the intended functionality and practical behaviour of the app as developed.
 
-Before scientific, professional, heritage-documentation, or production use, users should validate the software against their own requirements and, where relevant, against independent reference measurements or established acquisition workflows.
-
-LiDAR-derived point clouds are also subject to the technical characteristics and limitations of the underlying Apple hardware, ARKit, device tracking, acquisition geometry, environmental conditions, and subsequent processing.
+This does not constitute an independent third-party software audit or a formal metrological certification of the underlying LiDAR sensor. LiDAR-derived point clouds remain subject to the technical characteristics and limitations of the Apple hardware, ARKit, device tracking, acquisition geometry, environmental conditions, and subsequent processing.
 
 ## Authorship and contribution
 
-Dominik Hagmann directed the project and defined its intended functionality and requirements. ChatGPT by OpenAI served as an AI coding and documentation assistant and generated or revised substantial parts of the initial implementation.
+Dominik Hagmann directed the project, defined its intended functionality and requirements, and carried out the validation of the resulting implementation. ChatGPT by OpenAI served as an AI coding and documentation assistant and generated or revised substantial parts of the initial implementation.
 
 This disclosure is provided for transparency concerning software provenance and the role of generative AI in the development process.
