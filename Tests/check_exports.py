@@ -46,4 +46,4 @@ for filename, count, last in [
         assert struct.unpack("<fffBBBB", file.read(16)) == (-2, 2, 1, 128, 128, 128, 2)
         file.seek(offset + (count - 1) * 16)
         assert struct.unpack("<fffBBBB", file.read(16)) == (*last, 128, 128, 128, 2)
-print("PASS: exports beyond two million points, including exact full record count and first/last points")
+print("PASS: large exports, including exact full record count and first/last points")

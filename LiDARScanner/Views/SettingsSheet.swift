@@ -38,7 +38,7 @@ struct SettingsSheet: View {
                         Text("5 Millionen").tag(5_000_000)
                         Text("10 Millionen").tag(10_000_000)
                     }
-                    Text("Im automatischen Modus sind auch mehr als 2 Millionen Punkte möglich. Wenn der verfügbare Arbeitsspeicher knapp wird, beendet die App die Erfassung und sichert den Scan. Die Speicherüberwachung gilt auch bei fest gewählten Punktlimits.")
+                    Text("Im automatischen Modus bestimmt der verfügbare Arbeitsspeicher die erreichbare Punktzahl. Wenn der Arbeitsspeicher knapp wird, beendet die App die Erfassung und sichert den Scan. Die Speicherüberwachung gilt auch bei fest gewählten Punktlimits.")
                         .font(.caption).foregroundStyle(.secondary)
                     Text("Tiefen unter 0,2 m werden verworfen. Bei eingeschränktem Tracking werden keine Punkte hinzugefügt.")
                         .font(.caption).foregroundStyle(.secondary)

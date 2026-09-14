@@ -41,7 +41,7 @@ Die App speichert abgeschlossene Sicherungen in **Dateien → Auf meinem iPhone*
 
 ## Punktzahl und Speicherverwaltung
 
-Die frühere Grenze von 2 Millionen Punkten ist entfernt. Standardmäßig ist **„Automatisch · keine feste Punktzahl“** eingestellt. Die App prüft vor und nach der Verarbeitung eines Tiefenbilds den für ihren Prozess verfügbaren Arbeitsspeicher. Fällt dieser unter eine Reserve von 256 MiB, beendet sie die Erfassung und versucht, den bisherigen Scan zu sichern. Eine zusätzliche Betriebssystem-Speicherwarnung löst ebenfalls eine Sicherung aus. Die erreichbare Punktzahl hängt vom Gerät und seiner aktuellen Speichersituation ab; eine Sicherung vor einem abrupten Prozessabbruch ist nicht garantiert.
+Standardmäßig ist **„Automatisch · keine feste Punktzahl“** eingestellt. Die App prüft vor und nach der Verarbeitung eines Tiefenbilds den für ihren Prozess verfügbaren Arbeitsspeicher. Fällt dieser unter eine Reserve von 256 MiB, beendet sie die Erfassung und versucht, den bisherigen Scan zu sichern. Eine zusätzliche Betriebssystem-Speicherwarnung löst ebenfalls eine Sicherung aus. Die erreichbare Punktzahl hängt vom Gerät und seiner aktuellen Speichersituation ab; eine Sicherung vor einem abrupten Prozessabbruch ist nicht garantiert.
 
 Alternativ sind feste Limits von **500.000, 1 Million, 2 Millionen, 5 Millionen oder 10 Millionen Punkten** wählbar. Die Speicherüberwachung bleibt dabei aktiv. Die Einstellungen können vor einem neuen Scan geändert werden. Die Vorschau zeigt weiterhin maximal 40.000 Punkte; exportiert werden alle aufgenommenen Punkte.
 

@@ -1,21 +1,16 @@
 # Prüfstatus
 
-Der Projektstand wurde in zwei Umgebungen geprüft:
-
-- Linux mit C++17, GCC und Python 3 am 10. September 2026; in dieser Umgebung waren weder macOS und Xcode noch ein iOS-SDK oder physisches iPhone beziehungsweise iPad verfügbar.
-- macOS 26.6.2 auf ARM64 mit Xcode 26.6 (Build 17F113), Apple Clang 21.0.0 und Python 3.9.6 am 15. September 2026; ein physisches LiDAR-fähiges Gerät war nicht Bestandteil dieser Prüfung.
+Prüfumgebung: macOS 26.6.2 auf ARM64 mit Xcode 26.6 (Build 17F113), Apple Clang 21.0.0 und Python 3.9.6 am 15. September 2026. Ein physisches LiDAR-fähiges Gerät war nicht Bestandteil dieser Prüfung.
 
 ## Ausgeführte Prüfungen
 
 ### Kern- und Exporttests
 
-Der tatsächlich von der App verwendete C++-Kern wurde mit aktivierten AddressSanitizer- und UndefinedBehaviorSanitizer-Prüfungen kompiliert und ausgeführt. LeakSanitizer musste in der isolierten Laufzeit deaktiviert werden, da dort der Zugriff auf `/proc/.../task` nicht möglich ist. Eine LeakSanitizer-Prüfung ist damit nicht belegt.
+Der tatsächlich von der App verwendete C++-Kern wurde mit aktivierten AddressSanitizer- und UndefinedBehaviorSanitizer-Prüfungen kompiliert und ausgeführt:
 
 ```sh
-ASAN_OPTIONS=detect_leaks=0 bash Tests/run.sh
+bash Tests/run.sh
 ```
-
-Diese Einschränkung und der gezeigte Aufruf beziehen sich auf die Linux-Prüfung. Unter macOS wurde `bash Tests/run.sh` ohne diese Umgebungsvariable erneut erfolgreich ausgeführt.
 
 Ergebnis: **bestanden**. Die Tests prüfen:
 
@@ -31,9 +26,7 @@ Ergebnis: **bestanden**. Die Tests prüfen:
 - Exportfehler bei fehlendem Zielordner, unbekanntem Format und leerem Punktbestand;
 - einen unabhängigen Python-Parser für die tatsächlich geschriebenen PLY- und XYZ-Dateien: Feldreihenfolge, Byte-Reihenfolge, Datensatzlänge, Punktzahl, RGB, Konfidenz und Z-Ausrichtung.
 
-Für den veröffentlichten Stand von Version 1.0.0 wurde zusätzlich eine vollständige synthetische Punktwolke mit **2.097.152 Punkten im automatischen Modus** und ein ausdrückliches Limit von **2.000.009 Punkten** geprüft. Die Tests belegen, dass die während der Entwicklung verwendete 2-Millionen-Grenze nicht mehr greift, größere feste Limits korrekt wirken, wiederholte Beobachtungen weiterhin global zusammengeführt werden und der PLY-Export die vollständige Punktzahl schreibt. Die großen Dateien werden unabhängig auf Header, Datensatzanzahl sowie ersten und letzten Punkt geprüft.
-
-Zusätzlich wurden alle neun Swift-Dateien mit dem Tree-sitter-Swift-Parser ohne Syntaxfehler eingelesen. Referenzen und Quelldateizuordnung des Xcode-Projekts, Property-Lists, Asset-JSON und das XML des geteilten Schemas wurden strukturell geprüft.
+Zusätzlich wurden eine vollständige synthetische Punktwolke mit **2.097.152 Punkten im automatischen Modus** und ein ausdrückliches Limit von **2.000.009 Punkten** geprüft. Die Tests belegen die korrekte Verarbeitung größerer automatischer und fester Punktbestände, die globale Zusammenführung wiederholter Beobachtungen und den vollständigen PLY-Export. Die erzeugten Dateien werden unabhängig auf Header, Datensatzanzahl sowie ersten und letzten Punkt geprüft.
 
 ### iOS-Simulator-Build
 

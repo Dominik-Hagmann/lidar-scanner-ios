@@ -140,8 +140,8 @@ int main(int argc, char **argv) {
     assert(pc_export(c,(output/"empty.ply").c_str(),0,error,sizeof(error))==0);
     assert(!fs::exists(output/"empty.ply"));
 
-    // Regression for the former 2,000,000-point ceiling. Use genuinely distinct
-    // world voxels, retain the full cloud and export it through the real writer.
+    // Exercise a large automatic point cloud with genuinely distinct world voxels,
+    // retain the full cloud and export it through the real writer.
     constexpr int width=256, height=128;
     constexpr uint32_t total=uint32_t(width*height*64); // 2,097,152 points
     std::vector<float> largeDepth(width*height, 2.f);
