@@ -1,5 +1,9 @@
 # LiDAR Scanner for iPhone and iPad
 
+<p align="center">
+  <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="160">
+</p>
+
 An open-source LiDAR point-cloud scanner and exporter for LiDAR-equipped iPhone and iPad devices.
 
 The app uses Apple ARKit scene depth to capture 3D points directly on supported devices and exports scans as standard point-cloud data. Its capture pipeline is deliberately designed to keep application-side processing simple and transparent: points are streamed to disk in batches rather than accumulated indefinitely in memory.
