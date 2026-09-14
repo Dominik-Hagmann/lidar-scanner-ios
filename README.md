@@ -1,7 +1,7 @@
 # LiDAR Scanner for iPhone and iPad
 
 <p align="center">
-  <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="180">
+  <img src="docs/app-icon.svg" alt="LiDAR Scanner app icon" width="180">
 </p>
 
 An open-source LiDAR point-cloud scanner and exporter for LiDAR-equipped iPhone and iPad devices.
@@ -107,7 +107,7 @@ If you use **LiDAR Scanner for iPhone and iPad** in research, teaching, or publi
 
 Suggested citation for the current version:
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 0.1.0) [Computer software]. GitHub. <a href="https://github.com/Dominik-Hagmann/lidar-scanner-ios" target="_blank" rel="noopener noreferrer">https://github.com/Dominik-Hagmann/lidar-scanner-ios ↗</a>
+> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.0.0) [Computer software]. GitHub. <a href="https://github.com/Dominik-Hagmann/lidar-scanner-ios" target="_blank" rel="noopener noreferrer">https://github.com/Dominik-Hagmann/lidar-scanner-ios ↗</a>
 
 For reproducible scientific work, please cite the specific version or release used. A DOI can be added through Zenodo when a versioned release is archived.
 

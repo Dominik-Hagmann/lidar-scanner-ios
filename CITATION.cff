@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Hagmann
     given-names: Dominik
-version: 0.1.0
+version: 1.0.0
 date-released: 2026-09-14
 repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 url: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
