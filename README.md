@@ -2,7 +2,9 @@
 
 An open-source LiDAR point-cloud scanner and exporter for LiDAR-equipped iPhone and iPad devices.
 
-The app uses Apple ARKit scene depth to capture 3D points directly on supported devices and exports scans as standard point-cloud data. Its capture pipeline is deliberately designed **without an arbitrary total point-count limit**: points are streamed to disk in batches rather than accumulated indefinitely in memory.
+The app uses Apple ARKit scene depth to capture 3D points directly on supported devices and exports scans as standard point-cloud data. Its capture pipeline is deliberately designed to keep application-side processing simple and transparent: points are streamed to disk in batches rather than accumulated indefinitely in memory.
+
+During scanning, points are serialized in compact 15-byte records and appended to a temporary point stream on disk. RAM usage therefore does not grow linearly with the total scan size. In practice, scan size is constrained by device storage, I/O throughput, thermal state, battery, and the selected density setting. The app reports the live point count and approximate raw data size so the operator can decide when a scan has become sufficiently large.
 
 > **Project status:** early development / experimental. The current implementation is intended as a transparent, inspectable foundation for field testing and further development.
 
