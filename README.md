@@ -36,8 +36,7 @@ It is intended as a lightweight rapid-documentation tool, not as a replacement f
 
 - Xcode 16 or later recommended
 - iOS / iPadOS 17.0 or later
-- A LiDAR-equipped iPhone or iPad
-- Physical device required for LiDAR capture
+- A LiDAR-equipped iPhone or iPad (physical device; LiDAR capture is not available in the simulator)
 
 The project configuration is stored in [`project.yml`](project.yml) and can be generated with <a href="https://github.com/yonaskolb/XcodeGen" target="_blank" rel="noopener noreferrer">XcodeGen ↗</a>.
 
