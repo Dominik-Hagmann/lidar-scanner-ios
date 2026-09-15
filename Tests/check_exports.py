@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Independent parser: checks the actual C++ writer output, not a reimplementation."""
 import pathlib
+import plistlib
 import struct
 import sys
 
 root = pathlib.Path(sys.argv[1])
+repository = pathlib.Path(__file__).resolve().parents[1]
+info = plistlib.loads((repository / "LiDARScanner" / "Info.plist").read_bytes())
+app_build = info["CFBundleVersion"]
 raw = (root / "test.ply").read_bytes()
 header, body = raw.split(b"end_header\n", 1)
 assert b"format binary_little_endian 1.0" in header
+assert f"comment LiDAR-Scanner Build {app_build}; units metres; local right-handed Z-up".encode() in header
 assert b"element vertex 8\n" in header
 assert b"property uchar confidence" in header
 assert len(body) == 8 * 16, (len(body), "Unexpected padding/record size")

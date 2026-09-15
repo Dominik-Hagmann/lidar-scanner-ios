@@ -287,6 +287,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         let title = cleanTitle.isEmpty ? "LiDAR-Scan" : cleanTitle
         let id = scanID, start = startedAt, config = activeSettings
         let device = UIDevice.current.model, system = UIDevice.current.systemVersion
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let appBuild = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         let note = sessionClosed
             ? "Capture session closed; not resumable. " + (closedReason ?? "")
             : "Capture paused; ARSession remained active."
@@ -306,8 +308,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         try ScanStorage.writeCloud(cloud, to: saved.url(for: format), format: format)
                     }
                 } else {
-                    let metadata = ScanMetadata(schemaVersion: 1, appVersion: "1.0.0", scanID: id, title: title,
-                        startedAt: start, savedAt: Date(), pointCount: Int(stats.pointCount),
+                    let metadata = ScanMetadata(schemaVersion: 1, appVersion: appVersion, appBuild: appBuild,
+                        scanID: id, title: title, startedAt: start, savedAt: Date(), pointCount: Int(stats.pointCount),
                         acceptedSamples: stats.acceptedSamples, processedFrames: self.workerFrames,
                         activeSeconds: self.workerSeconds, settings: config, deviceModel: device,
                         systemVersion: system, depthWidth: self.workerWidth, depthHeight: self.workerHeight,

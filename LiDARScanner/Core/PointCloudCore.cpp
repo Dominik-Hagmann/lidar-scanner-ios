@@ -179,7 +179,7 @@ int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *erro
         out.precision(9); /* round-trippable float32, independent of device locale */
         if (format != 2) {
             out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
-                << "comment LiDAR-Scanner 1.0.0; units metres; local right-handed Z-up\n"
+                << "comment LiDAR-Scanner Build 2; units metres; local right-handed Z-up\n"
                 << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
                 << "element vertex " << c->points.size() << "\n"
                 << "property float x\nproperty float y\nproperty float z\n"

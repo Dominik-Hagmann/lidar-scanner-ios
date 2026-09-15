@@ -38,6 +38,7 @@ enum ExportFormat: Int32, CaseIterable, Identifiable {
 struct ScanMetadata: Codable {
     let schemaVersion: Int
     let appVersion: String
+    let appBuild: String?
     let scanID: UUID
     let title: String
     let startedAt: Date
