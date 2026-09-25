@@ -16,6 +16,8 @@ The application is designed as a transparent tool for producing an XYZ+RGB point
 
 Installation requires a **LiDAR-equipped iPhone or iPad**, **iOS or iPadOS 17 or later**, and a **Mac with a version of Xcode that supports the operating system installed on the connected device**. The application checks LiDAR support at runtime. The Simulator and devices without a LiDAR sensor cannot capture a scene.
 
+> **Free-account installations are temporary:** With a free Apple Account (**Personal Team** in Xcode), provisioning profiles expire **7 days after issuance**. Plan to renew the installation before fieldwork; see [Renewing an expired installation](#renewing-an-expired-installation).
+
 1. Clone the repository, or download and extract the source code as a ZIP archive.
 2. Open `LiDARScanner.xcodeproj` in Xcode.
 3. Add your Apple Account under **Xcode → Settings → Accounts**.
@@ -28,6 +30,20 @@ The checked-in Xcode project can be opened directly. Its reproducible configurat
 Apple documents device installation in [Running your app on simulated or physical devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) and [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device). Interface labels may differ slightly depending on the language configured in Xcode.
 
 No external Swift packages, API keys, servers, or in-app accounts are required. Processing takes place on the device. The share sheet passes only the selected export files to the destination chosen by the user.
+
+### Renewing an expired installation
+
+If the app icon is still present but iOS reports that the app is no longer available (German: „App ist nicht mehr verfügbar“; wording may vary), an expired provisioning profile is a likely cause after installation through a **Personal Team**. Apple confirms that these profiles expire **7 days after issuance**, after which the app must be rebuilt and reinstalled; see [Developer account overview → Enable a personal team in Xcode](https://developer.apple.com/help/account/basics/about-your-developer-account). This is an Apple provisioning restriction, not a time limit implemented by LiDAR Scanner. The message alone does not establish the cause of every launch failure.
+
+**Protect existing scans first:** Do not delete the installed app as a troubleshooting step: [deleting an app also removes its local data](https://support.apple.com/guide/iphone/remove-or-delete-apps-iph248b543ca/ios). If the scan folder is accessible, copy **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans** to iCloud Drive or a Mac before proceeding.
+
+1. Connect the iPhone or iPad to the Mac and unlock it.
+2. Open the same `LiDARScanner.xcodeproj` used for the original installation and select the physical device as the destination, not the Simulator.
+3. Under **Target LiDARScanner → Signing & Capabilities**, keep the **same Team and Bundle Identifier** used for the installed app and enable **Automatically manage signing**. Do not switch accounts or change the identifier merely to renew the installation.
+4. Select **Run** or press **⌘R** to rebuild, sign, and deploy the app again without first deleting it.
+5. After a successful run, check the scan archive and confirm that the app opens from its Home Screen icon again.
+
+If Xcode reports a signing or installation error, inspect that message before making further changes. Reinstalling over the existing app is not a substitute for a separate backup of exported scans.
 
 ## Capturing and Exporting a Scan
 
