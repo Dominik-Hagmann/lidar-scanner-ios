@@ -1,5 +1,7 @@
 # Validation Status
 
+This report records the original validation of version 1.0.0 (Build 2). Current version and build identifiers are documented in the [README](../README.md), with subsequent changes listed in the [changelog](../CHANGELOG.md).
+
 Test environment: macOS 26.6.2 on ARM64 with Xcode 26.6 (build 17F113), Apple Clang 21.0.0, and Python 3.9.6 on 15 September 2026. No physical LiDAR-capable device was included in this validation.
 
 ## Tests Performed
