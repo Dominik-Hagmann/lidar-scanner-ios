@@ -6,15 +6,13 @@
 
 **LiDAR Scanner** is a native, open-source application for capturing scenes with LiDAR-equipped iPhones and iPads and exporting coloured point clouds. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. Controls use a limited width on larger displays.
 
-**Interface languages:** English and German. English is the development and fallback language. The app follows the preferred supported language in iOS/iPadOS; its language can also be selected in the device's per-app language settings. This covers controls, accessibility labels, tracking and status messages, errors, export descriptions, and the camera permission prompt. The instructions below use English labels with German equivalents where useful.
-
-The localization changes only displayed text. Capture settings, point-cloud processing, storage paths, export formats, metadata fields, and saved scan titles are unchanged. The app's own session-closure text stored in metadata is preserved independently of the translated notice shown on screen.
+**Languages:** English (default) and German.
 
 The application is designed as a transparent tool for producing an XYZ+RGB point cloud with minimal additional application-level processing. It neither generates a mesh nor performs photogrammetric reconstruction, and it does not replace survey-controlled acquisition. Its principal purpose is rapid documentation in archaeology and other field sciences, followed by analysis in specialised point-cloud software.
 
-**Project status:** The app bundle identifies the project state provided here as **version 1.1.0 (Build 3)**. The C++17 core and export tests have passed, and an unsigned iOS Simulator build has completed successfully. Capture on a physical LiDAR-equipped iPhone or iPad has not yet been tested. The repository contains source code; it does not contain a signed IPA file, an App Store distribution, or a tagged public release.
+**Current version:** 1.1.0 (Build 3). The app has been successfully tested on a physical iPhone. Automated core/export tests and the iOS Simulator build have also passed. The repository provides source code for installation through Xcode.
 
-**Versioning:** The app version (`CFBundleShortVersionString`) and build number (`CFBundleVersion`) are defined in [`LiDARScanner/Info.plist`](LiDARScanner/Info.plist). Version 1.1.0 identifies the addition of English/German localization; Build 3 distinguishes it from the previous 1.0.0 (Build 2) project state. New scans automatically record both values as `appVersion` and `appBuild` in their JSON metadata. The PLY header also records the build number. Previously saved scans retain their original version information. See the [changelog](CHANGELOG.md) for the version history.
+Version and build are defined in [`Info.plist`](LiDARScanner/Info.plist) and recorded in each scan's JSON metadata; PLY headers include the build number. See the [changelog](CHANGELOG.md) for the version history.
 
 ## Installation on an iPhone or iPad
 
@@ -31,7 +29,7 @@ Installation requires a **LiDAR-equipped iPhone or iPad**, **iOS or iPadOS 17 or
 
 The checked-in Xcode project can be opened directly. Its reproducible configuration is also stored in [`project.yml`](project.yml). Following structural project changes, it can be regenerated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) by running `xcodegen generate` or `bash scripts/bootstrap.sh`.
 
-Apple documents device installation in [Running your app on simulated or physical devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) and [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device). Interface labels may differ slightly depending on the language configured in Xcode.
+Apple documents device installation in [Running your app on simulated or physical devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) and [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
 
 No external Swift packages, API keys, servers, or in-app accounts are required. Processing takes place on the device. The share sheet passes only the selected export files to the destination chosen by the user.
 
@@ -54,18 +52,18 @@ If iOS or iPadOS displays **“App is no longer available”** (German: **„App
 ## Capturing and Exporting a Scan
 
 1. Before capturing the first point, optionally use the sliders icon to configure **voxel-grid spacing, confidence threshold, depth range, and point limit**.
-2. Wait until **“Tracking stable”** (German: „Tracking stabil“) is displayed.
-3. Select **“Start Scan”** (German: „Scan starten“) and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
-4. Select **“Pause”** (German: „Pausieren“). The current state is saved automatically. The scan can be resumed provided that the camera session continues without interruption.
+2. Wait until **“Tracking stable”** is displayed.
+3. Select **“Start Scan”** and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
+4. Select **“Pause”**. The current state is saved automatically. The scan can be resumed provided that the camera session continues without interruption.
 5. Use the cube icon to rotate and zoom the current point cloud. The preview displays no more than 40,000 points selected evenly from the point list; the export contains the complete stored point set.
-6. Select **“Export”** (German: „Exportieren“), enter a designation, choose a format, and press **“Save and Share”** (German: „Sichern und teilen“).
-7. In the iOS share sheet, select **“Save to Files”** (German: „In Dateien sichern“), AirDrop, or another destination. The point file and metadata are offered together.
+6. Select **“Export”**, enter a designation, choose a format, and press **“Save and Share”**.
+7. In the iOS share sheet, select **“Save to Files”**, AirDrop, or another destination. The point file and metadata are offered together.
 
 Completed saves are stored under **Files → On My iPhone** or **On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive. Previously generated file formats can be shared again, and individual saves can be deleted. Saving an unchanged scan again under the same designation reuses the existing save. Additional captured points or a different designation create a new archived state.
 
 ## Point Count and Memory Management
 
-The default setting is **“Automatic · No Fixed Point Count”** (German: „Automatisch · keine feste Punktzahl“). Before and after processing a depth image, the application checks the memory available to its process. If the available memory falls below a reserve of 256 MiB, capture is stopped and the application attempts to save the scan acquired up to that point. An operating-system memory warning also triggers a save attempt. The attainable point count depends on the device and its current memory conditions; saving before an abrupt process termination cannot be guaranteed.
+The default setting is **“Automatic · No Fixed Point Count”**. Before and after processing a depth image, the application checks the memory available to its process. If the available memory falls below a reserve of 256 MiB, capture is stopped and the application attempts to save the scan acquired up to that point. An operating-system memory warning also triggers a save attempt. The attainable point count depends on the device and its current memory conditions; saving before an abrupt process termination cannot be guaranteed.
 
 Alternatively, fixed limits of **500,000, 1 million, 2 million, 5 million, or 10 million points** can be selected. Memory monitoring remains active when a fixed limit is used. Settings can be changed before starting a new scan. The preview continues to display a maximum of 40,000 points; all captured points are exported.
 
@@ -80,7 +78,7 @@ Alternatively, fixed limits of **500,000, 1 million, 2 million, 5 million, or 10
 
 Every save contains a binary PLY file. Selecting ASCII PLY or XYZ additionally generates the chosen file. PLY colours are 8-bit RGB values. Confidence is stored as an additional `uchar` field using the ARKit categories 0, 1, and 2. Software that does not interpret this field can still read the coordinates and colours.
 
-**Coordinates:** metres; local right-handed coordinate system; positive Z points upwards. The transformation from the ARKit world coordinate system is `(X, Y, Z) = (x, −z, y)`. The origin is established when the AR session starts or when it is reset by selecting **“New Scan”** (German: „Neuer Scan“). No geographic reference, EPSG identifier, or north orientation is assigned. The data can subsequently be registered using external control points; the application does not perform this step.
+**Coordinates:** metres; local right-handed coordinate system; positive Z points upwards. The transformation from the ARKit world coordinate system is `(X, Y, Z) = (x, −z, y)`. The origin is established when the AR session starts or when it is reset by selecting **“New Scan”**. No geographic reference, EPSG identifier, or north orientation is assigned. The data can subsequently be registered using external control points; the application does not perform this step.
 
 ## Captured Data
 
@@ -92,7 +90,7 @@ The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **no
 
 ## Limitations of This Build
 
-- Capture requires LiDAR-equipped iPhone or iPad hardware running at least iOS or iPadOS 17. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. The iPad target family and orientation entries are enabled in the Xcode project, but hardware testing remains outstanding.
+- Capture requires LiDAR-equipped iPhone or iPad hardware running at least iOS or iPadOS 17. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. iPad device testing is not yet documented.
 - Default settings are 0.2–5 m axial depth, medium or high confidence, every second depth pixel along each image axis, 1 cm voxel-grid spacing, and automatic monitoring of available memory without a selected fixed point count. Optional point limits range from 500,000 to 10 million.
 - No points are added while tracking is limited. Relocalisation, camera interruption, transition to the background, and memory warnings close the current capture. The accumulated point cloud remains exportable; subsequent capture begins as a new scan.
 - Points already accumulated are not retrospectively optimised following later ARKit pose corrections. Long acquisitions may exhibit drift. Metrological validation must use control geometry on the actual device.
