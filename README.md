@@ -12,7 +12,9 @@ The localization changes only displayed text. Capture settings, point-cloud proc
 
 The application is designed as a transparent tool for producing an XYZ+RGB point cloud with minimal additional application-level processing. It neither generates a mesh nor performs photogrammetric reconstruction, and it does not replace survey-controlled acquisition. Its principal purpose is rapid documentation in archaeology and other field sciences, followed by analysis in specialised point-cloud software.
 
-**Project status:** The app bundle identifies the project state provided here as Build 2. The C++17 core and export tests have passed, and an unsigned iOS Simulator build has completed successfully. Capture on a physical LiDAR-equipped iPhone or iPad has not yet been tested. The repository contains source code; it does not contain a signed IPA file, an App Store distribution, or a tagged public release.
+**Project status:** The app bundle identifies the project state provided here as **version 1.1.0 (Build 3)**. The C++17 core and export tests have passed, and an unsigned iOS Simulator build has completed successfully. Capture on a physical LiDAR-equipped iPhone or iPad has not yet been tested. The repository contains source code; it does not contain a signed IPA file, an App Store distribution, or a tagged public release.
+
+**Versioning:** The app version (`CFBundleShortVersionString`) and build number (`CFBundleVersion`) are defined in [`LiDARScanner/Info.plist`](LiDARScanner/Info.plist). Version 1.1.0 identifies the addition of English/German localization; Build 3 distinguishes it from the previous 1.0.0 (Build 2) project state. New scans automatically record both values as `appVersion` and `appBuild` in their JSON metadata. The PLY header also records the build number. Previously saved scans retain their original version information. See the [changelog](CHANGELOG.md) for the version history.
 
 ## Installation on an iPhone or iPad
 
@@ -100,7 +102,7 @@ The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **no
 
 ## Roadmap
 
-The following additions are prospective and are not features of Build 2:
+The following additions are prospective and are not features of version 1.1.0 (Build 3):
 
 1. CSV export as an additional open text format.
 2. GNSS metadata accompanying scans.
@@ -127,9 +129,9 @@ A Simulator build tests the iOS integration; LiDAR functionality can be tested o
 
 ## Citation
 
-Scientific, educational, or documentary use should cite the specific software build used. GitHub reads [`CITATION.cff`](CITATION.cff) and provides a “Cite this repository” option on the repository page.
+Scientific, educational, or documentary use should cite the specific software version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and provides a “Cite this repository” option on the repository page.
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Build 2) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
+> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.1.0, Build 3) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
 
 ## Selected Literature on LiDAR for iPhone and iPad
 
