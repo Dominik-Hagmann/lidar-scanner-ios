@@ -6,7 +6,9 @@
 
 **LiDAR Scanner** is a native, open-source application for capturing scenes with LiDAR-equipped iPhones and iPads and exporting coloured point clouds. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. Controls use a limited width on larger displays.
 
-**Interface language:** Build 2 currently has a German-language user interface. The instructions below reproduce the current German interface labels and provide English translations where useful.
+**Interface languages:** English and German. English is the development and fallback language. The app follows the preferred supported language in iOS/iPadOS; its language can also be selected in the device's per-app language settings. This covers controls, accessibility labels, tracking and status messages, errors, export descriptions, and the camera permission prompt. The instructions below use English labels with German equivalents where useful.
+
+The localization changes only displayed text. Capture settings, point-cloud processing, storage paths, export formats, metadata fields, and saved scan titles are unchanged. The app's own session-closure text stored in metadata is preserved independently of the translated notice shown on screen.
 
 The application is designed as a transparent tool for producing an XYZ+RGB point cloud with minimal additional application-level processing. It neither generates a mesh nor performs photogrammetric reconstruction, and it does not replace survey-controlled acquisition. Its principal purpose is rapid documentation in archaeology and other field sciences, followed by analysis in specialised point-cloud software.
 
@@ -50,18 +52,18 @@ If iOS or iPadOS displays **“App is no longer available”** (German: **„App
 ## Capturing and Exporting a Scan
 
 1. Before capturing the first point, optionally use the sliders icon to configure **voxel-grid spacing, confidence threshold, depth range, and point limit**.
-2. Wait until **“Tracking stabil”** (“Tracking stable”) is displayed.
-3. Select **“Scan starten”** (“Start scan”) and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
-4. Select **“Pausieren”** (“Pause”). The current state is saved automatically. The scan can be resumed provided that the camera session continues without interruption.
+2. Wait until **“Tracking stable”** (German: „Tracking stabil“) is displayed.
+3. Select **“Start Scan”** (German: „Scan starten“) and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
+4. Select **“Pause”** (German: „Pausieren“). The current state is saved automatically. The scan can be resumed provided that the camera session continues without interruption.
 5. Use the cube icon to rotate and zoom the current point cloud. The preview displays no more than 40,000 points selected evenly from the point list; the export contains the complete stored point set.
-6. Select **“Exportieren”** (“Export”), enter a designation, choose a format, and press **“Sichern und teilen”** (“Save and share”).
-7. In the iOS share sheet, select **“In Dateien sichern”** (“Save to Files”), AirDrop, or another destination. The point file and metadata are offered together.
+6. Select **“Export”** (German: „Exportieren“), enter a designation, choose a format, and press **“Save and Share”** (German: „Sichern und teilen“).
+7. In the iOS share sheet, select **“Save to Files”** (German: „In Dateien sichern“), AirDrop, or another destination. The point file and metadata are offered together.
 
 Completed saves are stored under **Files → On My iPhone** or **On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive. Previously generated file formats can be shared again, and individual saves can be deleted. Saving an unchanged scan again under the same designation reuses the existing save. Additional captured points or a different designation create a new archived state.
 
 ## Point Count and Memory Management
 
-The default setting is **“Automatisch · keine feste Punktzahl”** (“Automatic · no fixed point count”). Before and after processing a depth image, the application checks the memory available to its process. If the available memory falls below a reserve of 256 MiB, capture is stopped and the application attempts to save the scan acquired up to that point. An operating-system memory warning also triggers a save attempt. The attainable point count depends on the device and its current memory conditions; saving before an abrupt process termination cannot be guaranteed.
+The default setting is **“Automatic · No Fixed Point Count”** (German: „Automatisch · keine feste Punktzahl“). Before and after processing a depth image, the application checks the memory available to its process. If the available memory falls below a reserve of 256 MiB, capture is stopped and the application attempts to save the scan acquired up to that point. An operating-system memory warning also triggers a save attempt. The attainable point count depends on the device and its current memory conditions; saving before an abrupt process termination cannot be guaranteed.
 
 Alternatively, fixed limits of **500,000, 1 million, 2 million, 5 million, or 10 million points** can be selected. Memory monitoring remains active when a fixed limit is used. Settings can be changed before starting a new scan. The preview continues to display a maximum of 40,000 points; all captured points are exported.
 
@@ -76,7 +78,7 @@ Alternatively, fixed limits of **500,000, 1 million, 2 million, 5 million, or 10
 
 Every save contains a binary PLY file. Selecting ASCII PLY or XYZ additionally generates the chosen file. PLY colours are 8-bit RGB values. Confidence is stored as an additional `uchar` field using the ARKit categories 0, 1, and 2. Software that does not interpret this field can still read the coordinates and colours.
 
-**Coordinates:** metres; local right-handed coordinate system; positive Z points upwards. The transformation from the ARKit world coordinate system is `(X, Y, Z) = (x, −z, y)`. The origin is established when the AR session starts or when it is reset by selecting **“Neuer Scan”** (“New scan”). No geographic reference, EPSG identifier, or north orientation is assigned. The data can subsequently be registered using external control points; the application does not perform this step.
+**Coordinates:** metres; local right-handed coordinate system; positive Z points upwards. The transformation from the ARKit world coordinate system is `(X, Y, Z) = (x, −z, y)`. The origin is established when the AR session starts or when it is reset by selecting **“New Scan”** (German: „Neuer Scan“). No geographic reference, EPSG identifier, or north orientation is assigned. The data can subsequently be registered using external control points; the application does not perform this step.
 
 ## Captured Data
 
@@ -100,9 +102,8 @@ The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **no
 
 The following additions are prospective and are not features of Build 2:
 
-1. Complete German and English localisation of the application interface and all user-facing messages.
-2. CSV export as an additional open text format.
-3. GNSS metadata accompanying scans.
+1. CSV export as an additional open text format.
+2. GNSS metadata accompanying scans.
 
 ## Architecture and Validation
 

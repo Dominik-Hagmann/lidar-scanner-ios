@@ -18,8 +18,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var ready = false
     @Published private(set) var trackingNormal = false
     @Published private(set) var sessionClosed = false
-    @Published private(set) var trackingText = "Kamera wird vorbereitet …"
-    @Published private(set) var notice = "Langsam bewegen und Flächen aus mehreren Blickwinkeln erfassen."
+    @Published private(set) var trackingText = String(localized: "Preparing camera…")
+    @Published private(set) var notice = String(localized: "Move slowly and capture surfaces from multiple angles.")
     @Published private(set) var preview: [PCPoint] = []
     @Published private(set) var previewVersion = 0
     @Published private(set) var savedScans: [SavedScan] = []
@@ -44,7 +44,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     // Keep room for ARKit, preview creation and a streaming export at scan end.
     private static let captureMemoryReserve = 256 * 1024 * 1024
+    // Keep the original reason in metadata; localize only the displayed notice.
     private var closedReason: String?
+    private var localizedClosedReason: String?
     // Worker queue only:
     private var workerFrames = 0
     private var workerSeconds: Double = 0
@@ -76,10 +78,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func prepare() {
         guard !sessionStarted else { return }
-        guard cloud != nil else { errorMessage = "Punktspeicher konnte nicht angelegt werden."; return }
+        guard cloud != nil else { errorMessage = String(localized: "Could not allocate point-cloud memory."); return }
         guard supported else {
-            trackingText = "LiDAR erforderlich"
-            notice = "Scannen benötigt ein iPhone oder iPad mit LiDAR-Sensor. Der Simulator kann keine Szene erfassen."
+            trackingText = String(localized: "LiDAR required")
+            notice = String(localized: "Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
             return
         }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -97,8 +99,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func denyCamera() {
         cameraDenied = true
-        trackingText = "Kamerazugriff fehlt"
-        notice = "Bitte den Kamerazugriff in den Geräteeinstellungen erlauben."
+        trackingText = String(localized: "Camera access required")
+        notice = String(localized: "Please allow camera access in the device settings.")
     }
 
     private func startSession(reset: Bool) {
@@ -112,18 +114,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         cameraDenied = false
         ready = true
         trackingNormal = false
-        trackingText = "Umgebung wird erkannt …"
+        trackingText = String(localized: "Detecting surroundings…")
     }
 
     func toggleRecording() {
         if isRecording { pauseAndSave(); return }
         guard ready, trackingNormal, !sessionClosed, !isBusy, let cloud else { return }
         if activeSettings.maxPoints > 0 && pointCount >= activeSettings.maxPoints && pointCount > 0 {
-            notice = "Punktlimit erreicht. Bitte exportieren oder einen neuen Scan beginnen."
+            notice = String(localized: "Point limit reached. Please export or start a new scan.")
             return
         }
         guard os_proc_available_memory() >= Self.captureMemoryReserve else {
-            notice = "Zu wenig freier Arbeitsspeicher für weitere Punkte. Bitte vorhandenen Scan exportieren."
+            notice = String(localized: "Not enough free memory for additional points. Please export the current scan.")
             return
         }
         if pointCount == 0 {
@@ -136,13 +138,13 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         lastScheduledTime = -1
         isRecording = true
         UIApplication.shared.isIdleTimerDisabled = true
-        notice = "Scan läuft. Kamera langsam und gleichmäßig bewegen."
+        notice = String(localized: "Scanning. Move the camera slowly and steadily.")
     }
 
     func pauseAndSave() {
         isRecording = false
         UIApplication.shared.isIdleTimerDisabled = false
-        notice = "Pausiert. Die Kameraposition wird weiter verfolgt."
+        notice = String(localized: "Paused. Camera tracking remains active.")
         saveCurrent(share: false)
     }
 
@@ -164,11 +166,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 self.preview = []; self.previewVersion += 1
                 self.scanTitle = ""; self.sessionClosed = !self.foreground
                 self.closedReason = nil
+                self.localizedClosedReason = nil
                 self.ready = false
                 if !self.foreground { self.sessionStarted = false }
                 self.lastScheduledTime = -1; self.lastPreviewTime = -1
                 self.isBusy = false
-                self.notice = "Neuer Scan. Auf stabiles Tracking warten und Aufnahme starten."
+                self.notice = String(localized: "New scan. Wait for stable tracking, then start capture.")
                 self.startSession(reset: true)
                 self.endBackgroundTask()
             }
@@ -182,18 +185,20 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         } else if phase == .active {
             foreground = true
             if cameraDenied || !sessionStarted { prepare() }
-            else if sessionClosed { notice = "Scan abgeschlossen. Exportieren oder einen neuen Scan beginnen." }
+            else if sessionClosed { notice = String(localized: "Scan complete. Export or start a new scan.") }
         }
     }
 
-    private func closeSession(reason: String) {
+    private func closeSession(reason: String, localizedReason: String? = nil) {
         guard !sessionClosed else { return }
         isRecording = false; sessionClosed = true; trackingNormal = false
         UIApplication.shared.isIdleTimerDisabled = false
         session.pause()
-        trackingText = "Scan abgeschlossen"
+        trackingText = String(localized: "Scan complete")
         closedReason = reason
-        notice = reason
+        let message = localizedReason ?? NSLocalizedString(reason, comment: "Capture session closure notice")
+        localizedClosedReason = message
+        notice = message
         beginBackgroundTask()
         if !isBusy { saveCurrent(share: false) }
         // An already-running save owns completion and ends the background task.
@@ -233,7 +238,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         self.closeSession(reason: "Die Erfassung wurde wegen knappen Arbeitsspeichers beendet. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
                     } else if result.stats.atCapacity != 0 && self.isRecording {
                         self.pauseAndSave()
-                        self.notice = "Punktlimit erreicht. Der Scan wird gesichert; alle erfassten Punkte bleiben erhalten."
+                        self.notice = String(localized: "Point limit reached. Saving the scan; all captured points are retained.")
                     }
                 }
             } catch {
@@ -254,18 +259,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private func updateTracking(_ state: ARCamera.TrackingState) {
         guard !sessionClosed else { return }
         switch state {
-        case .normal: trackingNormal = true; trackingText = "Tracking stabil"
-        case .notAvailable: trackingNormal = false; trackingText = "Tracking nicht verfügbar"
+        case .normal: trackingNormal = true; trackingText = String(localized: "Tracking stable")
+        case .notAvailable: trackingNormal = false; trackingText = String(localized: "Tracking unavailable")
         case .limited(let reason):
             trackingNormal = false
             switch reason {
-            case .initializing: trackingText = "Umgebung wird erkannt …"
-            case .excessiveMotion: trackingText = "Bitte langsamer bewegen"
-            case .insufficientFeatures: trackingText = "Mehr Struktur oder Licht erforderlich"
+            case .initializing: trackingText = String(localized: "Detecting surroundings…")
+            case .excessiveMotion: trackingText = String(localized: "Please move more slowly")
+            case .insufficientFeatures: trackingText = String(localized: "More texture or light required")
             case .relocalizing:
                 // Previously accumulated points cannot be retrospectively corrected.
                 closeSession(reason: "Tracking musste neu lokalisiert werden. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
-            @unknown default: trackingText = "Tracking eingeschränkt"
+            @unknown default: trackingText = String(localized: "Tracking limited")
             }
         }
     }
@@ -274,7 +279,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         closeSession(reason: "Die Kamera wurde unterbrochen. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
     }
     func session(_ session: ARSession, didFailWithError error: Error) {
-        closeSession(reason: "Kamera beendet: " + error.localizedDescription)
+        closeSession(reason: "Kamera beendet: " + error.localizedDescription,
+                     localizedReason: String(localized: "Camera stopped: \(error.localizedDescription)"))
     }
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
 
@@ -331,16 +337,16 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     self.preview = snapshot; self.previewVersion += 1
                     self.savedScans = archive; self.isBusy = false
                     self.notice = self.sessionClosed
-                        ? "Scan auf diesem Gerät gesichert. " + (self.closedReason ?? "")
-                        : "Scan auf diesem Gerät gesichert."
+                        ? String(localized: "Scan saved on this device. \(self.localizedClosedReason ?? "")")
+                        : String(localized: "Scan saved on this device.")
                     if share { self.sharedFiles = SharedFiles(urls: [saved.url(for: format), saved.metadataURL]) }
                     self.endBackgroundTask()
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.isBusy = false
-                    self.errorMessage = "Speichern fehlgeschlagen: " + error.localizedDescription
-                    self.notice = "Die Punkte bleiben im Arbeitsspeicher. Bitte erneut sichern."
+                    self.errorMessage = String(localized: "Saving failed: \(error.localizedDescription)")
+                    self.notice = String(localized: "The points remain in memory. Please try saving again.")
                     self.endBackgroundTask()
                 }
             }

@@ -21,11 +21,11 @@ struct ScannerView: View {
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "viewfinder").font(.system(size: 64, weight: .ultraLight)).foregroundStyle(mint)
-                    Text(model.cameraDenied ? "Kamera freigeben" : "LiDAR-Scanner erforderlich")
+                    Text(LocalizedStringKey(model.cameraDenied ? "Allow Camera Access" : "LiDAR Sensor Required"))
                         .font(.title2.bold())
                     Text(model.notice).multilineTextAlignment(.center).foregroundStyle(.secondary)
                     if model.cameraDenied {
-                        Button("Einstellungen öffnen") {
+                        Button("Open Settings") {
                             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                         }.buttonStyle(.borderedProminent)
                     }
@@ -50,7 +50,7 @@ struct ScannerView: View {
                             Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
                                 .font(.title3).frame(width: 48, height: 48)
                                 .background(.ultraThinMaterial, in: Circle())
-                        }.accessibilityLabel(showPoints ? "Punkte ausblenden" : "Punkte einblenden")
+                        }.accessibilityLabel(LocalizedStringKey(showPoints ? "Hide Points" : "Show Points"))
                     }
                 }
             }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
@@ -62,11 +62,11 @@ struct ScannerView: View {
         .sheet(isPresented: $showArchive) { ArchiveSheet(model: model) }
         .sheet(isPresented: $showPreview) { CloudPreviewSheet(points: model.preview, total: model.pointCount) }
         .sheet(isPresented: $showExport) { ExportSheet(model: model) }
-        .alert("Neuen Scan beginnen?", isPresented: $confirmReset) {
-            Button("Abbrechen", role: .cancel) {}
-            Button("Neuer Scan", role: .destructive) { model.newScan() }
+        .alert("Start a New Scan?", isPresented: $confirmReset) {
+            Button("Cancel", role: .cancel) {}
+            Button("New Scan", role: .destructive) { model.newScan() }
         } message: {
-            Text("Die aktuelle Punktwolke im Arbeitsspeicher wird geleert. Bereits gesicherte Scans bleiben erhalten. Falls das Sichern fehlgeschlagen ist, zuerst erneut exportieren.")
+            Text("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first.")
         }
         .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showExport && !showArchive },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
@@ -79,15 +79,15 @@ struct ScannerView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("LiDAR-Scanner").font(.system(size: 20, weight: .bold, design: .rounded))
                     .lineLimit(1).minimumScaleFactor(0.75)
-                Text("LiDAR · Szene als Punktwolke").font(.caption).foregroundStyle(.secondary)
+                Text("LiDAR · Scene to Point Cloud").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Button { model.refreshArchive(); showArchive = true } label: {
                 Image(systemName: "folder").frame(width: 44, height: 44)
-            }.accessibilityLabel("Gespeicherte Scans").disabled(model.isBusy || model.isRecording)
+            }.accessibilityLabel("Saved Scans").disabled(model.isBusy || model.isRecording)
             Button { showSettings = true } label: {
                 Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
-            }.accessibilityLabel("Scan-Einstellungen").disabled(model.isBusy || model.isRecording || model.pointCount > 0)
+            }.accessibilityLabel("Scan Settings").disabled(model.isBusy || model.isRecording || model.pointCount > 0)
         }.foregroundStyle(.white)
     }
 
@@ -97,20 +97,20 @@ struct ScannerView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.pointCount.formatted()).font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit().contentTransition(.numericText())
-                    Text("PUNKTE").font(.caption2.weight(.semibold)).tracking(1.5).foregroundStyle(.secondary)
+                    Text("POINTS").font(.caption2.weight(.semibold)).tracking(1.5).foregroundStyle(.secondary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(String(format: "%02d:%02d", Int(model.activeSeconds)/60, Int(model.activeSeconds)%60))
                         .font(.title3.monospacedDigit())
-                    Text("ERFASSUNGSZEIT").font(.caption2).foregroundStyle(.secondary)
+                    Text("CAPTURE TIME").font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Text(model.notice).font(.caption).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
                 Button { model.toggleRecording() } label: {
-                    Label(model.isRecording ? "Pausieren" : (model.pointCount > 0 ? "Fortsetzen" : "Scan starten"),
+                    Label(LocalizedStringKey(model.isRecording ? "Pause" : (model.pointCount > 0 ? "Resume" : "Start Scan")),
                           systemImage: model.isRecording ? "pause.fill" : "record.circle")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                 }.buttonStyle(.borderedProminent).tint(model.isRecording ? .orange : mint)
@@ -119,10 +119,10 @@ struct ScannerView: View {
                 Button { showPreview = true } label: {
                     Image(systemName: "cube.transparent").font(.title3).frame(width: 48, height: 46)
                 }.buttonStyle(.bordered).disabled(model.preview.isEmpty || model.isRecording || model.isBusy)
-                    .accessibilityLabel("Punktwolke in 3D ansehen")
+                    .accessibilityLabel("View Point Cloud in 3D")
             }
             HStack {
-                Button("Neuer Scan", systemImage: "plus") {
+                Button("New Scan", systemImage: "plus") {
                     if model.pointCount > 0 { confirmReset = true } else { model.newScan() }
                 }.disabled(model.isRecording || model.isBusy || !model.supported || model.cameraDenied)
                 Spacer()
@@ -131,7 +131,7 @@ struct ScannerView: View {
                     showExport = true
                 } label: {
                     if model.isBusy { ProgressView().padding(.trailing, 4) }
-                    Label(model.isBusy ? "Sichern …" : "Exportieren", systemImage: "square.and.arrow.up")
+                    Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Export"), systemImage: "square.and.arrow.up")
                 }.disabled(model.pointCount == 0 || model.isBusy)
             }.font(.subheadline.weight(.medium))
         }

@@ -101,13 +101,13 @@ struct CloudPreviewSheet: View {
         NavigationStack {
             OrbitCloudView(points: points).ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .bottom) {
-                    Text("Drehen mit einem Finger · Aufziehen zum Zoomen\nVorschau: \(points.count.formatted()) von \(total.formatted()) Punkten. Export enthält alle Punkte.")
+                    Text("Rotate with One Finger · Pinch to Zoom\nPreview points: \(points.count.formatted()) of \(total.formatted()). The export contains all points.")
                         .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
                         .padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                         .padding(.horizontal).padding(.bottom, 24)
                 }
-                .navigationTitle("Punktwolke").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+                .navigationTitle("Point Cloud").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
 }
