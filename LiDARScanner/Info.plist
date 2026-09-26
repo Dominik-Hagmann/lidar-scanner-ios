@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>de</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>LiDAR-Scanner</string>
 	<key>CFBundleExecutable</key>
@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>LiDAR-Scanner benötigt die Kamera und den LiDAR-Sensor, um deine Szene als farbige Punktwolke zu erfassen.</string>
+	<string>LiDAR-Scanner needs access to the camera and LiDAR sensor to capture your scene as a colored point cloud.</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>

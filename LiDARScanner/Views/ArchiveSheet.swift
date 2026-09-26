@@ -9,8 +9,8 @@ struct ArchiveSheet: View {
         NavigationStack {
             List {
                 if model.savedScans.isEmpty {
-                    ContentUnavailableView("Noch keine Scans", systemImage: "square.stack.3d.up",
-                        description: Text("Beim Pausieren oder Exportieren wird ein Scan hier abgelegt."))
+                    ContentUnavailableView("No Scans Yet", systemImage: "square.stack.3d.up",
+                        description: Text("Scans appear here when you pause capture or export."))
                 }
                 ForEach(model.savedScans) { scan in
                     VStack(alignment: .leading, spacing: 8) {
@@ -18,7 +18,7 @@ struct ArchiveSheet: View {
                         Text(scan.metadata.savedAt.formatted(date: .abbreviated, time: .shortened))
                             .font(.caption).foregroundStyle(.secondary)
                         HStack {
-                            Text("\(scan.metadata.pointCount.formatted()) Punkte · m · Z↑").font(.subheadline)
+                            Text("Points: \(scan.metadata.pointCount.formatted()) · m · Z↑").font(.subheadline)
                             Spacer()
                             Menu {
                                 ForEach(scan.existingFormats) { format in
@@ -27,19 +27,19 @@ struct ArchiveSheet: View {
                                     }
                                 }
                             } label: { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 36) }
-                            .accessibilityLabel("Scan teilen")
+                            .accessibilityLabel("Share Scan")
                         }
                     }.padding(.vertical, 6)
-                        .swipeActions { Button("Löschen", role: .destructive) { toDelete = scan } }
+                        .swipeActions { Button("Delete", role: .destructive) { toDelete = scan } }
                 }
             }
-            .navigationTitle("Meine Scans")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .navigationTitle("My Scans")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
-            .alert("Scan löschen?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
-                Button("Abbrechen", role: .cancel) { toDelete = nil }
-                Button("Löschen", role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
-            } message: { Text("Der gespeicherte Scan und seine Exportdateien werden von diesem Gerät entfernt.") }
+            .alert("Delete Scan?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
+                Button("Cancel", role: .cancel) { toDelete = nil }
+                Button("Delete", role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
+            } message: { Text("The saved scan and its export files will be removed from this device.") }
             .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && toDelete == nil },
                 set: { if !$0 { model.errorMessage = nil } })) {
                     Button("OK") { model.errorMessage = nil }

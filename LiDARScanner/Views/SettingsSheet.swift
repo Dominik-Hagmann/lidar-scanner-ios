@@ -6,57 +6,57 @@ struct SettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Punktdichte") {
-                    Picker("Rasterweite", selection: $model.settings.voxelCentimeters) {
-                        Text("0,5 cm").tag(0.5)
+                Section("Point Density") {
+                    Picker("Voxel Size", selection: $model.settings.voxelCentimeters) {
+                        Text("0.5 cm").tag(0.5)
                         Text("1 cm").tag(1.0)
                         Text("2 cm").tag(2.0)
                         Text("5 cm").tag(5.0)
                     }
-                    Picker("Tiefenpixel", selection: $model.settings.pixelStep) {
-                        Text("Jeder Pixel").tag(1)
-                        Text("Jeder zweite je Achse").tag(2)
-                        Text("Jeder vierte je Achse").tag(4)
+                    Picker("Depth Pixels", selection: $model.settings.pixelStep) {
+                        Text("Every Pixel").tag(1)
+                        Text("Every Second Pixel per Axis").tag(2)
+                        Text("Every Fourth Pixel per Axis").tag(4)
                     }
-                    Text("Pro Rasterzelle bleibt ein Punkt erhalten. Die Rasterweite bestimmt die Ausdünnung, nicht die Messgenauigkeit.")
+                    Text("One point is retained per voxel. Voxel size determines subsampling, not measurement accuracy.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Section("Messbereich und Filter") {
-                    Picker("Maximale Tiefe", selection: $model.settings.maxDepth) {
+                Section("Depth Range and Filters") {
+                    Picker("Maximum Depth", selection: $model.settings.maxDepth) {
                         Text("2 m").tag(2.0); Text("3 m").tag(3.0); Text("5 m").tag(5.0)
                     }
-                    Picker("Konfidenz", selection: $model.settings.minConfidence) {
-                        Text("Nur hoch").tag(2)
-                        Text("Mittel und hoch").tag(1)
-                        Text("Alle").tag(0)
+                    Picker("Confidence", selection: $model.settings.minConfidence) {
+                        Text("High Only").tag(2)
+                        Text("Medium and High").tag(1)
+                        Text("All").tag(0)
                     }
-                    Picker("Punktlimit", selection: $model.settings.maxPoints) {
-                        Text("Automatisch · keine feste Punktzahl").tag(0)
-                        Text("500.000").tag(500_000)
+                    Picker("Point Limit", selection: $model.settings.maxPoints) {
+                        Text("Automatic · No Fixed Point Count").tag(0)
+                        Text("500,000").tag(500_000)
                         Text("1 Million").tag(1_000_000)
-                        Text("2 Millionen").tag(2_000_000)
-                        Text("5 Millionen").tag(5_000_000)
-                        Text("10 Millionen").tag(10_000_000)
+                        Text("2 Million").tag(2_000_000)
+                        Text("5 Million").tag(5_000_000)
+                        Text("10 Million").tag(10_000_000)
                     }
-                    Text("Im automatischen Modus bestimmt der verfügbare Arbeitsspeicher die erreichbare Punktzahl. Wenn der Arbeitsspeicher knapp wird, beendet die App die Erfassung und sichert den Scan. Die Speicherüberwachung gilt auch bei fest gewählten Punktlimits.")
+                    Text("In automatic mode, available memory determines the number of points that can be captured. When memory runs low, the app stops capture and saves the scan. Memory monitoring also applies when a fixed point limit is selected.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Text("Tiefen unter 0,2 m werden verworfen. Bei eingeschränktem Tracking werden keine Punkte hinzugefügt.")
+                    Text("Depths below 0.2 m are discarded. No points are added while tracking is limited.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Export") {
                     Picker("Format", selection: $model.exportFormat) {
                         ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
                     }
-                    Text("PLY enthält XYZ, RGB und Konfidenz; XYZ enthält drei Koordinatenspalten. Alle Koordinaten sind lokal, in Metern und mit Z nach oben. Zu jedem Scan gehört eine JSON-Datei mit Metadaten.")
+                    Text("PLY contains XYZ, RGB, and confidence; XYZ contains three coordinate columns. All coordinates are local, in meters, with Z pointing up. Each scan includes a JSON metadata file.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Section("Speicherung") {
-                    Text("Beim Pausieren wird der Scan automatisch auf diesem Gerät gesichert. Du findest ihn in „Dateien“ unter „Auf meinem iPhone“ bzw. „Auf meinem iPad“ → „LiDAR-Scanner“ → „Scans“ und im Scan-Archiv der App.")
-                    Text("Nach einer Kameraunterbrechung oder einem Wechsel in den Hintergrund bleibt der Scan exportierbar. Weitere Punkte werden in einem neuen Scan erfasst.")
+                Section("Storage") {
+                    Text("Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive.")
+                    Text("After a camera interruption or a switch to the background, the scan can still be exported. Additional points are captured in a new scan.")
                 }.font(.footnote)
             }
-            .navigationTitle("Einstellungen").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
 }

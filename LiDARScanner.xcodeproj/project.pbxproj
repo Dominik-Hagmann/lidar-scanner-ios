@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18F205954C0346AE9E46D8A1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 24AE1B04F630411F974CA119 /* Localizable.strings */; };
+		C12B71A62CA64B8E9CD04572 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 30EC73E0D8874B40B7885F13 /* InfoPlist.strings */; };
 		02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710CDA8C0EDC88B327170324 /* PointCloudView.swift */; };
 		0D3198EB1A47172D1593C06A /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2946B1B0E26120AAE5AD9A60 /* ScannerView.swift */; };
 		2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00745DD212891C12D2C7D923 /* ExportSheet.swift */; };
@@ -22,6 +24,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4F182A87D34E4E16A09EF25B /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		61668D90F2444E03B4A9BD2C /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
+		77A0E190015E44B9A734F422 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F905F9ED620944F38E4E8C6A /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		00745DD212891C12D2C7D923 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthProcessor.swift; sourceTree = "<group>"; };
 		2946B1B0E26120AAE5AD9A60 /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
@@ -56,6 +62,8 @@
 				F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */,
 				240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */,
 				BD88BE26E4CAF5629042A93B /* Info.plist */,
+				30EC73E0D8874B40B7885F13 /* InfoPlist.strings */,
+				24AE1B04F630411F974CA119 /* Localizable.strings */,
 				3EA2DF3528684D17BD3F0544 /* LiDARScanner-Bridging-Header.h */,
 				8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */,
 				A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */,
@@ -136,6 +144,7 @@
 			knownRegions = (
 				Base,
 				en,
+				de,
 			);
 			mainGroup = DCD387A5B4C84DECCF1A5F9A;
 			minimizedProjectReferenceProxies = 1;
@@ -155,6 +164,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				54701E4CB715E3E0E35B2594 /* Assets.xcassets in Resources */,
+				C12B71A62CA64B8E9CD04572 /* InfoPlist.strings in Resources */,
+				18F205954C0346AE9E46D8A1 /* Localizable.strings in Resources */,
 				F8BA150FD45BD0C2EAFA531B /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -180,6 +191,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		24AE1B04F630411F974CA119 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4F182A87D34E4E16A09EF25B /* en */,
+				61668D90F2444E03B4A9BD2C /* de */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		30EC73E0D8874B40B7885F13 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				77A0E190015E44B9A734F422 /* en */,
+				F905F9ED620944F38E4E8C6A /* de */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		260451C747FC0DF1AFF58B42 /* Debug */ = {

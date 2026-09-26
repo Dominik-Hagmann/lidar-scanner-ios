@@ -21,9 +21,9 @@ enum ExportFormat: Int32, CaseIterable, Identifiable {
     var id: Int32 { rawValue }
     var title: String {
         switch self {
-        case .binaryPLY: return "PLY · binär, farbig"
-        case .asciiPLY: return "PLY · Text, farbig"
-        case .xyz: return "XYZ · nur Koordinaten"
+        case .binaryPLY: return String(localized: "PLY · Binary, Color")
+        case .asciiPLY: return String(localized: "PLY · Text, Color")
+        case .xyz: return String(localized: "XYZ · Coordinates Only")
         }
     }
     var fileName: String {
@@ -81,7 +81,11 @@ struct SharedFiles: Identifiable {
 enum ScanFailure: LocalizedError {
     case message(String)
     var errorDescription: String? {
-        switch self { case .message(let text): return text }
+        switch self {
+        case .message(let text):
+            // Preserve raw acquisition/export errors; translate when displayed.
+            return NSLocalizedString(text, comment: "Scan or export error")
+        }
     }
 }
 

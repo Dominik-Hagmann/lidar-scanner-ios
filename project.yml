@@ -1,5 +1,6 @@
 name: LiDARScanner
 options:
+  developmentLanguage: en
   bundleIdPrefix: at.lidarscanner
   deploymentTarget:
     iOS: "17.0"
