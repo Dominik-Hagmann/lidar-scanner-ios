@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Hagmann
     given-names: Dominik
-version: "1.1.0 (Build 3)"
+version: "1.2.0 (Build 4)"
 repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 url: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds and exporting them as binary or ASCII PLY and XYZ files with accompanying metadata."

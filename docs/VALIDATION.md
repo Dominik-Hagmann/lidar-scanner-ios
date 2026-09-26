@@ -2,7 +2,20 @@
 
 ## Current Status
 
-The app has been successfully tested on a physical iPhone. Automated core/export tests and the iOS Simulator build have also passed. iPad device testing is not yet documented.
+The point-cloud app was successfully tested on a physical iPhone before the Gaussian extension. That result is retained and is not evidence for the new Gaussian mode. iPad device testing is not yet documented.
+
+Version 1.2.0 (Build 4): the C++ core/export regression suite passes with AddressSanitizer and UndefinedBehaviorSanitizer (LeakSanitizer disabled in the Linux container). The native Simulator Debug build, unsigned iPhone Release build, nine scan-record/report tests, mode-switching/archive UI test and core/export regression suite all passed in [GitHub Actions run 56](https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/runs/36237958981). Simulator screenshots from the UI test were inspected for layout and control visibility. The generated Xcode project is checked in, including both test targets. Physical Gaussian capture, Metal training quality, thermal behaviour and interactive rendering still require testing on a LiDAR-equipped iPhone with iOS 18+.
+
+### Gaussian device check
+
+- Capture a textured stationary subject, finish, and confirm that processing starts automatically without a network connection.
+- Inspect the resulting scene by rotating and zooming; open its Gaussian PLY in another application.
+- Pause processing, reopen the app and continue from a saved checkpoint. Check the report's completed and checkpoint step counts.
+- Background the app during capture and during processing; confirm saved images remain available and recovery is reported accurately.
+- Export the capture ZIP, processing log and narrative PDF. Check image counts, selected-camera records, coordinate convention, step counts and file hashes against the saved files.
+- Return to Point Cloud mode and confirm that its capture, archive and PLY/XYZ export still work.
+
+These are pending physical-device scenarios, not claimed test results.
 
 ## Automated Test Record
 

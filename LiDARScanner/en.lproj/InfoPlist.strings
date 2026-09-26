@@ -1,2 +1,1 @@
-/* Camera permission prompt. The app name is unchanged. */
-"NSCameraUsageDescription" = "LiDAR-Scanner needs access to the camera and LiDAR sensor to capture your scene as a colored point cloud.";
+"NSCameraUsageDescription" = "LiDAR-Scanner needs the camera and LiDAR sensor to capture point clouds and 3D scenes.";
