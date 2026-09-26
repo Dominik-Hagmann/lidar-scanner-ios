@@ -103,7 +103,7 @@ The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **no
 
 ## Limitations of This Build
 
-- Capture requires LiDAR-equipped iPhone or iPad hardware running at least iOS or iPadOS 17. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. iPad device testing is not yet documented.
+- Capture requires LiDAR-equipped iPhone or iPad hardware running at least iOS or iPadOS 18. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. iPad device testing is not yet documented.
 - Default settings are 0.2–5 m axial depth, medium or high confidence, every second depth pixel along each image axis, 1 cm voxel-grid spacing, and automatic monitoring of available memory without a selected fixed point count. Optional point limits range from 500,000 to 10 million.
 - No points are added while tracking is limited. Relocalisation, camera interruption, transition to the background, and memory warnings close the current capture. The accumulated point cloud remains exportable; subsequent capture begins as a new scan.
 - Points already accumulated are not retrospectively optimised following later ARKit pose corrections. Long acquisitions may exhibit drift. Metrological validation must use control geometry on the actual device.
@@ -113,7 +113,7 @@ The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **no
 
 ## Roadmap
 
-The following additions are prospective and are not features of version 1.1.0 (Build 3):
+The following additions are prospective and are not features of version 1.2.0 (Build 4):
 
 1. CSV export as an additional open text format.
 2. GNSS metadata accompanying scans.
@@ -142,7 +142,7 @@ A Simulator build tests the iOS integration; LiDAR functionality can be tested o
 
 Scientific, educational, or documentary use should cite the specific software version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and provides a “Cite this repository” option on the repository page.
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.1.0, Build 3) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
+> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.2.0, Build 4) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
 
 ## Selected Literature on LiDAR for iPhone and iPad
 

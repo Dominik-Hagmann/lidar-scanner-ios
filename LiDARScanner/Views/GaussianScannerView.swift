@@ -111,7 +111,8 @@ struct GaussianScannerView: View {
             } else if model.current == nil {
                 Button { model.begin() } label: {
                     Label("Start Scan", systemImage: "record.circle").frame(maxWidth: .infinity, minHeight: 46)
-                }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
+                }.buttonStyle(.borderedProminent).tint(mint)
+                    .foregroundStyle(model.cameraReady && model.trackingNormal ? Color.black : Color.white.opacity(0.55))
                     .disabled(!model.cameraReady || !model.trackingNormal)
             } else if let p = model.current {
                 if !p.hasResult && p.frames.count >= 12 {

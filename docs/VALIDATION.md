@@ -4,7 +4,7 @@
 
 The point-cloud app was successfully tested on a physical iPhone before the Gaussian extension. That result is retained and is not evidence for the new Gaussian mode. iPad device testing is not yet documented.
 
-Version 1.2.0 (Build 4): the C++ core/export regression suite passes with AddressSanitizer and UndefinedBehaviorSanitizer (LeakSanitizer disabled in the Linux container). The initial native Simulator build and all nine scan-record/report tests passed in GitHub Actions run 55. The final revision also adds an unsigned iPhone Release build and a UI test for mode switching and the Gaussian archive. Physical Gaussian capture, Metal training quality, thermal behaviour and interactive rendering still require testing on a LiDAR-equipped iPhone with iOS 18+.
+Version 1.2.0 (Build 4): the C++ core/export regression suite passes with AddressSanitizer and UndefinedBehaviorSanitizer (LeakSanitizer disabled in the Linux container). The native Simulator Debug build, unsigned iPhone Release build, nine scan-record/report tests, mode-switching/archive UI test and core/export regression suite all passed in [GitHub Actions run 56](https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/runs/36237958981). Simulator screenshots from the UI test were inspected for layout and control visibility. The generated Xcode project is checked in, including both test targets. Physical Gaussian capture, Metal training quality, thermal behaviour and interactive rendering still require testing on a LiDAR-equipped iPhone with iOS 18+.
 
 ### Gaussian device check
 

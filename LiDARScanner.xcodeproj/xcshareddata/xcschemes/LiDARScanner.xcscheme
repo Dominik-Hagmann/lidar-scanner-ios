@@ -50,6 +50,17 @@
                ReferencedContainer = "container:LiDARScanner.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C1FA7B4B4265C386E507D691"
+               BuildableName = "ScanUITests.xctest"
+               BlueprintName = "ScanUITests"
+               ReferencedContainer = "container:LiDARScanner.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

@@ -107,7 +107,9 @@ struct GaussianProject: Codable, Identifiable {
         "seedVoxelMetres": "0.03", "seedMinimumDepthMetres": "0.2", "seedMaximumDepthMetres": "5",
         "seedPixelStep": "4", "seedMinimumConfidence": "1", "seedMaximumPoints": "100000",
         "seedSelection": "one observation per voxel; first retained unless higher confidence arrives",
-        "lowMemoryPauseBytes": "402653184", "minimumDiskBytes": "536870912",
+        "captureMemoryReserveBytes": "268435456", "trainingMemoryReserveBytes": "402653184",
+        "minimumTrainingStartMemoryBytes": "536870912", "minimumDiskBytes": "536870912",
+        "thermalPauseState": "critical", "inactiveAppPolicy": "stop capture or checkpoint and pause training",
         "minimumTrainingViews": "12", "checkpointEverySteps": "100"
     ]
     var directory: URL { GaussianStore.root.appendingPathComponent(id.uuidString, isDirectory: true) }
