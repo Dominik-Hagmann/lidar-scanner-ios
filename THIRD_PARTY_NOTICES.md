@@ -8,7 +8,7 @@ The installed app performs capture, Gaussian optimization, rendering and report 
 | MetalSplatter | `scier/MetalSplatter` at `464eb37c55d90d7362a79120fdf8b50d4ae03296` | Native Gaussian rendering and PLY reading | MIT |
 | nlohmann/json | 3.11.3, fetched by msplat CMake | Training-dataset parsing | MIT |
 | nanoflann | 1.5.5, fetched by msplat CMake | Seed-neighbour lookup | BSD |
-| spz-swift | MetalSplatter dependency, resolved by SwiftPM | Splat file I/O | See bundled license |
+| spz-swift | 2.1.0 (`e2410c91bceba2539c11157ad92e488ef6e16416`), locked in Package.resolved | Splat file I/O | Apache-2.0 |
 
 License texts are included in `LiDARScanner/ThirdPartyLicenses.txt` and shipped with the app. The upstream sources remain in `Dependencies/msplat` after setup for inspection.
 

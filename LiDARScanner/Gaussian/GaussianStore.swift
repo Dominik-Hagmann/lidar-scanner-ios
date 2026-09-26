@@ -6,6 +6,7 @@ final class GaussianStore {
     struct Event: Codable {
         let sequence: Int
         let timestamp: Date
+        let timestampUnixSeconds: Double
         let kind: String
         let values: [String: String]
         let previousHash: String
@@ -80,7 +81,9 @@ final class GaussianStore {
     deinit { try? journal.close() }
 
     func event(_ kind: String, _ values: [String: String] = [:]) throws {
-        let event = Event(sequence: sequence + 1, timestamp: Date(), kind: kind, values: values, previousHash: head)
+        let now = Date()
+        let event = Event(sequence: sequence + 1, timestamp: now, timestampUnixSeconds: now.timeIntervalSince1970,
+                          kind: kind, values: values, previousHash: head)
         let digest = Self.hash(try Self.encoder.encode(event))
         var data = try Self.encoder.encode(Record(event: event, sha256: digest)); data.append(10)
         try journal.write(contentsOf: data)

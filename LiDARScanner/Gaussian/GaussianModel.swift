@@ -1,6 +1,7 @@
 import ARKit
 import AVFoundation
 import Combine
+import CoreImage
 import SwiftUI
 
 /// ARSession and published state live on the main queue. File I/O, seed-cloud
@@ -11,6 +12,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var archive: [GaussianProject] = []
     @Published private(set) var isRecording = false
     @Published private(set) var isBusy = false
+    @Published private(set) var processingActive = false
     @Published private(set) var cameraReady = false
     @Published private(set) var trackingNormal = false
     @Published private(set) var cameraDenied = false
@@ -59,7 +61,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] allowed in
                 DispatchQueue.main.async {
-                    if allowed { self?.startCamera() } else { self?.cameraDenied = true }
+                    if allowed { self?.startCamera() } else { self?.cameraDenied = true; self?.status = String(localized: "Please allow camera access in the device settings.") }
                 }
             }
         default: cameraDenied = true; status = String(localized: "Please allow camera access in the device settings.")
@@ -72,11 +74,12 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         configuration.isLightEstimationEnabled = false
         session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
         cameraReady = true; cameraDenied = false
+        status = String(localized: "Detecting surroundings…")
     }
 
     func begin() {
         guard !isBusy, !isRecording, current == nil, cameraReady, trackingNormal else { return }
-        isBusy = true; lastPose = nil; lastTime = -Double.infinity
+        isBusy = true; status = String(localized: "Starting capture…"); lastPose = nil; lastTime = -Double.infinity
         let now = Date()
         let project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
@@ -103,7 +106,14 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if case .normal = frame.camera.trackingState { trackingNormal = true } else { trackingNormal = false }
+        if current == nil && !isBusy {
+            let message = trackingNormal ? String(localized: "Tracking stable") : String(localized: "Detecting surroundings…")
+            if status != message { status = message }
+        }
         guard isRecording else { return }
+        if case .limited(.relocalizing) = frame.camera.trackingState {
+            finish(reason: "tracking_relocalization", process: false); return
+        }
         let reason: String?
         if !trackingNormal { reason = "tracking_limited" }
         else if frameInFlight { reason = "writer_busy" }
@@ -156,7 +166,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             status = String(localized: "Capture a few more views before finishing. Move around the subject.")
             return
         }
-        isRecording = false; isBusy = true; cameraReady = false; session.pause()
+        isRecording = false; isBusy = true; processingActive = process; cameraReady = false; session.pause()
         status = String(localized: "Saving your capture…")
         stop.reset()
         if !process { stop.set(reason) }
@@ -164,6 +174,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             do {
                 guard let store = self.store else { return }
                 store.project.phase = .captured
+                if reason != "user_finished" { store.project.lastIssue = reason }
                 try store.event("capture_finished", ["reason": reason, "savedViews": "\(store.project.frames.count)"])
                 try store.saveDataset()
                 if let seed = self.seed { pc_destroy(seed); self.seed = nil }
@@ -176,7 +187,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func resume() {
         guard !isBusy, !isRecording, let project = current, project.phase != .completed else { return }
-        isBusy = true; stop.reset(); UIApplication.shared.isIdleTimerDisabled = true
+        isBusy = true; processingActive = true; stop.reset(); UIApplication.shared.isIdleTimerDisabled = true
         worker.async {
             do {
                 guard let store = self.store else { return }
@@ -217,6 +228,12 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         if isRecording { finish(reason: "camera_interrupted", process: false) }
     }
     func session(_ session: ARSession, didFailWithError error: Error) {
+        worker.async {
+            do {
+                self.store?.project.lastIssue = error.localizedDescription
+                try self.store?.event("camera_error", ["error": error.localizedDescription]); try self.store?.save()
+            } catch { self.fail(error) }
+        }
         if isRecording { finish(reason: "camera_failed", process: false) }
         errorMessage = error.localizedDescription
     }
@@ -230,7 +247,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func open(_ project: GaussianProject) {
         guard !isBusy, !isRecording else { return }
-        isBusy = true; session.pause(); cameraReady = false
+        isBusy = true; status = String(localized: "Opening saved scan…"); session.pause(); cameraReady = false
         worker.async {
             do {
                 self.store = try GaussianStore(project: project, opening: true)
@@ -240,7 +257,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func delete(_ project: GaussianProject) {
         guard !isBusy, !isRecording else { return }
-        isBusy = true
+        isBusy = true; status = String(localized: "Deleting scan…")
         worker.async {
             do {
                 if self.store?.project.id == project.id { self.store = nil }
@@ -253,10 +270,10 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             } catch { self.fail(error) }
         }
     }
-    enum ShareKind { case scene, capture, report, log }
+    enum ShareKind: Equatable { case scene, capture, report, log }
     func share(_ kind: ShareKind) {
         guard !isBusy, !isRecording, current != nil else { return }
-        isBusy = true
+        isBusy = true; status = kind == .report ? String(localized: "Writing your report…") : String(localized: "Preparing export…")
         worker.async {
             do {
                 guard let store = self.store else { return }
@@ -271,8 +288,10 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 case .log: urls = [store.directory.appendingPathComponent("scan.json"), store.directory.appendingPathComponent("events.jsonl")]
                 case .report: urls = [try ScanReport.gaussian(store.project)]
                 }
+                try store.event("export_prepared", ["kind": "\(kind)", "files": urls.map(\.lastPathComponent).joined(separator: ", ")])
+                try store.save()
                 let snapshot = store.project
-                DispatchQueue.main.async { self.current = snapshot; self.isBusy = false; self.sharing = SharedFiles(urls: urls) }
+                DispatchQueue.main.async { self.current = snapshot; self.isBusy = false; self.status = snapshot.phase.title; self.sharing = SharedFiles(urls: urls) }
             } catch { self.fail(error) }
         }
     }
@@ -282,8 +301,9 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     private func finished(_ project: GaussianProject) {
         let scans = (try? GaussianStore.list()) ?? []
         DispatchQueue.main.async {
-            self.current = project; self.archive = scans; self.isBusy = false
-            self.status = project.phase.title; UIApplication.shared.isIdleTimerDisabled = false
+            self.current = project; self.archive = scans; self.isBusy = false; self.processingActive = false
+            self.status = [.paused, .captured].contains(project.phase) ? (project.issueDescription ?? project.phase.title) : project.phase.title
+            UIApplication.shared.isIdleTimerDisabled = false
             self.endBackgroundTask()
         }
     }
@@ -296,7 +316,8 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         }
         let snapshot = store?.project
         DispatchQueue.main.async {
-            self.current = snapshot; self.isBusy = false; self.isRecording = false
+            self.current = snapshot; self.isBusy = false; self.isRecording = false; self.processingActive = false
+            self.status = snapshot?.phase.title ?? String(localized: "Move slowly around your subject.")
             self.errorMessage = snapshot?.phase == .failed
                 ? String(localized: "Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error.")
                 : error.localizedDescription

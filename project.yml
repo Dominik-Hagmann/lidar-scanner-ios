@@ -55,7 +55,7 @@ targets:
         HEADER_SEARCH_PATHS: ["$(inherited)", "$(SRCROOT)/Dependencies/msplat/core/include"]
     scheme:
       gatherCoverageData: false
-      testTargets: [ScanTests]
+      testTargets: [ScanTests, ScanUITests]
   ScanTests:
     type: bundle.unit-test
     platform: iOS
@@ -66,3 +66,13 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: at.lidarscanner.tests
+  ScanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests/ScanUITests]
+    dependencies:
+      - target: LiDARScanner
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: at.lidarscanner.uitests

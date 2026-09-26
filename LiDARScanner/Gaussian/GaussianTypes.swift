@@ -25,7 +25,7 @@ struct GaussianFrame: Codable {
     let cy: Float
     let transform_matrix: [[Float]]
     let timestamp: Double
-    let capturedAt: Date
+    let savedAt: Date
     let sha256: String
 }
 
@@ -115,6 +115,21 @@ struct GaussianProject: Codable, Identifiable {
     var title: String { startedAt.formatted(date: .abbreviated, time: .shortened) }
     var receivedFrames: Int { decisions.values.reduce(0, +) }
     var hasResult: Bool { resultHash != nil && FileManager.default.fileExists(atPath: resultURL.path) }
+    var issueDescription: String? {
+        guard let lastIssue else { return nil }
+        switch lastIssue {
+        case "user_paused": return String(localized: "Processing was paused at your request.")
+        case "app_inactive", "app_background", "background_time_expired":
+            return String(localized: "The app was no longer active. Saved progress is available to continue.")
+        case "memory_warning", "memory_reserve", "capture_memory_reserve":
+            return String(localized: "The app paused because free memory was running low. Your saved capture is available.")
+        case "thermal_critical": return String(localized: "Processing paused to let the iPhone cool down.")
+        case "tracking_relocalization": return String(localized: "Camera tracking was interrupted. The saved views are available to process.")
+        case "camera_interrupted", "camera_failed", "capture_error":
+            return String(localized: "Recording was interrupted. The saved views remain available.")
+        default: return lastIssue
+        }
+    }
 }
 
 enum GaussianError: LocalizedError {

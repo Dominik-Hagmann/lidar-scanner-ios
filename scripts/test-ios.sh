@@ -4,3 +4,4 @@ simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json
 xcodebuild test -project LiDARScanner.xcodeproj -scheme LiDARScanner \
     -destination "platform=iOS Simulator,id=$simulator_id" \
     -resultBundlePath build/ScanTests.xcresult CODE_SIGNING_ALLOWED=NO
+xcrun xcresulttool export attachments --path build/ScanTests.xcresult --output-path build/screenshots

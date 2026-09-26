@@ -36,7 +36,7 @@ enum GaussianCapture {
         let saved = GaussianFrame(file_path: relative, w: width, h: height,
             fl_x: k.columns.0.x * sx, fl_y: k.columns.1.y * sy, cx: k.columns.2.x * sx, cy: k.columns.2.y * sy,
             transform_matrix: (0..<4).map { row in (0..<4).map { column in m[column][row] } },
-            timestamp: frame.timestamp, capturedAt: Date(), sha256: GaussianStore.hash(bytes))
+            timestamp: frame.timestamp, savedAt: Date(), sha256: GaussianStore.hash(bytes))
         // The image is committed first. A failed depth update must not lose it.
         store.project.frames.append(saved)
         try store.decision("saved", timestamp: frame.timestamp)

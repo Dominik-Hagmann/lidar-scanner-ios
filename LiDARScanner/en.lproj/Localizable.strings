@@ -209,3 +209,14 @@
 "What Happened" = "What Happened";
 "The scan mode was changed. This capture is complete." = "The scan mode was changed. This capture is complete.";
 "Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error." = "Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error.";
+"Starting capture…" = "Starting capture…";
+"Opening saved scan…" = "Opening saved scan…";
+"Deleting scan…" = "Deleting scan…";
+"Writing your report…" = "Writing your report…";
+"Preparing export…" = "Preparing export…";
+"Processing was paused at your request." = "Processing was paused at your request.";
+"The app was no longer active. Saved progress is available to continue." = "The app was no longer active. Saved progress is available to continue.";
+"The app paused because free memory was running low. Your saved capture is available." = "The app paused because free memory was running low. Your saved capture is available.";
+"Processing paused to let the iPhone cool down." = "Processing paused to let the iPhone cool down.";
+"Camera tracking was interrupted. The saved views are available to process." = "Camera tracking was interrupted. The saved views are available to process.";
+"Recording was interrupted. The saved views remain available." = "Recording was interrupted. The saved views remain available.";

@@ -209,3 +209,14 @@
 "What Happened" = "Was wurde gemacht";
 "The scan mode was changed. This capture is complete." = "Der Scan-Modus wurde gewechselt. Diese Aufnahme ist abgeschlossen.";
 "Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error." = "Die Verarbeitung konnte nicht abgeschlossen werden. Deine gespeicherte Aufnahme ist im Archiv verfügbar. Der protokollierte Fehler steht unter „Details“.";
+"Starting capture…" = "Aufnahme wird gestartet …";
+"Opening saved scan…" = "Gespeicherter Scan wird geöffnet …";
+"Deleting scan…" = "Scan wird gelöscht …";
+"Writing your report…" = "Bericht wird erstellt …";
+"Preparing export…" = "Export wird vorbereitet …";
+"Processing was paused at your request." = "Die Verarbeitung wurde auf deinen Wunsch pausiert.";
+"The app was no longer active. Saved progress is available to continue." = "Die App war nicht mehr aktiv. Der gespeicherte Stand kann fortgesetzt werden.";
+"The app paused because free memory was running low. Your saved capture is available." = "Die App hat wegen knappen Arbeitsspeichers pausiert. Deine gespeicherte Aufnahme ist verfügbar.";
+"Processing paused to let the iPhone cool down." = "Die Verarbeitung pausiert, damit das iPhone abkühlen kann.";
+"Camera tracking was interrupted. The saved views are available to process." = "Das Kamera-Tracking wurde unterbrochen. Die gespeicherten Ansichten können verarbeitet werden.";
+"Recording was interrupted. The saved views remain available." = "Die Aufnahme wurde unterbrochen. Die gespeicherten Ansichten bleiben verfügbar.";

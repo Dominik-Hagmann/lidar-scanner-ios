@@ -32,6 +32,11 @@ jobs:
           -sdk iphonesimulator
           CODE_SIGNING_ALLOWED=NO
           build
+      - name: Build Release for iPhone
+        run: >-
+          xcodebuild -project LiDARScanner.xcodeproj -scheme LiDARScanner
+          -configuration Release -sdk iphoneos -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO build
       - name: Test scan records, reports and recovery
         run: bash scripts/test-ios.sh
       - name: Core and export regression tests
@@ -43,3 +48,4 @@ jobs:
           path: |
             LiDARScanner.xcodeproj
             build/ScanTests.xcresult
+            build/screenshots

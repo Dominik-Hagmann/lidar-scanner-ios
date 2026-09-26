@@ -13,7 +13,7 @@ final class ScanTests: XCTestCase {
         GaussianFrame(file_path: "images/frame_000000.jpg", w: 1920, h: 1440,
             fl_x: 1000, fl_y: 1001, cx: 960, cy: 720,
             transform_matrix: [[1,0,0,1], [0,1,0,2], [0,0,1,3], [0,0,0,1]],
-            timestamp: 12.5, capturedAt: Date(timeIntervalSince1970: 1_790_000_000), sha256: "fixture")
+            timestamp: 12.5, savedAt: Date(timeIntervalSince1970: 1_790_000_000), sha256: "fixture")
     }
 
     func testFrameSelectionKeepsFirstAndDistinctPoses() {

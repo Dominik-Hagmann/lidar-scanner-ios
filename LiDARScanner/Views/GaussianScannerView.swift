@@ -64,8 +64,8 @@ struct GaussianScannerView: View {
         .sheet(isPresented: $preview) {
             if let p = model.current { GaussianPreviewSheet(url: p.resultURL) }
         }
-        .sheet(item: $model.sharing) { ShareSheet(urls: $0.urls) }
-        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+        .sheet(item: Binding(get: { details ? nil : model.sharing }, set: { model.sharing = $0 })) { ShareSheet(urls: $0.urls) }
+        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !details }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
     }
@@ -81,7 +81,7 @@ struct GaussianScannerView: View {
                     Spacer()
                     Button("Details", systemImage: "info.circle") { details = true }
                 }
-                if model.isBusy, let profile = p.profile {
+                if model.isBusy, model.processingActive, let profile = p.profile {
                     VStack(alignment: .leading, spacing: 6) {
                         if p.phase == .preparing {
                             ProgressView("Preparing 3D scene…")
@@ -104,8 +104,10 @@ struct GaussianScannerView: View {
                     Label("Finish and Create", systemImage: "stop.fill").frame(maxWidth: .infinity, minHeight: 46)
                 }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
             } else if model.isBusy {
-                Button("Pause Processing", systemImage: "pause.fill") { model.pause() }
-                    .buttonStyle(.bordered).disabled(model.current?.profile == nil)
+                if model.processingActive {
+                    Button("Pause Processing", systemImage: "pause.fill") { model.pause() }
+                        .buttonStyle(.bordered)
+                }
             } else if model.current == nil {
                 Button { model.begin() } label: {
                     Label("Start Scan", systemImage: "record.circle").frame(maxWidth: .infinity, minHeight: 46)
@@ -166,7 +168,7 @@ struct GaussianDetailsView: View {
                     }
                     Section("What Happened") {
                         Text("Selected images and camera poses are saved on this device. Processing uses all saved views and LiDAR depth as its starting point.")
-                        if let issue = p.lastIssue { Text(issue).textSelection(.enabled) }
+                        if let issue = p.issueDescription { Text(issue).textSelection(.enabled) }
                         if p.recoveryNote != nil { Text("This scan was recovered after an interruption. The last saved checkpoint is used when processing continues.") }
                         ForEach(p.decisions.keys.sorted(), id: \.self) { key in
                             LabeledContent(reason(key), value: "\(p.decisions[key] ?? 0)")
@@ -189,6 +191,9 @@ struct GaussianDetailsView: View {
             }.navigationTitle("Scan Details").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
                 .sheet(item: $model.sharing) { ShareSheet(urls: $0.urls) }
+                .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                    Button("OK") { model.errorMessage = nil }
+                } message: { Text(model.errorMessage ?? "") }
         }
     }
     private func reason(_ value: String) -> String {
