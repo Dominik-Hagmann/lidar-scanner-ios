@@ -7,5 +7,5 @@ if ! command -v xcodegen >/dev/null 2>&1; then
 fi
 
 cd "$(dirname "$0")/.."
-xcodegen generate
+bash scripts/setup.sh
 open LiDARScanner.xcodeproj

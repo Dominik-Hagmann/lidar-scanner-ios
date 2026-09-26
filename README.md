@@ -4,34 +4,34 @@
   <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="180">
 </p>
 
-**LiDAR Scanner** is a native, open-source application for capturing scenes with LiDAR-equipped iPhones and iPads and exporting coloured point clouds. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. Controls use a limited width on larger displays.
+**LiDAR Scanner** is a native, open-source application for capturing scenes with LiDAR-equipped iPhones and iPads and exporting coloured point clouds or locally processed Gaussian scenes. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. Controls use a limited width on larger displays.
 
 **Languages:** English (default) and German.
 
-The application is designed as a transparent tool for producing an XYZ+RGB point cloud with minimal additional application-level processing. It neither generates a mesh nor performs photogrammetric reconstruction, and it does not replace survey-controlled acquisition. Its principal purpose is rapid documentation in archaeology and other field sciences, followed by analysis in specialised point-cloud software.
+Choose **Point Cloud** for the existing LiDAR workflow or **Gaussian Splatting** for a locally optimized 3D scene. The app focuses on straightforward capture, transparent processing and export for further work in other software.
 
-**Current version:** 1.1.0 (Build 3). The app has been successfully tested on a physical iPhone. Automated core/export tests and the iOS Simulator build have also passed. The repository provides source code for installation through Xcode.
+**Current version:** 1.2.0 (Build 4). The previous point-cloud version was successfully tested on a physical iPhone. The new Gaussian workflow needs its own device validation; see [validation](docs/VALIDATION.md). The repository provides source code for installation through Xcode.
 
 Version and build are defined in [`Info.plist`](LiDARScanner/Info.plist) and recorded in each scan's JSON metadata; PLY headers include the build number. See the [changelog](CHANGELOG.md) for the version history.
 
 ## Installation on an iPhone or iPad
 
-Installation requires a **LiDAR-equipped iPhone or iPad**, **iOS or iPadOS 17 or later**, and a **Mac with a version of Xcode that supports the operating system installed on the connected device**. The application checks LiDAR support at runtime. The Simulator and devices without a LiDAR sensor cannot capture a scene.
+Installation requires a **LiDAR-equipped iPhone or iPad**, **iOS or iPadOS 18 or later**, and a **Mac with a version of Xcode that supports the operating system installed on the connected device**. The application checks LiDAR support at runtime. The Simulator and devices without a LiDAR sensor cannot capture a scene.
 
 > **App no longer available?** If the app icon is still visible but iOS or iPadOS reports that the app is no longer available (German: „App ist nicht mehr verfügbar“), see [Troubleshooting: app no longer available](#troubleshooting-app-no-longer-available) for recovery steps and possible causes.
 
 1. Clone the repository, or download and extract the source code as a ZIP archive.
-2. Open `LiDARScanner.xcodeproj` in Xcode.
+2. On the Mac, install the build tools with `brew install xcodegen cmake`, then run `bash scripts/setup.sh` in the repository. This downloads the pinned Gaussian engine and builds its native libraries. Open `LiDARScanner.xcodeproj` in Xcode 16.4 or later.
 3. Add your Apple Account under **Xcode → Settings → Accounts**.
 4. Under **Target LiDARScanner → Signing & Capabilities**, select your own **Team** and leave **Automatically manage signing** enabled. If the bundle identifier is already in use, replace `at.lidarscanner.scanner` with your own unique identifier.
 5. Connect the iPhone or iPad to the Mac, confirm the connection on the device, and select it as the destination in Xcode. Enable **Developer Mode** on the device if requested by Xcode.
 6. Select **Run** or press **⌘R**. Grant camera access when the application is launched for the first time.
 
-The checked-in Xcode project can be opened directly. Its reproducible configuration is also stored in [`project.yml`](project.yml). Following structural project changes, it can be regenerated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) by running `xcodegen generate` or `bash scripts/bootstrap.sh`.
+The reproducible project configuration is stored in [`project.yml`](project.yml). Run `bash scripts/setup.sh` after downloading the source and whenever the pinned engine changes. `bash scripts/bootstrap.sh` performs setup and opens Xcode. Build-time downloads happen on the Mac; the installed app processes scans offline.
 
 Apple documents device installation in [Running your app on simulated or physical devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) and [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
 
-No external Swift packages, API keys, servers, or in-app accounts are required. Processing takes place on the device. The share sheet passes only the selected export files to the destination chosen by the user.
+The app uses msplat-ios and MetalSplatter; see [third-party notices](THIRD_PARTY_NOTICES.md). No API keys, servers or in-app accounts are required. Processing takes place on the device. The share sheet passes only the selected export files to the destination chosen by the user.
 
 ### Troubleshooting: app no longer available
 
@@ -49,7 +49,20 @@ If iOS or iPadOS displays **“App is no longer available”** (German: **„App
 
 **If the app still does not open:** Check the exact signing or installation error in Xcode before making further changes. The iOS/iPadOS message alone does not confirm that the provisioning profile has expired. Reinstalling over the existing app is not a substitute for a separate backup of exported scans.
 
-## Capturing and Exporting a Scan
+## Gaussian Splatting
+
+1. Select **Gaussian Splatting**, then **Start Scan**.
+2. Move slowly around the subject, keeping it in view. The app selects and saves distinct views automatically.
+3. Tap **Finish and Create**. Processing starts on the iPhone; the screen shows the actual completed steps. Keep the app open.
+4. View the scene, then use **Share 3D Scene**. **Export Capture** provides the images, camera calibration and poses for other software.
+
+**Details** explains the current state. **Export Report** creates an optional narrative PDF, and **Export Processing Log** provides exact recorded settings, frame decisions, processing steps and file hashes. Reports are also available for saved point clouds; they state the limits of the metadata recorded by that mode.
+
+Captures are saved progressively under `GaussianScans`. Processing checkpoints are saved every 100 steps and when a pause can be handled. After interruption, reopen the scan from the folder icon and choose **Continue Processing**. A sudden termination can lose work since the last durable save; recovery records this explicitly. Pausing does not delete the capture.
+
+Gaussian PLY uses local **metres, Y up**. Point-cloud PLY/XYZ uses **metres, Z up**. Both coordinate conventions are included in their metadata. Gaussian optimization uses ARKit poses directly, without separate pose refinement. Appearance, speed, memory use and heat require validation on the target iPhone; the app does not assert survey accuracy or complete coverage.
+
+## Capturing and Exporting a Point Cloud
 
 1. Before capturing the first point, optionally use the sliders icon to configure **voxel-grid spacing, confidence threshold, depth range, and point limit**.
 2. Wait until **“Tracking stable”** is displayed.

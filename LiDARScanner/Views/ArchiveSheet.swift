@@ -26,6 +26,14 @@ struct ArchiveSheet: View {
                                         sharing = SharedFiles(urls: [scan.url(for: format), scan.metadataURL])
                                     }
                                 }
+                                Button("Export Report") {
+                                    DispatchQueue.global(qos: .userInitiated).async {
+                                        do {
+                                            let url = try ScanReport.pointCloud(scan)
+                                            DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
+                                        } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
+                                    }
+                                }
                             } label: { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 36) }
                             .accessibilityLabel("Share Scan")
                         }

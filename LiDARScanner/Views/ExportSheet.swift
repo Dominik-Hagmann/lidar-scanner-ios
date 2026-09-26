@@ -26,6 +26,8 @@ struct ExportSheet: View {
                             Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Save and Share"), systemImage: "square.and.arrow.up")
                         }
                     }.disabled(model.isBusy || model.pointCount == 0)
+                    Button("Export Report", systemImage: "doc.richtext") { model.saveCurrent(share: false, report: true) }
+                        .disabled(model.isBusy || model.pointCount == 0)
                     Text("In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

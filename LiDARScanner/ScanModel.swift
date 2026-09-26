@@ -284,7 +284,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
 
-    func saveCurrent(share: Bool) {
+    func leaveMode() {
+        guard !isBusy, !isRecording else { return }
+        closeSession(reason: "The scan mode was changed. This capture is complete.")
+        foreground = false
+    }
+
+    func enterMode() {
+        foreground = true
+        if !sessionStarted { prepare() }
+    }
+
+    func saveCurrent(share: Bool, report: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false
         UIApplication.shared.isIdleTimerDisabled = false
@@ -308,7 +319,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 }
                 let saved: SavedScan
                 if let cached = self.cachedScan, self.savedSamples == stats.acceptedSamples,
-                   self.savedTitle == title, FileManager.default.fileExists(atPath: cached.directory.path) {
+                   self.savedTitle == title, cached.metadata.sessionNote == note, FileManager.default.fileExists(atPath: cached.directory.path) {
                     saved = cached
                     if !FileManager.default.fileExists(atPath: saved.url(for: format).path) {
                         try ScanStorage.writeCloud(cloud, to: saved.url(for: format), format: format)
@@ -332,6 +343,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 var snapshot = [PCPoint](repeating: PCPoint(), count: min(40_000, Int(stats.pointCount)))
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
                 let archive = try ScanStorage.list()
+                let reportURL = report ? try ScanReport.pointCloud(saved) : nil
                 DispatchQueue.main.async {
                     self.pointCount = Int(stats.pointCount)
                     self.preview = snapshot; self.previewVersion += 1
@@ -340,6 +352,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         ? String(localized: "Scan saved on this device. \(self.localizedClosedReason ?? "")")
                         : String(localized: "Scan saved on this device.")
                     if share { self.sharedFiles = SharedFiles(urls: [saved.url(for: format), saved.metadataURL]) }
+                    if let reportURL { self.sharedFiles = SharedFiles(urls: [reportURL]) }
                     self.endBackgroundTask()
                 }
             } catch {

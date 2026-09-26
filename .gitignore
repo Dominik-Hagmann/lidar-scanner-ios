@@ -40,3 +40,6 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output/
+
+# Pinned engine source and generated native libraries (scripts/setup.sh)
+Dependencies/
