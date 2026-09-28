@@ -12,3 +12,5 @@ For code changes:
 6. Keep `project.yml` and the checked-in Xcode project synchronized when changing targets, resources, or build settings.
 
 Please keep exported test scans out of the Git repository unless they are deliberately reduced fixtures.
+
+See [installation and updates](docs/INSTALLATION.md) for local setup and [dependencies](docs/DEPENDENCIES.md#developer-checks) for the setup, core/export and iOS test commands. Setup changes should include regression coverage for interrupted work and preservation of existing files.
