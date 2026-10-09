@@ -160,3 +160,13 @@ Scientific, educational, or documentary use should cite the specific software ve
 ## Licence and Development Provenance
 
 The source code is available under the [MIT License](LICENSE). Information about AI-assisted development is provided in [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md).
+
+## Terms & Disclaimer
+
+**LiDAR Scanner is provided "AS IS", without warranty of any kind, express or implied**, as set out in the [MIT License](LICENSE).
+
+The software is intended for research, archaeological documentation and related field use. No guarantee is made regarding the accuracy or completeness of results, suitability for surveying, data integrity or uninterrupted operation. Users should independently validate results against appropriate reference measurements and maintain backups of their scan data.
+
+To the extent permitted by applicable law, the authors, copyright holders and contributors shall not be liable for any direct, indirect, incidental or consequential damages, including data loss or interruption of work, arising from the use of or inability to use the software. You use LiDAR Scanner at your own risk and responsibility.
+
+This section provides additional usage guidance and does not replace or modify the terms of the [MIT License](LICENSE).
