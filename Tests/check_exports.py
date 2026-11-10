@@ -14,11 +14,18 @@ header, body = raw.split(b"end_header\n", 1)
 assert b"format binary_little_endian 1.0" in header
 assert f"comment LiDAR-Scanner Build {app_build}; units metres; local right-handed Z-up".encode() in header
 assert b"element vertex 8\n" in header
+assert b"property float nx\n" in header
+assert b"property float ny\n" in header
+assert b"property float nz\n" in header
 assert b"property uchar confidence" in header
-assert len(body) == 8 * 16, (len(body), "Unexpected padding/record size")
-records = list(struct.iter_unpack("<fffBBBB", body))
-assert records[0] == (-1.0, 2.0, 0.5, 128, 128, 128, 2)
-assert records[7] == (2.0, 2.0, -0.5, 128, 128, 128, 2)
+assert len(body) == 8 * 28, (len(body), "Unexpected padding/record size")
+records = list(struct.iter_unpack("<ffffffBBBB", body))
+assert records[0][:3] == (-1.0, 2.0, 0.5)
+assert records[0][3:6] == (0.0, -1.0, 0.0)
+assert records[0][6:] == (128, 128, 128, 2)
+assert records[7][:3] == (2.0, 2.0, -0.5)
+assert records[7][3:6] == (0.0, -1.0, 0.0)
+assert records[7][6:] == (128, 128, 128, 2)
 text = (root / "test-ascii.ply").read_text().split("end_header\n")[1].splitlines()
 assert len(text) == 8
 for binary, line in zip(records, text):
@@ -47,8 +54,8 @@ for filename, count, last in [
                 break
         assert f"element vertex {count}\n".encode() in lines
         offset = file.tell()
-        assert path.stat().st_size == offset + count * 16
-        assert struct.unpack("<fffBBBB", file.read(16)) == (-2, 2, 1, 128, 128, 128, 2)
-        file.seek(offset + (count - 1) * 16)
-        assert struct.unpack("<fffBBBB", file.read(16)) == (*last, 128, 128, 128, 2)
+        assert path.stat().st_size == offset + count * 28
+        assert struct.unpack("<ffffffBBBB", file.read(28)) == (-2, 2, 1, 0, -1, 0, 128, 128, 128, 2)
+        file.seek(offset + (count - 1) * 28)
+        assert struct.unpack("<ffffffBBBB", file.read(28)) == (*last, 0, -1, 0, 128, 128, 128, 2)
 print("PASS: large exports, including exact full record count and first/last points")

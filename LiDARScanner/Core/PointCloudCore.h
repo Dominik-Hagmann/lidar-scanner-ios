@@ -9,6 +9,7 @@ extern "C" {
 typedef struct PCCloud PCCloud;
 typedef struct {
     float x, y, z; /* ARKit world coordinates: metres, Y up. */
+    float nx, ny, nz; /* Surface normal in world coordinates: metres, Y up, unit length. */
     uint8_t r, g, b, confidence;
 } PCPoint;
 

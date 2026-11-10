@@ -54,7 +54,9 @@ int main(int argc, char **argv) {
     assert(pc_ingest(c,f)==8);
     auto p=preview(c); assert(p.size()==8);
     near(p[0].x,-1); near(p[0].y,0.5); near(p[0].z,-2);
+    near(p[0].nx,0); near(p[0].ny,0); near(p[0].nz,1);
     near(p[7].x,2); near(p[7].y,-0.5); near(p[7].z,-2);
+    near(p[7].nx,0); near(p[7].ny,0); near(p[7].nz,1);
     assert(p[0].r==128 && p[0].g==128 && p[0].b==128);
     assert(pc_ingest(c,f)==8 && pc_stats(c).pointCount==8); // repeated frame deduplication
     assert(pc_stats(c).acceptedSamples==16);

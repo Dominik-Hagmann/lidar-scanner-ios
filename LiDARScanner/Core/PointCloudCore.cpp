@@ -59,6 +59,80 @@ void colorAt(const PCFrame &f, int x, int y, PCPoint &p) {
     }
 }
 
+void computeNormal(const PCFrame &f, int x, int y, float d, int step, float &nx, float &ny, float &nz) {
+    const float *m = f.cameraToWorld;
+    float def_nx = m[8], def_ny = m[9], def_nz = m[10];
+    float def_len = std::sqrt(def_nx*def_nx + def_ny*def_ny + def_nz*def_nz);
+    if (def_len > 1e-4f) { def_nx /= def_len; def_ny /= def_len; def_nz /= def_len; }
+    else { def_nx = 0.f; def_ny = 0.f; def_nz = 1.f; }
+
+    auto getDepth = [&](int px, int py, float &outD) -> bool {
+        if (px < 0 || px >= f.width || py < 0 || py >= f.height) return false;
+        const uint8_t *row = static_cast<const uint8_t *>(f.depth) + size_t(py) * f.depthRowBytes;
+        float val;
+        std::memcpy(&val, row + size_t(px) * 4, 4);
+        if (!std::isfinite(val) || val <= 0.1f) return false;
+        if (std::fabs(val - d) > 0.15f * d) return false;
+        outD = val;
+        return true;
+    };
+
+    float dl = 0.f, dr = 0.f, du = 0.f, dd = 0.f;
+    bool hasL = getDepth(x - step, y, dl);
+    bool hasR = getDepth(x + step, y, dr);
+    bool hasU = getDepth(x, y - step, du);
+    bool hasD = getDepth(x, y + step, dd);
+
+    float p_c[3] = { (float(x) - f.cx) * d / f.fx, -(float(y) - f.cy) * d / f.fy, -d };
+
+    float dx_c[3] = { 0.f, 0.f, 0.f };
+    if (hasL && hasR) {
+        float pl[3] = { (float(x - step) - f.cx) * dl / f.fx, -(float(y) - f.cy) * dl / f.fy, -dl };
+        float pr[3] = { (float(x + step) - f.cx) * dr / f.fx, -(float(y) - f.cy) * dr / f.fy, -dr };
+        dx_c[0] = pr[0] - pl[0]; dx_c[1] = pr[1] - pl[1]; dx_c[2] = pr[2] - pl[2];
+    } else if (hasR) {
+        float pr[3] = { (float(x + step) - f.cx) * dr / f.fx, -(float(y) - f.cy) * dr / f.fy, -dr };
+        dx_c[0] = pr[0] - p_c[0]; dx_c[1] = pr[1] - p_c[1]; dx_c[2] = pr[2] - p_c[2];
+    } else if (hasL) {
+        float pl[3] = { (float(x - step) - f.cx) * dl / f.fx, -(float(y) - f.cy) * dl / f.fy, -dl };
+        dx_c[0] = p_c[0] - pl[0]; dx_c[1] = p_c[1] - pl[1]; dx_c[2] = p_c[2] - pl[2];
+    } else {
+        nx = def_nx; ny = def_ny; nz = def_nz; return;
+    }
+
+    float dy_c[3] = { 0.f, 0.f, 0.f };
+    if (hasU && hasD) {
+        float pu[3] = { (float(x) - f.cx) * du / f.fx, -(float(y - step) - f.cy) * du / f.fy, -du };
+        float pd[3] = { (float(x) - f.cx) * dd / f.fx, -(float(y + step) - f.cy) * dd / f.fy, -dd };
+        dy_c[0] = pd[0] - pu[0]; dy_c[1] = pd[1] - pu[1]; dy_c[2] = pd[2] - pu[2];
+    } else if (hasD) {
+        float pd[3] = { (float(x) - f.cx) * dd / f.fx, -(float(y + step) - f.cy) * dd / f.fy, -dd };
+        dy_c[0] = pd[0] - p_c[0]; dy_c[1] = pd[1] - p_c[1]; dy_c[2] = pd[2] - p_c[2];
+    } else if (hasU) {
+        float pu[3] = { (float(x) - f.cx) * du / f.fx, -(float(y - step) - f.cy) * du / f.fy, -du };
+        dy_c[0] = p_c[0] - pu[0]; dy_c[1] = p_c[1] - pu[1]; dy_c[2] = p_c[2] - pu[2];
+    } else {
+        nx = def_nx; ny = def_ny; nz = def_nz; return;
+    }
+
+    float n_cam[3] = {
+        dy_c[1] * dx_c[2] - dy_c[2] * dx_c[1],
+        dy_c[2] * dx_c[0] - dy_c[0] * dx_c[2],
+        dy_c[0] * dx_c[1] - dy_c[1] * dx_c[0]
+    };
+    float len = std::sqrt(n_cam[0]*n_cam[0] + n_cam[1]*n_cam[1] + n_cam[2]*n_cam[2]);
+    if (len < 1e-6f) { nx = def_nx; ny = def_ny; nz = def_nz; return; }
+    n_cam[0] /= len; n_cam[1] /= len; n_cam[2] /= len;
+    if (n_cam[2] < 0.f) { n_cam[0] = -n_cam[0]; n_cam[1] = -n_cam[1]; n_cam[2] = -n_cam[2]; }
+
+    float wx = m[0]*n_cam[0] + m[4]*n_cam[1] + m[8]*n_cam[2];
+    float wy = m[1]*n_cam[0] + m[5]*n_cam[1] + m[9]*n_cam[2];
+    float wz = m[2]*n_cam[0] + m[6]*n_cam[1] + m[10]*n_cam[2];
+    float wlen = std::sqrt(wx*wx + wy*wy + wz*wz);
+    if (wlen > 1e-6f) { nx = wx/wlen; ny = wy/wlen; nz = wz/wlen; }
+    else { nx = def_nx; ny = def_ny; nz = def_nz; }
+}
+
 void putFloatLE(std::ostream &out, float value) {
     static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559, "IEEE 754 required");
     uint32_t bits;
@@ -130,9 +204,12 @@ int32_t pc_ingest(PCCloud *c, PCFrame f) {
                 const float b = -(float(y) - f.cy) * d / f.fy;
                 const float z = -d;
                 const float *m = f.cameraToWorld;
+                float nx = 0.f, ny = 0.f, nz = 0.f;
+                computeNormal(f, x, y, d, c->config.pixelStep, nx, ny, nz);
                 PCPoint p{m[0]*a + m[4]*b + m[8]*z + m[12],
                           m[1]*a + m[5]*b + m[9]*z + m[13],
-                          m[2]*a + m[6]*b + m[10]*z + m[14], 0, 0, 0, confidence};
+                          m[2]*a + m[6]*b + m[10]*z + m[14],
+                          nx, ny, nz, 0, 0, 0, confidence};
                 /* Bound integer voxel conversion even for malformed transforms. */
                 if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
                     std::fabs(p.x) > 100000.f || std::fabs(p.y) > 100000.f ||
@@ -180,20 +257,22 @@ int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *erro
         if (format != 2) {
             out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
                 << "comment LiDAR-Scanner Build 4; units metres; local right-handed Z-up\n"
-                << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
+                << "comment export XYZ = ARKit (X, -Z, Y); normal = (NX, -NZ, NY); no geographic CRS\n"
                 << "element vertex " << c->points.size() << "\n"
                 << "property float x\nproperty float y\nproperty float z\n"
+                << "property float nx\nproperty float ny\nproperty float nz\n"
                 << "property uchar red\nproperty uchar green\nproperty uchar blue\n"
                 << "property uchar confidence\nend_header\n";
         }
         for (const auto &p : c->points) {
             if (format == 0) {
                 putFloatLE(out, p.x); putFloatLE(out, -p.z); putFloatLE(out, p.y);
+                putFloatLE(out, p.nx); putFloatLE(out, -p.nz); putFloatLE(out, p.ny);
                 const char rgba[]{char(p.r), char(p.g), char(p.b), char(p.confidence)};
                 out.write(rgba, 4);
             } else {
                 out << p.x << ' ' << -p.z << ' ' << p.y;
-                if (format == 1) out << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
+                if (format == 1) out << ' ' << p.nx << ' ' << -p.nz << ' ' << p.ny << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
                 out << '\n';
             }
             if (!out) break;
