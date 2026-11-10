@@ -220,3 +220,5 @@
 "Processing paused to let the iPhone cool down." = "Die Verarbeitung pausiert, damit das iPhone abkühlen kann.";
 "Camera tracking was interrupted. The saved views are available to process." = "Das Kamera-Tracking wurde unterbrochen. Die gespeicherten Ansichten können verarbeitet werden.";
 "Recording was interrupted. The saved views remain available." = "Die Aufnahme wurde unterbrochen. Die gespeicherten Ansichten bleiben verfügbar.";
+"LAS · ASPRS Binary, Color" = "LAS · ASPRS-Binärformat, Farbe";
+"PLY contains XYZ, RGB, and confidence; XYZ contains coordinates only; LAS is ASPRS 1.2 GIS binary format. All coordinates are in meters with Z pointing up. Each scan includes a JSON metadata file." = "PLY enthält XYZ, RGB und Konfidenz; XYZ enthält nur Koordinaten; LAS ist das ASPRS 1.2 GIS-Binärformat. Alle Koordinaten sind in Metern mit Z nach oben. Jeder Scan enthält eine JSON-Metadatendatei.";

@@ -166,8 +166,126 @@ size_t pc_copy_preview(const PCCloud *c, PCPoint *out, size_t capacity) {
     return n;
 }
 
+static void putU16LE(std::ostream &os, uint16_t v) {
+    char b[2]{char(v & 0xFF), char((v >> 8) & 0xFF)};
+    os.write(b, 2);
+}
+
+static void putU32LE(std::ostream &os, uint32_t v) {
+    char b[4]{char(v & 0xFF), char((v >> 8) & 0xFF), char((v >> 16) & 0xFF), char((v >> 24) & 0xFF)};
+    os.write(b, 4);
+}
+
+static void putI32LE(std::ostream &os, int32_t v) {
+    putU32LE(os, static_cast<uint32_t>(v));
+}
+
+static void putDoubleLE(std::ostream &os, double v) {
+    static_assert(sizeof(double) == 8, "double must be 8 bytes");
+    uint64_t u = 0;
+    std::memcpy(&u, &v, sizeof(u));
+    char b[8];
+    for (int i = 0; i < 8; ++i) {
+        b[i] = char((u >> (i * 8)) & 0xFF);
+    }
+    os.write(b, 8);
+}
+
+static void exportLAS(const PCCloud *c, std::ostream &out) {
+    double min_x = std::numeric_limits<double>::infinity();
+    double max_x = -std::numeric_limits<double>::infinity();
+    double min_y = std::numeric_limits<double>::infinity();
+    double max_y = -std::numeric_limits<double>::infinity();
+    double min_z = std::numeric_limits<double>::infinity();
+    double max_z = -std::numeric_limits<double>::infinity();
+
+    for (const auto &p : c->points) {
+        double x = p.x;
+        double y = -p.z;
+        double z = p.y;
+        if (x < min_x) min_x = x;
+        if (x > max_x) max_x = x;
+        if (y < min_y) min_y = y;
+        if (y > max_y) max_y = y;
+        if (z < min_z) min_z = z;
+        if (z > max_z) max_z = z;
+    }
+
+    const double scale = 0.001; // 1 mm precision
+    const double offset_x = std::floor(min_x);
+    const double offset_y = std::floor(min_y);
+    const double offset_z = std::floor(min_z);
+    const uint32_t count = static_cast<uint32_t>(c->points.size());
+
+    // 227-byte ASPRS LAS 1.2 Header
+    out.write("LASF", 4);
+    putU16LE(out, 0); // File Source ID
+    putU16LE(out, 0); // Global Encoding
+    putU32LE(out, 0); // Project ID GUID 1
+    putU16LE(out, 0); // Project ID GUID 2
+    putU16LE(out, 0); // Project ID GUID 3
+    char guid4[8]{};
+    out.write(guid4, 8); // Project ID GUID 4
+    out.put(1); // Version Major
+    out.put(2); // Version Minor
+    char sys_id[32]{};
+    std::strncpy(sys_id, "iOS LiDAR Scanner", 31);
+    out.write(sys_id, 32);
+    char gen_soft[32]{};
+    std::strncpy(gen_soft, "LiDAR-Scanner 1.2", 31);
+    out.write(gen_soft, 32);
+    putU16LE(out, 1); // Creation Day
+    putU16LE(out, 2026); // Creation Year
+    putU16LE(out, 227); // Header Size
+    putU32LE(out, 227); // Offset to points
+    putU32LE(out, 0); // Number of VLRs
+    out.put(2); // Point Data Format ID: 2 (XYZ + RGB)
+    putU16LE(out, 26); // Point Data Record Length: 26 bytes
+    putU32LE(out, count); // Number of point records
+    putU32LE(out, count); // Points by return 1
+    putU32LE(out, 0);     // Return 2
+    putU32LE(out, 0);     // Return 3
+    putU32LE(out, 0);     // Return 4
+    putU32LE(out, 0);     // Return 5
+    putDoubleLE(out, scale);    // X scale
+    putDoubleLE(out, scale);    // Y scale
+    putDoubleLE(out, scale);    // Z scale
+    putDoubleLE(out, offset_x); // X offset
+    putDoubleLE(out, offset_y); // Y offset
+    putDoubleLE(out, offset_z); // Z offset
+    putDoubleLE(out, max_x);
+    putDoubleLE(out, min_x);
+    putDoubleLE(out, max_y);
+    putDoubleLE(out, min_y);
+    putDoubleLE(out, max_z);
+    putDoubleLE(out, min_z);
+
+    // Write Point Records (Format 2: 26 bytes each)
+    for (const auto &p : c->points) {
+        double x = p.x;
+        double y = -p.z;
+        double z = p.y;
+        int32_t ix = static_cast<int32_t>(std::lround((x - offset_x) / scale));
+        int32_t iy = static_cast<int32_t>(std::lround((y - offset_y) / scale));
+        int32_t iz = static_cast<int32_t>(std::lround((z - offset_z) / scale));
+        putI32LE(out, ix);
+        putI32LE(out, iy);
+        putI32LE(out, iz);
+        putU16LE(out, static_cast<uint16_t>(p.confidence * 32767)); // Intensity
+        out.put(0x09); // Return 1 of 1
+        out.put(0);    // Classification (Created, unclassified)
+        out.put(0);    // Scan Angle Rank
+        out.put(p.confidence); // User Data
+        putU16LE(out, 1);      // Point Source ID
+        putU16LE(out, static_cast<uint16_t>(p.r) * 257); // Red (16-bit)
+        putU16LE(out, static_cast<uint16_t>(p.g) * 257); // Green (16-bit)
+        putU16LE(out, static_cast<uint16_t>(p.b) * 257); // Blue (16-bit)
+        if (!out) break;
+    }
+}
+
 int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *error, size_t capacity) {
-    if (!c || c->points.empty() || !path || !*path || format < 0 || format > 2) {
+    if (!c || c->points.empty() || !path || !*path || format < 0 || format > 3) {
         errorText(error, capacity, "Keine Punkte oder ungültiges Exportziel."); return 0;
     }
     std::string temporary;
@@ -177,26 +295,30 @@ int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *erro
         if (!out) { errorText(error, capacity, "Exportdatei konnte nicht angelegt werden."); return 0; }
         out.imbue(std::locale::classic());
         out.precision(9); /* round-trippable float32, independent of device locale */
-        if (format != 2) {
-            out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
-                << "comment LiDAR-Scanner Build 4; units metres; local right-handed Z-up\n"
-                << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
-                << "element vertex " << c->points.size() << "\n"
-                << "property float x\nproperty float y\nproperty float z\n"
-                << "property uchar red\nproperty uchar green\nproperty uchar blue\n"
-                << "property uchar confidence\nend_header\n";
-        }
-        for (const auto &p : c->points) {
-            if (format == 0) {
-                putFloatLE(out, p.x); putFloatLE(out, -p.z); putFloatLE(out, p.y);
-                const char rgba[]{char(p.r), char(p.g), char(p.b), char(p.confidence)};
-                out.write(rgba, 4);
-            } else {
-                out << p.x << ' ' << -p.z << ' ' << p.y;
-                if (format == 1) out << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
-                out << '\n';
+        if (format == 3) {
+            exportLAS(c, out);
+        } else {
+            if (format != 2) {
+                out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
+                    << "comment LiDAR-Scanner Build 4; units metres; local right-handed Z-up\n"
+                    << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
+                    << "element vertex " << c->points.size() << "\n"
+                    << "property float x\nproperty float y\nproperty float z\n"
+                    << "property uchar red\nproperty uchar green\nproperty uchar blue\n"
+                    << "property uchar confidence\nend_header\n";
             }
-            if (!out) break;
+            for (const auto &p : c->points) {
+                if (format == 0) {
+                    putFloatLE(out, p.x); putFloatLE(out, -p.z); putFloatLE(out, p.y);
+                    const char rgba[]{char(p.r), char(p.g), char(p.b), char(p.confidence)};
+                    out.write(rgba, 4);
+                } else {
+                    out << p.x << ' ' << -p.z << ' ' << p.y;
+                    if (format == 1) out << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
+                    out << '\n';
+                }
+                if (!out) break;
+            }
         }
         out.flush();
         bool good = bool(out);

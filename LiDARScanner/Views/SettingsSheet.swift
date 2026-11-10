@@ -47,7 +47,7 @@ struct SettingsSheet: View {
                     Picker("Format", selection: $model.exportFormat) {
                         ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
                     }
-                    Text("PLY contains XYZ, RGB, and confidence; XYZ contains three coordinate columns. All coordinates are local, in meters, with Z pointing up. Each scan includes a JSON metadata file.")
+                    Text("PLY contains XYZ, RGB, and confidence; XYZ contains coordinates only; LAS is ASPRS 1.2 GIS binary format. All coordinates are in meters with Z pointing up. Each scan includes a JSON metadata file.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Storage") {

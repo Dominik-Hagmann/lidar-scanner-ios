@@ -28,8 +28,33 @@ assert len(xyz) == 8
 for record, line in zip(records, xyz):
     assert len(line.split()) == 3
     assert tuple(map(float, line.split())) == record[:3]
+
+# Check ASPRS LAS 1.2 binary export
+las_bytes = (root / "test.las").read_bytes()
+assert las_bytes[:4] == b"LASF", "Invalid LAS signature"
+assert las_bytes[24:26] == bytes([1, 2]), "Expected LAS version 1.2"
+header_size, offset_to_points = struct.unpack_from("<HI", las_bytes, 94)
+assert header_size == 227
+assert offset_to_points == 227
+format_id, record_len, num_points = struct.unpack_from("<BHI", las_bytes, 104)
+assert format_id == 2
+assert record_len == 26
+assert num_points == 8
+assert len(las_bytes) == 227 + 8 * 26, "Unexpected LAS file size"
+scale_x, scale_y, scale_z, off_x, off_y, off_z = struct.unpack_from("<dddddd", las_bytes, 131)
+assert scale_x == 0.001 and scale_y == 0.001 and scale_z == 0.001
+first_pt = las_bytes[227:253]
+p_x, p_y, p_z, intensity, ret_byte, cls, scan_angle, user_data, pt_source, r16, g16, b16 = struct.unpack("<iiiHBBbBH HHH", first_pt)
+assert round(p_x * scale_x + off_x, 3) == records[0][0]
+assert round(p_y * scale_y + off_y, 3) == records[0][1]
+assert round(p_z * scale_z + off_z, 3) == records[0][2]
+assert r16 == records[0][3] * 257
+assert g16 == records[0][4] * 257
+assert b16 == records[0][5] * 257
+assert user_data == records[0][6]
+
 assert not list(root.glob("*.partial"))
-print("PASS: independent binary PLY, ASCII PLY and XYZ parsing; Z-up, RGB, confidence, point count, endian and record sizes")
+print("PASS: independent binary PLY, ASCII PLY, XYZ and ASPRS LAS 1.2 parsing; Z-up, RGB, confidence, point count, endian and record sizes")
 
 # Inspect the actual large exports without loading their bodies into RAM.
 for filename, count, last in [

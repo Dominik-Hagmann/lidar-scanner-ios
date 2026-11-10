@@ -17,13 +17,14 @@ struct ScanSettings: Codable, Equatable {
 }
 
 enum ExportFormat: Int32, CaseIterable, Identifiable {
-    case binaryPLY = 0, asciiPLY = 1, xyz = 2
+    case binaryPLY = 0, asciiPLY = 1, xyz = 2, las = 3
     var id: Int32 { rawValue }
     var title: String {
         switch self {
         case .binaryPLY: return String(localized: "PLY · Binary, Color")
         case .asciiPLY: return String(localized: "PLY · Text, Color")
         case .xyz: return String(localized: "XYZ · Coordinates Only")
+        case .las: return String(localized: "LAS · ASPRS Binary, Color")
         }
     }
     var fileName: String {
@@ -31,6 +32,7 @@ enum ExportFormat: Int32, CaseIterable, Identifiable {
         case .binaryPLY: return "points.ply"
         case .asciiPLY: return "points-ascii.ply"
         case .xyz: return "points.xyz"
+        case .las: return "points.las"
         }
     }
 }

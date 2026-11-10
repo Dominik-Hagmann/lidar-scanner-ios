@@ -48,7 +48,7 @@ void pc_reset(PCCloud *cloud, PCConfig config);
 int32_t pc_ingest(PCCloud *cloud, PCFrame frame);
 PCStats pc_stats(const PCCloud *cloud);
 size_t pc_copy_preview(const PCCloud *cloud, PCPoint *output, size_t capacity);
-/* 0 = binary little-endian PLY, 1 = ASCII PLY, 2 = XYZ (three columns).
+/* 0 = binary little-endian PLY, 1 = ASCII PLY, 2 = XYZ (three columns), 3 = ASPRS LAS 1.2 binary.
    All exports use right-handed Z-up coordinates: (x, -z, y), metres.
    Writes a temporary sibling and renames only after a successful close. */
 int32_t pc_export(const PCCloud *cloud, const char *path, int32_t format,

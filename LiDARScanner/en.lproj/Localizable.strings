@@ -220,3 +220,5 @@
 "Processing paused to let the iPhone cool down." = "Processing paused to let the iPhone cool down.";
 "Camera tracking was interrupted. The saved views are available to process." = "Camera tracking was interrupted. The saved views are available to process.";
 "Recording was interrupted. The saved views remain available." = "Recording was interrupted. The saved views remain available.";
+"LAS · ASPRS Binary, Color" = "LAS · ASPRS Binary, Color";
+"PLY contains XYZ, RGB, and confidence; XYZ contains coordinates only; LAS is ASPRS 1.2 GIS binary format. All coordinates are in meters with Z pointing up. Each scan includes a JSON metadata file." = "PLY contains XYZ, RGB, and confidence; XYZ contains coordinates only; LAS is ASPRS 1.2 GIS binary format. All coordinates are in meters with Z pointing up. Each scan includes a JSON metadata file.";
