@@ -4,147 +4,262 @@
   <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="180">
 </p>
 
-**LiDAR Scanner** is a native, open-source application for capturing scenes with LiDAR-equipped iPhones and iPads and exporting coloured point clouds or locally processed Gaussian scenes. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. Controls use a limited width on larger displays.
+<p align="center">
+  <a href="https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/workflows/ios-build.yml"><img src="https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/workflows/ios-build.yml/badge.svg" alt="iOS Build"></a>
+  <img src="https://img.shields.io/badge/version-1.2.0%20(Build%204)-blue" alt="Version 1.2.0 (Build 4)">
+  <img src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-18%2B-lightgrey" alt="iOS / iPadOS 18+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
+</p>
 
-**Languages:** English (default) and German.
+**LiDAR Scanner** is a native, open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It exports **coloured point clouds** or **locally processed Gaussian scenes** for further work in other software. The app focuses on straightforward capture, transparent processing and open export formats.
 
-Choose **Point Cloud** for the existing LiDAR workflow or **Gaussian Splatting** for a locally optimized 3D scene. The app focuses on straightforward capture, transparent processing and export for further work in other software.
+## Features
 
-**Current version:** 1.2.0 (Build 4). The previous point-cloud version was successfully tested on a physical iPhone. The new Gaussian workflow needs its own device validation; see [validation](docs/VALIDATION.md). The repository provides source code for installation through Xcode.
+- **Two capture modes**
+  - **Point Cloud** – accumulates coloured LiDAR depth points; exports binary PLY, ASCII PLY and XYZ with JSON metadata.
+  - **Gaussian Splatting** – captures distinct views automatically and optimizes a 3D Gaussian scene directly on the device.
+- **Fully on-device** – no API keys, servers or in-app accounts. Scans are processed offline; the share sheet passes only the selected files to the destination chosen by the user.
+- **Traceable records** – optional narrative PDF report and a processing log with recorded settings, decisions, processing steps and SHA-256 file hashes.
+- **Robust saving** – automatic saves on pause, memory monitoring, processing checkpoints and recovery after interruption.
+- **Languages:** English (default) and German. iPhone in portrait; iPad in portrait and landscape.
 
-Version and build are defined in [`Info.plist`](LiDARScanner/Info.plist) and recorded in each scan's JSON metadata; PLY headers include the build number. See the [changelog](CHANGELOG.md) for the version history.
+## Contents
 
-## Installation on an iPhone or iPad
+- [Status](#status)
+- [Installation](#installation)
+- [Usage: Point Cloud](#usage-point-cloud)
+- [Usage: Gaussian Splatting](#usage-gaussian-splatting)
+- [Reports and Processing Logs](#reports-and-processing-logs)
+- [Output Data](#output-data)
+- [Limitations](#limitations)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Citation](#citation)
+- [License, Disclaimer and Provenance](#license-disclaimer-and-provenance)
 
-Installation requires a **LiDAR-equipped iPhone or iPad**, **iOS or iPadOS 18 or later**, and a **Mac with a version of Xcode that supports the operating system installed on the connected device**. The application checks LiDAR support at runtime. The Simulator and devices without a LiDAR sensor cannot capture a scene.
+## Status
 
-> **App no longer available?** If the app icon is still visible but iOS or iPadOS reports that the app is no longer available (German: „App ist nicht mehr verfügbar“), see [Troubleshooting: app no longer available](#troubleshooting-app-no-longer-available) for recovery steps and possible causes.
+**Current version:** 1.2.0 (Build 4) — see the [changelog](CHANGELOG.md).
+
+| Component | Status |
+| --- | --- |
+| Point-cloud workflow | Tested on a physical iPhone (previous version) |
+| Gaussian workflow | Automated tests pass; **physical-device validation pending** |
+| iPad | Supported; device testing not yet documented |
+
+Details: [`docs/VALIDATION.md`](docs/VALIDATION.md). Version and build are defined in [`Info.plist`](LiDARScanner/Info.plist) and recorded in each scan's JSON metadata; PLY headers include the build number.
+
+The app is distributed as source code for installation through Xcode.
+
+## Installation
+
+### Requirements
+
+- A **LiDAR-equipped iPhone or iPad** running **iOS or iPadOS 18 or later**. The app checks LiDAR support at runtime; the Simulator and devices without LiDAR cannot capture.
+- A **Mac with Xcode 16.4 or later**, in a version that supports the OS installed on the connected device.
+- [Homebrew](https://brew.sh) for the build tools.
+
+### Steps
 
 1. Clone the repository, or download and extract the source code as a ZIP archive.
-2. On the Mac, install the build tools with `brew install xcodegen cmake`, then run `bash scripts/setup.sh` in the repository. This downloads the pinned Gaussian engine and builds its native libraries. Open `LiDARScanner.xcodeproj` in Xcode 16.4 or later.
+2. Install the build tools and prepare the project:
+   ```sh
+   brew install xcodegen cmake
+   bash scripts/setup.sh
+   ```
+   This downloads the pinned Gaussian engine and builds its native libraries. Then open `LiDARScanner.xcodeproj` in Xcode (or run `bash scripts/bootstrap.sh`, which performs setup and opens Xcode).
 3. Add your Apple Account under **Xcode → Settings → Accounts**.
 4. Under **Target LiDARScanner → Signing & Capabilities**, select your own **Team** and leave **Automatically manage signing** enabled. If the bundle identifier is already in use, replace `at.lidarscanner.scanner` with your own unique identifier.
-5. Connect the iPhone or iPad to the Mac, confirm the connection on the device, and select it as the destination in Xcode. Enable **Developer Mode** on the device if requested by Xcode.
-6. Select **Run** or press **⌘R**. Grant camera access when the application is launched for the first time.
+5. Connect the device, confirm the connection on it, and select it as the destination in Xcode. Enable **Developer Mode** on the device if requested.
+6. Select **Run** or press **⌘R**. Grant camera access when the app launches for the first time.
 
-The reproducible project configuration is stored in [`project.yml`](project.yml). Run `bash scripts/setup.sh` after downloading the source and whenever the pinned engine changes. `bash scripts/bootstrap.sh` performs setup and opens Xcode. Build-time downloads happen on the Mac; the installed app processes scans offline.
+> [!NOTE]
+> Run `bash scripts/setup.sh` again whenever the pinned engine changes. Build-time downloads happen on the Mac only; the installed app works offline.
+
+> [!IMPORTANT]
+> With a free Apple Account (**Personal Team**), Apple's provisioning profiles expire after 7 days; the app then stops opening and must be reinstalled from Xcode. **Do not delete the app** — see [Troubleshooting](#troubleshooting-app-no-longer-available).
 
 Apple documents device installation in [Running your app on simulated or physical devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) and [Enabling Developer Mode on a device](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
 
-The app uses msplat-ios and MetalSplatter; see [third-party notices](THIRD_PARTY_NOTICES.md). No API keys, servers or in-app accounts are required. Processing takes place on the device. The share sheet passes only the selected export files to the destination chosen by the user.
+## Usage: Point Cloud
 
-### Troubleshooting: app no longer available
+1. *(Optional)* Before capturing the first point, tap the sliders icon to configure **voxel-grid spacing, confidence threshold, depth range and point limit** (see [Settings](#point-cloud-settings-and-memory)).
+2. Wait until **Tracking stable** is displayed.
+3. Tap **Start Scan** and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
+4. Tap **Pause**. The current state is saved automatically. The scan can be resumed as long as the camera session continues without interruption.
+5. Use the cube icon to rotate and zoom the point cloud. The preview shows at most 40,000 evenly selected points; the export contains the complete point set.
+6. Tap **Export**, enter a designation, choose a format, and tap **Save and Share**.
+7. In the share sheet, choose **Save to Files**, AirDrop or another destination. The point file and metadata are offered together.
 
-If iOS or iPadOS displays **“App is no longer available”** (German: **„App ist nicht mehr verfügbar“**; wording may vary) when you tap the app icon, try the following steps for an installation made through Xcode.
+**Archive:** Completed saves are stored under **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive, where formats can be shared again and individual saves deleted. Saving an unchanged scan under the same designation reuses the existing save; additional points or a different designation create a new archived state.
 
-**Protect existing scans first:** Do not delete the installed app as a troubleshooting step: [deleting an app also removes its local data](https://support.apple.com/guide/iphone/remove-or-delete-apps-iph248b543ca/ios). If the scan folder is accessible, copy **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans** to iCloud Drive or a Mac before proceeding.
+### Point-cloud settings and memory
 
-1. Connect the iPhone or iPad to the Mac and unlock it.
-2. Open the same `LiDARScanner.xcodeproj` used for the original installation and select the physical device as the destination, not the Simulator.
-3. Under **Target LiDARScanner → Signing & Capabilities**, keep the **same Team and Bundle Identifier** used for the installed app and enable **Automatically manage signing**. Do not switch accounts or change the identifier merely to troubleshoot this launch error.
-4. Select **Run** or press **⌘R** to rebuild, sign, and deploy the app again without first deleting it.
-5. After a successful run, check the scan archive and confirm that the app opens from its Home Screen icon again.
+| Setting | Default | Options |
+| --- | --- | --- |
+| Voxel-grid spacing | 1 cm | configurable |
+| Confidence threshold | medium or high | configurable |
+| Axial depth range | 0.2–5 m | configurable |
+| Point limit | **Automatic · No Fixed Point Count** | 500,000 · 1 M · 2 M · 5 M · 10 M |
 
-**Why this may help:** The app's signing or provisioning may no longer be valid. For an installation made using a free Apple Account (**Personal Team** in Xcode), an expired provisioning profile is a likely explanation, especially if the app worked previously and stopped opening after several days. Apple states that these profiles expire **7 days after issuance**, after which the app must be rebuilt and reinstalled; see [Developer account overview → Enable a personal team in Xcode](https://developer.apple.com/help/account/basics/about-your-developer-account). This is an Apple provisioning restriction, not a time limit implemented by LiDAR Scanner.
+Every second depth pixel along each image axis is sampled. Settings can be changed before starting a new scan.
 
-**If the app still does not open:** Check the exact signing or installation error in Xcode before making further changes. The iOS/iPadOS message alone does not confirm that the provisioning profile has expired. Reinstalling over the existing app is not a substitute for a separate backup of exported scans.
+In **automatic** mode, the app checks the memory available to its process before and after processing each depth image. If it falls below a reserve of **256 MiB**, capture stops and the app attempts to save the scan acquired so far. An operating-system memory warning also triggers a save attempt. Memory monitoring remains active with a fixed limit. The attainable point count depends on the device and its current memory conditions; a save before an abrupt process termination cannot be guaranteed.
 
-## Gaussian Splatting
+## Usage: Gaussian Splatting
 
 1. Select **Gaussian Splatting**, then **Start Scan**.
 2. Move slowly around the subject, keeping it in view. The app selects and saves distinct views automatically.
-3. Tap **Finish and Create**. Processing starts on the iPhone; the screen shows the actual completed steps. Keep the app open.
+3. Tap **Finish and Create**. Processing starts on the device, and the screen shows the steps actually completed. Keep the app open.
 4. View the scene, then use **Share 3D Scene**. **Export Capture** provides the images, camera calibration and poses for other software.
 
-**Details** explains the current state. **Export Report** creates an optional narrative PDF, and **Export Processing Log** provides exact recorded settings, frame decisions, processing steps and file hashes. Reports are also available for saved point clouds; they state the limits of the metadata recorded by that mode.
+**Saving and recovery:** Captures are saved progressively under `GaussianScans`. Processing checkpoints are saved every 100 steps and whenever a pause can be handled. After an interruption, reopen the scan from the folder icon and choose **Continue Processing**. Pausing does not delete the capture. A sudden termination can lose work since the last durable save; recovery records this explicitly.
 
-Captures are saved progressively under `GaussianScans`. Processing checkpoints are saved every 100 steps and when a pause can be handled. After interruption, reopen the scan from the folder icon and choose **Continue Processing**. A sudden termination can lose work since the last durable save; recovery records this explicitly. Pausing does not delete the capture.
+Gaussian optimization uses ARKit poses directly, without separate pose refinement.
 
-Gaussian PLY uses local **metres, Y up**. Point-cloud PLY/XYZ uses **metres, Z up**. Both coordinate conventions are included in their metadata. Gaussian optimization uses ARKit poses directly, without separate pose refinement. Appearance, speed, memory use and heat require validation on the target iPhone; the app does not assert survey accuracy or complete coverage.
+## Reports and Processing Logs
 
-## Capturing and Exporting a Point Cloud
+Available for Gaussian scenes and saved point clouds:
 
-1. Before capturing the first point, optionally use the sliders icon to configure **voxel-grid spacing, confidence threshold, depth range, and point limit**.
-2. Wait until **“Tracking stable”** is displayed.
-3. Select **“Start Scan”** and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
-4. Select **“Pause”**. The current state is saved automatically. The scan can be resumed provided that the camera session continues without interruption.
-5. Use the cube icon to rotate and zoom the current point cloud. The preview displays no more than 40,000 points selected evenly from the point list; the export contains the complete stored point set.
-6. Select **“Export”**, enter a designation, choose a format, and press **“Save and Share”**.
-7. In the iOS share sheet, select **“Save to Files”**, AirDrop, or another destination. The point file and metadata are offered together.
+- **Details** explains the current state of a scan.
+- **Export Report** creates an optional narrative PDF.
+- **Export Processing Log** provides the exact recorded settings, frame decisions, processing steps and file hashes.
 
-Completed saves are stored under **Files → On My iPhone** or **On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive. Previously generated file formats can be shared again, and individual saves can be deleted. Saving an unchanged scan again under the same designation reuses the existing save. Additional captured points or a different designation create a new archived state.
+For point clouds, reports state the limits of the metadata recorded by that mode.
 
-## Point Count and Memory Management
+## Output Data
 
-The default setting is **“Automatic · No Fixed Point Count”**. Before and after processing a depth image, the application checks the memory available to its process. If the available memory falls below a reserve of 256 MiB, capture is stopped and the application attempts to save the scan acquired up to that point. An operating-system memory warning also triggers a save attempt. The attainable point count depends on the device and its current memory conditions; saving before an abrupt process termination cannot be guaranteed.
+### Point-cloud files
 
-Alternatively, fixed limits of **500,000, 1 million, 2 million, 5 million, or 10 million points** can be selected. Memory monitoring remains active when a fixed limit is used. Settings can be changed before starting a new scan. The preview continues to display a maximum of 40,000 points; all captured points are exported.
-
-## Export Formats
-
-| Format | Content | Encoding |
+| File | Content | Encoding |
 | --- | --- | --- |
 | `points.ply` | X, Y, Z, red, green, blue, confidence | Binary little-endian; 16 bytes per point plus header |
 | `points-ascii.ply` | Identical fields | Text PLY with a decimal point |
 | `points.xyz` | X, Y, Z | Three space-separated columns without a header |
-| `metadata.json` | Designation, times, settings, point count, depth-image dimensions, provenance, and coordinate transformation | UTF-8; ISO 8601 dates |
+| `metadata.json` | Designation, times, settings, point count, depth-image dimensions, provenance, coordinate transformation | UTF-8; ISO 8601 dates |
 
-Every save contains a binary PLY file. Selecting ASCII PLY or XYZ additionally generates the chosen file. PLY colours are 8-bit RGB values. Confidence is stored as an additional `uchar` field using the ARKit categories 0, 1, and 2. Software that does not interpret this field can still read the coordinates and colours.
+Every save contains a binary PLY file; ASCII PLY or XYZ is generated additionally when selected. Colours are 8-bit RGB. Confidence is stored as an additional `uchar` field using the ARKit categories 0, 1 and 2; software that ignores this field can still read coordinates and colours.
 
-**Coordinates:** metres; local right-handed coordinate system; positive Z points upwards. The transformation from the ARKit world coordinate system is `(X, Y, Z) = (x, −z, y)`. The origin is established when the AR session starts or when it is reset by selecting **“New Scan”**. No geographic reference, EPSG identifier, or north orientation is assigned. The data can subsequently be registered using external control points; the application does not perform this step.
+### Gaussian files
 
-## Captured Data
+| File | Content |
+| --- | --- |
+| `scene.ply` | Optimized Gaussian scene (**Share 3D Scene**) |
+| `Capture-<id>.zip` | **Export Capture**: `images/`, `transforms.json` (camera calibration and poses), `scan.json` (full parameters), `events.jsonl` (chronological decisions, steps and errors) and the depth seed, if present |
 
-The application uses `ARFrame.sceneDepth`, the corresponding confidence map, camera calibration, and camera pose. Colours are obtained from the same `ARFrame.capturedImage`. It accumulates depth points across multiple frames; these are neither mesh vertices nor ordinary AR tracking feature points.
+SHA-256 checksums identify file contents; the linked event hashes are not a digital signature. GPU floating-point accumulation and random camera sampling mean that rerunning training need not produce a bit-identical result.
 
-`sceneDepth` is an Apple-processed depth map derived from LiDAR and camera data. The data are **not unprocessed individual laser measurements**. Apple’s presentation of the [Depth API](https://developer.apple.com/videos/play/wwdc2020/10611/) explains this data provenance. The application does not apply the additional temporal smoothing provided through `smoothedSceneDepth`.
+### Coordinate systems
 
-The default voxel-grid spacing of 1 cm describes spatial subsampling. It is **not a claim of 1 cm accuracy**. One observation is initially retained per grid cell; a later observation replaces it only if it has higher confidence. No averaging, surface reconstruction, or subsequent global registration is performed.
+| | Point cloud (PLY/XYZ) | Gaussian (PLY) |
+| --- | --- | --- |
+| Unit | metres | metres |
+| Up axis | **+Z** | **+Y** |
+| Frame | local, right-handed | local |
 
-## Limitations of This Build
+Both conventions are recorded in the respective metadata. For point clouds, the transformation from ARKit world coordinates is `(X, Y, Z) = (x, −z, y)`. The origin is set when the AR session starts or is reset with **New Scan**. No geographic reference, EPSG identifier or north orientation is assigned; data can be registered afterwards using external control points.
 
-- Capture requires LiDAR-equipped iPhone or iPad hardware running at least iOS or iPadOS 18. iPhone is supported in portrait orientation; iPad is supported in portrait and landscape orientations. iPad device testing is not yet documented.
-- Default settings are 0.2–5 m axial depth, medium or high confidence, every second depth pixel along each image axis, 1 cm voxel-grid spacing, and automatic monitoring of available memory without a selected fixed point count. Optional point limits range from 500,000 to 10 million.
-- No points are added while tracking is limited. Relocalisation, camera interruption, transition to the background, and memory warnings close the current capture. The accumulated point cloud remains exportable; subsequent capture begins as a new scan.
-- Points already accumulated are not retrospectively optimised following later ARKit pose corrections. Long acquisitions may exhibit drift. Metrological validation must use control geometry on the actual device.
-- The application saves automatically when capture is paused and makes a best-effort save when moved to the background. If the application is terminated before saving is complete, points captured since the most recent completed save may be lost. Continuous long-term logging is not guaranteed.
-- Saved point files can be shared again. Restarting the application does not resume the previous AR session, and archived scans are not reloaded for continued acquisition.
-- The application does not import data from other scanning applications and does not export LAS, LAZ, or E57 files or create meshes. The available open point formats provide a basis for subsequent conversion.
+### Data provenance
+
+The point-cloud mode uses `ARFrame.sceneDepth`, its confidence map, camera calibration and camera pose; colours come from the same `ARFrame.capturedImage`. Depth points are accumulated across frames — they are neither mesh vertices nor AR tracking feature points.
+
+> [!IMPORTANT]
+> `sceneDepth` is an Apple-processed depth map derived from LiDAR and camera data, **not unprocessed individual laser measurements** (see Apple's [Depth API presentation](https://developer.apple.com/videos/play/wwdc2020/10611/)). The app does not apply the additional temporal smoothing of `smoothedSceneDepth`.
+>
+> The 1 cm voxel-grid spacing describes spatial subsampling and is **not a claim of 1 cm accuracy**.
+
+One observation is initially retained per grid cell; a later observation replaces it only if it has higher confidence. No averaging, surface reconstruction or global registration is performed. More detail: [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md).
+
+## Limitations
+
+**General**
+
+- Capture requires LiDAR hardware and iOS/iPadOS 18 or later. iPad device testing is not yet documented.
+- The app does not assert survey accuracy or complete coverage. Validate results against control geometry on the actual device.
+- No import from other scanning apps; no LAS, LAZ or E57 export. The open point formats provide a basis for conversion.
+
+**Point Cloud**
+
+- No points are added while tracking is limited. Relocalisation, camera interruption, moving to the background and memory warnings close the current capture; the accumulated point cloud remains exportable, and subsequent capture begins as a new scan.
+- Accumulated points are not re-optimised after later ARKit pose corrections; long acquisitions may drift.
+- Saving happens automatically on pause and as a best-effort save when moving to the background. Points captured since the last completed save may be lost if the app is terminated. Continuous long-term logging is not guaranteed.
+- Restarting the app does not resume the previous AR session; archived scans can be shared again but not continued.
+
+**Gaussian Splatting**
+
+- Not yet validated on a physical device. Appearance, speed, memory use and heat require validation on the target iPhone.
+- ARKit poses are used without separate pose refinement.
+
+## Troubleshooting
+
+### Troubleshooting: app no longer available
+
+If iOS or iPadOS shows **“App is no longer available”** (German: **„App ist nicht mehr verfügbar“**; wording may vary) when you tap the icon of an app installed through Xcode:
+
+> [!CAUTION]
+> **Do not delete the app** — [deleting an app also removes its local data](https://support.apple.com/guide/iphone/remove-or-delete-apps-iph248b543ca/ios). If accessible, first copy **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans** to iCloud Drive or a Mac.
+
+1. Connect the device to the Mac and unlock it.
+2. Open the same `LiDARScanner.xcodeproj` used for the original installation and select the physical device (not the Simulator).
+3. Under **Target LiDARScanner → Signing & Capabilities**, keep the **same Team and Bundle Identifier** used for the original installation.
+4. Select **Run** or press **⌘R** to rebuild, sign and deploy the app again without deleting it first.
+5. Check the scan archive and confirm that the app opens from its Home Screen icon again.
+
+**Why this helps:** The app's signing or provisioning may no longer be valid. With a free Apple Account (**Personal Team**), an expired provisioning profile is the likely cause, especially if the app stopped opening after several days. Apple states that these profiles expire **7 days after issuance** ([Developer account overview → Enable a personal team in Xcode](https://developer.apple.com/help/account/basics/about-your-developer-account)). This is an Apple restriction, not a time limit implemented by LiDAR Scanner.
+
+**If it still does not open:** Check the exact signing or installation error in Xcode before making further changes; the iOS message alone does not confirm an expired profile. Reinstalling is not a substitute for a separate backup of exported scans.
+
+## Development
+
+### Build and test
+
+Prepare the project first (`brew install xcodegen cmake && bash scripts/setup.sh`). Then:
+
+```sh
+# C++ core and export tests (C++17 compiler and Python 3)
+bash Tests/run.sh
+
+# Unsigned Simulator build
+xcodebuild -project LiDARScanner.xcodeproj -scheme LiDARScanner \
+  -configuration Debug -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
+
+# Unit and UI tests in the Simulator (screenshots in build/screenshots)
+bash scripts/test-ios.sh
+```
+
+A Simulator build tests the iOS integration; LiDAR capture can be tested only on a physical device. The [GitHub Actions workflow](.github/workflows/ios-build.yml) builds the pinned Gaussian engine, generates the project from [`project.yml`](project.yml), and runs the Simulator and unsigned Release builds and the tests. Keep `project.yml` and the checked-in Xcode project synchronized.
+
+### Architecture
+
+| Path | Responsibility |
+| --- | --- |
+| `LiDARScanner/ScanModel.swift` | Point-cloud session, permissions, interruptions, saving |
+| `LiDARScanner/DepthProcessor.swift` | Passes buffered depth and colour data to the C++ core |
+| `LiDARScanner/Core/PointCloudCore.cpp` | Back-projection, voxel selection, file export (bridged to Swift via C interface) |
+| `LiDARScanner/Gaussian/` | Gaussian capture, storage, processing and native engine bridge |
+| `LiDARScanner/Reports/` | PDF reports and processing records |
+| `LiDARScanner/Views/` | Native interface, camera, point-cloud and Gaussian previews |
+| `scripts/` | Setup, engine preparation and test scripts |
+
+The Gaussian mode uses msplat-ios and MetalSplatter; see [third-party notices](THIRD_PARTY_NOTICES.md). Geometry and validation details: [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md), [`docs/VALIDATION.md`](docs/VALIDATION.md). Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Roadmap
 
-The following additions are prospective and are not features of version 1.2.0 (Build 4):
+Prospective additions, not features of version 1.2.0 (Build 4):
 
 1. CSV export as an additional open text format.
 2. GNSS metadata accompanying scans.
 
-## Architecture and Validation
-
-`LiDARScanner/ScanModel.swift` controls the session, permissions, interruptions, and saving. `DepthProcessor.swift` passes buffered depth and colour data to `Core/PointCloudCore.cpp`. The core performs back-projection, voxel selection, and file export. `Views/` contains the native interface and the camera and point previews. An Objective-C bridging header connects the C interface to Swift.
-
-The tests require a C++17 compiler and Python 3:
-
-```sh
-bash Tests/run.sh
-```
-
-To build the application on a Mac with Xcode:
-
-```sh
-xcodebuild -project LiDARScanner.xcodeproj -scheme LiDARScanner \
-  -configuration Debug -destination 'generic/platform=iOS Simulator' \
-  CODE_SIGNING_ALLOWED=NO build
-```
-
-A Simulator build tests the iOS integration; LiDAR functionality can be tested only on a physical device. The GitHub Actions workflow reproducibly generates the project from [`project.yml`](project.yml) before running the Simulator build. Details of the geometry and current validation status are provided in [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md) and [`docs/VALIDATION.md`](docs/VALIDATION.md).
-
 ## Citation
 
-Scientific, educational, or documentary use should cite the specific software version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and provides a “Cite this repository” option on the repository page.
+Scientific, educational or documentary use should cite the specific version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and offers a “Cite this repository” option.
 
 > Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.2.0, Build 4) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
 
-## Selected Literature on LiDAR for iPhone and iPad
+<details>
+<summary><strong>Selected literature on LiDAR for iPhone and iPad</strong></summary>
 
 - Antón, D., Mayoral-Valsera, J., Simón-Vallejo, M. D., Parrilla-Giráldez, R., & Cortés-Sánchez, M. (2025). Built-in smartphone LiDAR for archaeological and speleological research. *Journal of Archaeological Science, 181*, 106330. [https://doi.org/10.1016/j.jas.2025.106330](https://doi.org/10.1016/j.jas.2025.106330)
 - Bhatta, B. P., Shah, A., Chaulagain, M. K., Dhungana, A., Mandal, L., Koirala, P., Thapa, S., & Panday, U. S. (2025). Comparative Assessment of Archaeological Scene Reconstruction Using iPhone LiDAR Scanner. *Journal on Geoinformatics, Nepal, 24*, 9–19. [https://doi.org/10.3126/njg.v24i1.79342](https://doi.org/10.3126/njg.v24i1.79342)
@@ -157,11 +272,11 @@ Scientific, educational, or documentary use should cite the specific software ve
 - Paukkonen, N. (2023). Towards a Mobile 3D Documentation Solution. Video-Based Photogrammetry and iPhone 12 Pro as Fieldwork Documentation Tools. *Journal of Computer Applications in Archaeology, 6*(1), 143–154. [https://doi.org/10.5334/jcaa.135](https://doi.org/10.5334/jcaa.135)
 - Soyluoğlu, M., Orabi, R., Hermon, S., & Bakirtzis, N. (2025). Digitizing Challenging Heritage Sites with the Use of iPhone LiDAR and Photogrammetry: The Case-Study of Sourp Magar Monastery in Cyprus. *Geomatics, 5*(3), 44. [https://doi.org/10.3390/geomatics5030044](https://doi.org/10.3390/geomatics5030044)
 
-## Licence and Development Provenance
+</details>
+
+## License, Disclaimer and Provenance
 
 The source code is available under the [MIT License](LICENSE). Information about AI-assisted development is provided in [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md).
-
-## Terms & Disclaimer
 
 **LiDAR Scanner is provided "AS IS", without warranty of any kind, express or implied**, as set out in the [MIT License](LICENSE).
 
