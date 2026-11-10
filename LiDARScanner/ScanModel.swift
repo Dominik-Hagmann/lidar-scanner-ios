@@ -133,6 +133,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             let configuration = activeSettings.core
             worker.async { pc_reset(cloud, configuration) }
             startedAt = Date()
+            if activeSettings.recordLocation {
+                LocationService.shared.startUpdating()
+            }
         }
         worker.async { self.workerLastTimestamp = nil }
         lastScheduledTime = -1
@@ -143,6 +146,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func pauseAndSave() {
         isRecording = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         notice = String(localized: "Paused. Camera tracking remains active.")
         saveCurrent(share: false)
@@ -151,6 +155,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     func newScan() {
         guard !isBusy, let cloud else { return }
         isRecording = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
         generation += 1
@@ -192,6 +197,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private func closeSession(reason: String, localizedReason: String? = nil) {
         guard !sessionClosed else { return }
         isRecording = false; sessionClosed = true; trackingNormal = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         session.pause()
         trackingText = String(localized: "Scan complete")
@@ -310,6 +316,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             ? "Capture session closed; not resumable. " + (closedReason ?? "")
             : "Capture paused; ARSession remained active."
         let format = share ? exportFormat : .binaryPLY
+        let recordedLocation = config.recordLocation ? LocationService.shared.currentLocation : nil
         worker.async {
             do {
                 let stats = pc_stats(cloud)
@@ -336,7 +343,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         confidenceMeaning: "ARConfidenceLevel: 0 low, 1 medium, 2 high; categorical, not metric uncertainty",
                         pointSelection: "One observation per world voxel; first sample retained unless higher confidence arrives; no averaging or surface reconstruction",
                         colorSource: "ARFrame.capturedImage; YCbCr to RGB; 601/709 attachment, 601 fallback; full/video range; not radiometrically calibrated",
-                        sessionNote: note)
+                        sessionNote: note,
+                        location: recordedLocation)
                     saved = try ScanStorage.save(cloud, metadata: metadata, format: format)
                     self.cachedScan = saved; self.savedSamples = stats.acceptedSamples; self.savedTitle = title
                 }

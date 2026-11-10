@@ -136,7 +136,7 @@ xcodebuild -project LiDARScanner.xcodeproj -scheme LiDARScanner \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-A Simulator build tests the iOS integration; LiDAR functionality can be tested only on a physical device. The GitHub Actions workflow reproducibly generates the project from [`project.yml`](project.yml) before running the Simulator build. Details of the geometry and current validation status are provided in [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md) and [`docs/VALIDATION.md`](docs/VALIDATION.md).
+A Simulator build tests the iOS integration; LiDAR functionality can be tested only on a physical device. The GitHub Actions workflow reproducibly generates the project from [`project.yml`](project.yml) before running the Simulator build. Details of the geometry, current validation status and planned future enhancements are provided in [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md), [`docs/VALIDATION.md`](docs/VALIDATION.md), and [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Citation
 

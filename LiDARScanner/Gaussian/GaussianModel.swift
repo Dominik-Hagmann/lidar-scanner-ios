@@ -80,11 +80,13 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     func begin() {
         guard !isBusy, !isRecording, current == nil, cameraReady, trackingNormal else { return }
         isBusy = true; status = String(localized: "Starting capture…"); lastPose = nil; lastTime = -Double.infinity
+        LocationService.shared.startUpdating()
         let now = Date()
-        let project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
+        var project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
             appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
             device: Self.deviceIdentifier(), operatingSystem: UIDevice.current.systemVersion)
+        project.location = LocationService.shared.currentLocation
         worker.async {
             do {
                 if let seed = self.seed { pc_destroy(seed) }
@@ -167,13 +169,16 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             return
         }
         isRecording = false; isBusy = true; processingActive = process; cameraReady = false; session.pause()
+        LocationService.shared.stopUpdating()
         status = String(localized: "Saving your capture…")
         stop.reset()
         if !process { stop.set(reason) }
+        let finalLocation = LocationService.shared.currentLocation
         worker.async {
             do {
                 guard let store = self.store else { return }
                 store.project.phase = .captured
+                if store.project.location == nil { store.project.location = finalLocation }
                 if reason != "user_finished" { store.project.lastIssue = reason }
                 try store.event("capture_finished", ["reason": reason, "savedViews": "\(store.project.frames.count)"])
                 try store.saveDataset()

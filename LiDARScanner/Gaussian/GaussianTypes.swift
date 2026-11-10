@@ -99,6 +99,7 @@ struct GaussianProject: Codable, Identifiable {
     var enginePatch = "scanner-io-audit-5"
     var viewerRevision = GaussianProject.pinnedViewerRevision
     var coordinateSystem = "ARKit world; right-handed; metres; Y up; camera-to-world OpenGL (-Z forward, +Y up); no CRS/EPSG or north alignment"
+    var location: GeoLocation?
     var capturePolicy: [String: String] = [
         "minimumIntervalSeconds": "0.5", "minimumTranslationMetres": "0.025",
         "minimumRotationDegrees": "3", "trackingRequired": "normal",

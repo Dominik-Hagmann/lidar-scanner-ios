@@ -43,6 +43,14 @@ struct SettingsSheet: View {
                     Text("Depths below 0.2 m are discarded. No points are added while tracking is limited.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                Section("Georeferencing") {
+                    Toggle("Record GNSS Location", isOn: $model.settings.recordLocation)
+                        .onChange(of: model.settings.recordLocation) { _, enabled in
+                            if enabled { LocationService.shared.requestAuthorization() }
+                        }
+                    Text("Records WGS84 coordinates, altitude, and horizontal accuracy at scan start to enable geographic placement in GIS software and documentation reports.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Section("Export") {
                     Picker("Format", selection: $model.exportFormat) {
                         ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }

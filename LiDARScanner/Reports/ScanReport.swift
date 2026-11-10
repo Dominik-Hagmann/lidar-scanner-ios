@@ -52,6 +52,18 @@ enum ScanReport {
             "Protokollierter Status: \(p.phase.rawValue). Das zuletzt protokollierte Modell enthält \(p.splatCount) Gaussians. Die erfasste Verarbeitungszeit nach Initialisierung der Engine beträgt insgesamt \(number(p.processingSeconds)) Sekunden einschließlich zwischenzeitlicher Sicherungs-/Exportarbeit. Der Szenenexport ist \(p.hasResult ? "vorhanden" : "nicht vorhanden")."))
         if let issue = p.lastIssue { paragraphs.append(text("Last recorded issue or pause reason: \(issue).", "Zuletzt protokollierter Fehler oder Pausengrund: \(issue).")) }
         paragraphs.append(text("Coordinates and limits", "Koordinaten und Grenzen"))
+        if let loc = p.location {
+            let lat = String(format: "%.6f", loc.latitude)
+            let lon = String(format: "%.6f", loc.longitude)
+            let altStr = loc.altitude.map { String(format: "%.2f m", $0) } ?? "n/a"
+            let hAcc = String(format: "±%.1f m", loc.horizontalAccuracy)
+            let vAcc = loc.verticalAccuracy.map { String(format: "±%.1f m", $0) } ?? "n/a"
+            let headingStr = loc.heading.map { String(format: "%.1f°", $0) } ?? "n/a"
+            paragraphs.append(
+                text("Recorded GNSS location (WGS84): \(lat)°, \(lon)°, altitude \(altStr) (horizontal accuracy \(hAcc), vertical accuracy \(vAcc)). Heading: \(headingStr).",
+                     "Erfasste GNSS-Position (WGS84): \(lat)°, \(lon)°, Höhe \(altStr) (horizontale Genauigkeit \(hAcc), vertikale Genauigkeit \(vAcc)). Ausrichtung: \(headingStr).")
+            )
+        }
         paragraphs.append(text("Capture and Gaussian PLY use the local ARKit coordinate frame in metres, with Y pointing up and no map reference, EPSG code or north alignment. Camera matrices use the OpenGL convention. The engine centres/scales data internally and restores the original coordinate frame on export (keepCrs=true). This differs from the separate point-cloud mode's Z-up export. Camera poses were taken from ARKit without a separate bundle adjustment or subsequent drift correction. Gaussian optimization may move centres away from measured depth points. No independent metric accuracy, complete coverage or survey suitability was established.",
             "Aufnahme und Gaussian-PLY verwenden das lokale ARKit-Koordinatensystem in Metern mit Y nach oben, ohne Kartenbezug, EPSG-Code oder Nordausrichtung. Die Kameramatrizen folgen der OpenGL-Konvention. Die Engine zentriert/skaliert intern und stellt beim Export das ursprüngliche Koordinatensystem wieder her (keepCrs=true). Dies unterscheidet sich vom Z-oben-Export des separaten Punktwolkenmodus. Kameraposen wurden aus ARKit übernommen, ohne separate Bündelausgleichung oder nachträgliche Driftkorrektur. Die Optimierung kann Gaussian-Zentren gegenüber gemessenen Tiefenpunkten verschieben. Unabhängige metrische Genauigkeit, vollständige Abdeckung oder Vermessungseignung wurden nicht nachgewiesen."))
         paragraphs.append(text("All capture, processing and report generation took place on the device. The app made no upload for these operations. Sharing is initiated separately by the user through the system share sheet. The images and transforms.json can be exported for processing in other software. scan.json stores the full parameters; events.jsonl stores chronological decisions, steps and errors. SHA-256 checksums identify file contents; the linked event hashes are not a digital signature. GPU floating-point accumulation and random camera sampling mean rerunning training need not produce a bit-identical result.",
@@ -70,7 +82,7 @@ enum ScanReport {
 
     static func pointCloud(_ scan: SavedScan) throws -> URL {
         let p = scan.metadata
-        let paragraphs = [
+        var paragraphs = [
             text("Point cloud — processing report", "Punktwolke – Verarbeitungsbericht"),
             text("Scan “\(p.title)” (\(p.scanID.uuidString)) started at \(date(p.startedAt)) and was saved at \(date(p.savedAt)). The recorded app version is \(p.appVersion), build \(p.appBuild ?? "unknown"), on \(p.deviceModel), iOS \(p.systemVersion).",
                 "Der Scan „\(p.title)“ (\(p.scanID.uuidString)) wurde am \(date(p.startedAt)) begonnen und am \(date(p.savedAt)) gespeichert. Protokolliert sind App-Version \(p.appVersion), Build \(p.appBuild ?? "unbekannt"), Gerät \(p.deviceModel) und iOS \(p.systemVersion)."),
@@ -79,12 +91,26 @@ enum ScanReport {
             text("Sampling used a voxel size of \(p.settings.voxelCentimeters) centimetres, a minimum depth of 0.2 metres, a maximum depth of \(p.settings.maxDepth) metres, pixel step \(p.settings.pixelStep) and minimum confidence \(p.settings.minConfidence). The point limit was \(p.settings.maxPoints) (zero means automatic memory monitoring). One observation was retained per voxel; a later observation replaced it only if it had higher confidence. There was no averaging or surface reconstruction.",
                 "Die Auswahl verwendete eine Voxelgröße von \(p.settings.voxelCentimeters) Zentimetern, eine Mindesttiefe von 0,2 Metern, eine Höchsttiefe von \(p.settings.maxDepth) Metern, einen Pixelabstand von \(p.settings.pixelStep) und eine Mindestkonfidenz von \(p.settings.minConfidence). Das Punktlimit betrug \(p.settings.maxPoints) (null bedeutet automatische Speicherüberwachung). Pro Voxel wurde eine Beobachtung beibehalten; eine spätere Beobachtung ersetzte diese nur bei höherer Konfidenz. Es erfolgten weder Mittelwertbildung noch Oberflächenrekonstruktion."),
             text("Export coordinates are local and right-handed, in metres with Z pointing up. The transformation from ARKit is (x, y, z) → (x, −z, y). There is no map reference, EPSG code or north alignment. Binary and text PLY preserve RGB color and categorical confidence; XYZ contains coordinates only. Color came from the camera image and was not radiometrically calibrated.",
-                "Exportkoordinaten sind lokal und rechtshändig, in Metern mit Z nach oben. Die Transformation aus ARKit lautet (x, y, z) → (x, −z, y). Es bestehen weder Kartenbezug noch EPSG-Code oder Nordausrichtung. Binär- und Text-PLY enthalten RGB-Farbe und kategoriale Konfidenz; XYZ enthält nur Koordinaten. Die Farbe stammt aus dem Kamerabild und wurde nicht radiometrisch kalibriert."),
+                "Exportkoordinaten sind lokal und rechtshändig, in Metern mit Z nach oben. Die Transformation aus ARKit lautet (x, y, z) → (x, −z, y). Es bestehen weder Kartenbezug noch EPSG-Code oder Nordausrichtung. Binär- und Text-PLY enthalten RGB-Farbe und kategoriale Konfidenz; XYZ enthält nur Koordinaten. Die Farbe stammt aus dem Kamerabild und wurde nicht radiometrisch kalibriert.")
+        ]
+        if let loc = p.location {
+            let lat = String(format: "%.6f", loc.latitude)
+            let lon = String(format: "%.6f", loc.longitude)
+            let altStr = loc.altitude.map { String(format: "%.2f m", $0) } ?? "n/a"
+            let hAcc = String(format: "±%.1f m", loc.horizontalAccuracy)
+            let vAcc = loc.verticalAccuracy.map { String(format: "±%.1f m", $0) } ?? "n/a"
+            let headingStr = loc.heading.map { String(format: "%.1f°", $0) } ?? "n/a"
+            paragraphs.append(
+                text("Recorded GNSS location (WGS84): \(lat)°, \(lon)°, altitude \(altStr) (horizontal accuracy \(hAcc), vertical accuracy \(vAcc)). Heading: \(headingStr).",
+                     "Erfasste GNSS-Position (WGS84): \(lat)°, \(lon)°, Höhe \(altStr) (horizontale Genauigkeit \(hAcc), vertikale Genauigkeit \(vAcc)). Ausrichtung: \(headingStr).")
+            )
+        }
+        paragraphs.append(contentsOf: [
             text("Recorded session note: \(p.sessionNote)", "Protokollierter Sitzungsvermerk: \(p.sessionNote)"),
             text("This report uses the metadata saved with the point cloud. This mode does not save RGB keyframes, camera poses or individual frame-selection decisions. These cannot be reconstructed from the export. No independent metric accuracy or complete coverage was measured. The scan was processed locally; sharing takes place only when requested by the user.",
                 "Dieser Bericht verwendet die mit der Punktwolke gespeicherten Metadaten. Dieser Modus speichert keine RGB-Einzelbilder, Kameraposen oder einzelnen Bildauswahlentscheidungen. Diese lassen sich aus dem Export nicht rekonstruieren. Unabhängige metrische Genauigkeit oder vollständige Abdeckung wurden nicht gemessen. Der Scan wurde lokal verarbeitet; eine Weitergabe erfolgt auf Wunsch des Nutzers."),
             "metadata.json:\n" + (String(data: try GaussianStore.encoder.encode(p), encoding: .utf8) ?? "")
-        ]
+        ])
         return try pdf(paragraphs: paragraphs, name: "Point-cloud-report-\(p.scanID.uuidString.prefix(8))")
     }
 

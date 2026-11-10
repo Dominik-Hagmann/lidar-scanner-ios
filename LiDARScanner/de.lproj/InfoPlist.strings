@@ -1,1 +1,2 @@
 "NSCameraUsageDescription" = "LiDAR-Scanner benötigt die Kamera und den LiDAR-Sensor, um Punktwolken und 3D-Szenen aufzunehmen.";
+"NSLocationWhenInUseUsageDescription" = "LiDAR-Scanner erfasst optionale GNSS-Koordinaten zur Georeferenzierung von Scans für die Dokumentation.";

@@ -220,3 +220,6 @@
 "Processing paused to let the iPhone cool down." = "Die Verarbeitung pausiert, damit das iPhone abkühlen kann.";
 "Camera tracking was interrupted. The saved views are available to process." = "Das Kamera-Tracking wurde unterbrochen. Die gespeicherten Ansichten können verarbeitet werden.";
 "Recording was interrupted. The saved views remain available." = "Die Aufnahme wurde unterbrochen. Die gespeicherten Ansichten bleiben verfügbar.";
+"Georeferencing" = "Georeferenzierung";
+"Record GNSS Location" = "GNSS-Standort erfassen";
+"Records WGS84 coordinates, altitude, and horizontal accuracy at scan start to enable geographic placement in GIS software and documentation reports." = "Erfasst WGS84-Koordinaten, Höhe und Genauigkeit bei Scanbeginn für die räumliche Einordnung in GIS und Dokumentationsberichten.";

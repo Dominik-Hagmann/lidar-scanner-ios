@@ -118,4 +118,57 @@ final class ScanTests: XCTestCase {
         let bytes = try Data(contentsOf: zip)
         XCTAssertEqual(Array(bytes.prefix(4)), [0x50, 0x4b, 0x03, 0x04])
     }
+
+    func testScanMetadataLocationEncodingAndDecodingRoundTrip() throws {
+        let loc = GeoLocation(latitude: 48.2082, longitude: 16.3738, altitude: 171.5,
+                              horizontalAccuracy: 3.5, verticalAccuracy: 4.0, heading: 180.0,
+                              timestamp: Date(timeIntervalSince1970: 1_790_000_000))
+        let meta = ScanMetadata(schemaVersion: 1, appVersion: "1.2.0", appBuild: "4",
+                                scanID: UUID(), title: "Test Scan",
+                                startedAt: Date(timeIntervalSince1970: 1_790_000_000),
+                                savedAt: Date(timeIntervalSince1970: 1_790_000_010),
+                                pointCount: 100, acceptedSamples: 200, processedFrames: 10,
+                                activeSeconds: 5.0, settings: ScanSettings(), deviceModel: "iPhone",
+                                systemVersion: "18.0", depthWidth: 256, depthHeight: 192,
+                                unit: "metre", coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+                                depthSource: "sceneDepth", confidenceMeaning: "0-2", pointSelection: "voxel",
+                                colorSource: "camera", sessionNote: "note", location: loc)
+        let data = try JSONEncoder().encode(meta)
+        let decoded = try JSONDecoder().decode(ScanMetadata.self, from: data)
+        XCTAssertEqual(decoded.location?.latitude, 48.2082)
+        XCTAssertEqual(decoded.location?.longitude, 16.3738)
+        XCTAssertEqual(decoded.location?.altitude, 171.5)
+        XCTAssertEqual(decoded.location?.horizontalAccuracy, 3.5)
+        XCTAssertEqual(decoded.location?.verticalAccuracy, 4.0)
+        XCTAssertEqual(decoded.location?.heading, 180.0)
+
+        // Legacy compatibility test: JSON without location field
+        let legacyJSON = """
+        {
+            "schemaVersion": 1, "appVersion": "1.0.0", "scanID": "\(UUID().uuidString)",
+            "title": "Legacy", "startedAt": 0, "savedAt": 10, "pointCount": 10,
+            "acceptedSamples": 10, "processedFrames": 1, "activeSeconds": 1.0,
+            "settings": { "voxelCentimeters": 1, "maxDepth": 5, "minConfidence": 1, "pixelStep": 2, "maxPoints": 0 },
+            "deviceModel": "iPhone", "systemVersion": "17.0", "depthWidth": 256, "depthHeight": 192,
+            "unit": "metre", "coordinateSystem": "Local", "arkitToExportRowMajor": [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            "depthSource": "sceneDepth", "confidenceMeaning": "0-2", "pointSelection": "voxel",
+            "colorSource": "camera", "sessionNote": "note"
+        }
+        """.data(using: .utf8)!
+        let legacyDecoded = try JSONDecoder().decode(ScanMetadata.self, from: legacyJSON)
+        XCTAssertNil(legacyDecoded.location)
+        XCTAssertTrue(legacyDecoded.settings.recordLocation)
+    }
+
+    func testReportIncludesGeoreferencingWhenLocationIsPresent() throws {
+        var p = project()
+        p.location = GeoLocation(latitude: 48.2082, longitude: 16.3738, altitude: 171.5,
+                                 horizontalAccuracy: 2.5, verticalAccuracy: 3.0, heading: 45.0,
+                                 timestamp: Date(timeIntervalSince1970: 1_790_000_000))
+        let paragraphs = ScanReport.gaussianParagraphs(p)
+        let text = paragraphs.joined(separator: "\n")
+        XCTAssertTrue(text.contains("48.208200"))
+        XCTAssertTrue(text.contains("16.373800"))
+        XCTAssertTrue(text.contains("171.50 m"))
+    }
 }

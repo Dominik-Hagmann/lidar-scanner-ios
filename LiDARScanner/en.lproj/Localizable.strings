@@ -220,3 +220,6 @@
 "Processing paused to let the iPhone cool down." = "Processing paused to let the iPhone cool down.";
 "Camera tracking was interrupted. The saved views are available to process." = "Camera tracking was interrupted. The saved views are available to process.";
 "Recording was interrupted. The saved views remain available." = "Recording was interrupted. The saved views remain available.";
+"Georeferencing" = "Georeferencing";
+"Record GNSS Location" = "Record GNSS Location";
+"Records WGS84 coordinates, altitude, and horizontal accuracy at scan start to enable geographic placement in GIS software and documentation reports." = "Records WGS84 coordinates, altitude, and horizontal accuracy at scan start to enable geographic placement in GIS software and documentation reports.";

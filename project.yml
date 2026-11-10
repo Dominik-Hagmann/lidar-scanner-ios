@@ -37,6 +37,7 @@ targets:
       - sdk: MetalPerformanceShaders.framework
       - sdk: ImageIO.framework
       - sdk: CoreGraphics.framework
+      - sdk: CoreLocation.framework
       - sdk: libz.tbd
       - sdk: libc++.tbd
     settings:
