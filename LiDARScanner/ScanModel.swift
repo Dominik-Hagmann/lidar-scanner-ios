@@ -73,6 +73,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
         session.pause()
+        TorchService.shared.turnOff()
         if let cloud { pc_destroy(cloud) }
     }
 
@@ -150,6 +151,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func newScan() {
         guard !isBusy, let cloud else { return }
+        TorchService.shared.turnOff()
         isRecording = false
         UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
@@ -191,6 +193,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func closeSession(reason: String, localizedReason: String? = nil) {
         guard !sessionClosed else { return }
+        TorchService.shared.turnOff()
         isRecording = false; sessionClosed = true; trackingNormal = false
         UIApplication.shared.isIdleTimerDisabled = false
         session.pause()

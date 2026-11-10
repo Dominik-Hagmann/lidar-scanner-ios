@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GaussianScannerView: View {
     @ObservedObject var model: GaussianModel
+    @ObservedObject private var torch = TorchService.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var details = false
     @State private var archive = false
@@ -52,13 +53,28 @@ struct GaussianScannerView: View {
                     } else if model.current == nil {
                         Image(systemName: "viewfinder").font(.system(size: 72, weight: .ultraLight)).foregroundStyle(mint)
                     }
+                } else if torch.isAvailable {
+                    HStack {
+                        Spacer()
+                        Button { torch.toggle() } label: {
+                            Image(systemName: torch.isOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                                .font(.title3)
+                                .foregroundStyle(torch.isOn ? .yellow : .white)
+                                .frame(width: 48, height: 48)
+                                .background(.ultraThinMaterial, in: Circle())
+                        }.accessibilityLabel(LocalizedStringKey(torch.isOn ? "Turn Off Torch" : "Turn On Torch"))
+                    }
                 }
                 Spacer()
             }.padding(20)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { controls }
         .task { model.enterMode() }
-        .onChange(of: scenePhase) { _, value in model.sceneChanged(value) }
+        .onChange(of: scenePhase) { _, value in
+            model.sceneChanged(value)
+            if value != .active { torch.turnOff() }
+        }
+        .onDisappear { torch.turnOff() }
         .sheet(isPresented: $archive) { GaussianArchiveView(model: model) }
         .sheet(isPresented: $details) { GaussianDetailsView(model: model) }
         .sheet(isPresented: $preview) {

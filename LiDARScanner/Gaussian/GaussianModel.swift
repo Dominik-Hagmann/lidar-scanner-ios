@@ -47,6 +47,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     deinit {
         if let memoryObserver { NotificationCenter.default.removeObserver(memoryObserver) }
         session.pause()
+        TorchService.shared.turnOff()
         if let seed { pc_destroy(seed) }
     }
 
@@ -166,6 +167,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             status = String(localized: "Capture a few more views before finishing. Move around the subject.")
             return
         }
+        TorchService.shared.turnOff()
         isRecording = false; isBusy = true; processingActive = process; cameraReady = false; session.pause()
         status = String(localized: "Saving your capture…")
         stop.reset()

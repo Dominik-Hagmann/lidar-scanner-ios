@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScannerView: View {
     @ObservedObject var model: ScanModel
+    @ObservedObject private var torch = TorchService.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPoints = true
     @State private var showSettings = false
@@ -46,18 +47,33 @@ struct ScannerView: View {
                 if model.supported && !model.cameraDenied {
                     HStack {
                         Spacer()
-                        Button { showPoints.toggle() } label: {
-                            Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
-                                .font(.title3).frame(width: 48, height: 48)
-                                .background(.ultraThinMaterial, in: Circle())
-                        }.accessibilityLabel(LocalizedStringKey(showPoints ? "Hide Points" : "Show Points"))
+                        VStack(spacing: 12) {
+                            if torch.isAvailable {
+                                Button { torch.toggle() } label: {
+                                    Image(systemName: torch.isOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(torch.isOn ? .yellow : .white)
+                                        .frame(width: 48, height: 48)
+                                        .background(.ultraThinMaterial, in: Circle())
+                                }.accessibilityLabel(LocalizedStringKey(torch.isOn ? "Turn Off Torch" : "Turn On Torch"))
+                            }
+                            Button { showPoints.toggle() } label: {
+                                Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
+                                    .font(.title3).frame(width: 48, height: 48)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }.accessibilityLabel(LocalizedStringKey(showPoints ? "Hide Points" : "Show Points"))
+                        }
                     }
                 }
             }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { controls }
         .task { model.prepare() }
-        .onChange(of: scenePhase) { _, phase in model.sceneChanged(phase) }
+        .onChange(of: scenePhase) { _, phase in
+            model.sceneChanged(phase)
+            if phase != .active { torch.turnOff() }
+        }
+        .onDisappear { torch.turnOff() }
         .sheet(isPresented: $showSettings) { SettingsSheet(model: model) }
         .sheet(isPresented: $showArchive) { ArchiveSheet(model: model) }
         .sheet(isPresented: $showPreview) { CloudPreviewSheet(points: model.preview, total: model.pointCount) }

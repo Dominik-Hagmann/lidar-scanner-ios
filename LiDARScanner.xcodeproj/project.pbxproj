@@ -29,6 +29,7 @@
 		88ADB3A310D6ED4FCC7D1F3D /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 736FF58692C13F2293C3543F /* libc++.tbd */; };
 		89CF6962EF46B1F4224C27D5 /* ScanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3031CC885A856F3E3A031916 /* ScanModel.swift */; };
 		9C6C194F3BAD392B54CBD491 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7E1C70452383F1A34740120 /* CoreGraphics.framework */; };
+		9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33170E03775E44A0FE0F08 /* TorchService.swift */; };
 		A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */; };
 		ADA408CC506FA2612DD3B192 /* GaussianNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */; };
 		BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */; };
@@ -79,6 +80,7 @@
 		42139EA85008E4704A59116C /* LiDARScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LiDARScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheet.swift; sourceTree = "<group>"; };
 		4A8998633ABD7A09D8577682 /* ScanTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4E33170E03775E44A0FE0F08 /* TorchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchService.swift; sourceTree = "<group>"; };
 		52E7560BA5CDA6710DD79AEB /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		591AE06B83745D2184C647E8 /* ScanTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypes.swift; sourceTree = "<group>"; };
 		618F90E24DA56B4F20ACFCCD /* GaussianTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianTypes.swift; sourceTree = "<group>"; };
@@ -165,6 +167,7 @@
 				3031CC885A856F3E3A031916 /* ScanModel.swift */,
 				591AE06B83745D2184C647E8 /* ScanTypes.swift */,
 				6FD3D088CBFAC3C78C218D2E /* ThirdPartyLicenses.txt */,
+				4E33170E03775E44A0FE0F08 /* TorchService.swift */,
 				086BBBF6C8B03AEC8A2A8E5F /* Core */,
 				4AAFDB7FB6D055E570EC4FF9 /* Gaussian */,
 				49B78147AC2AB1AEF37F7983 /* InfoPlist.strings */,
@@ -428,6 +431,7 @@
 				49E6752BD21827E7933D1621 /* ScanTypes.swift in Sources */,
 				0D3198EB1A47172D1593C06A /* ScannerView.swift in Sources */,
 				BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */,
+				9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

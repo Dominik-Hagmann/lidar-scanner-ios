@@ -50,6 +50,30 @@ struct SettingsSheet: View {
                     Text("PLY contains XYZ, RGB, and confidence; XYZ contains three coordinate columns. All coordinates are local, in meters, with Z pointing up. Each scan includes a JSON metadata file.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                if TorchService.shared.isAvailable {
+                    Section("Illumination") {
+                        Toggle("Torch", isOn: Binding(
+                            get: { TorchService.shared.isOn },
+                            set: { TorchService.shared.setTorch(on: $0) }
+                        ))
+                        if TorchService.shared.isOn {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Brightness")
+                                    Spacer()
+                                    Text("\(Int(TorchService.shared.level * 100))%")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Slider(value: Binding(
+                                    get: { TorchService.shared.level },
+                                    set: { TorchService.shared.setTorch(on: true, level: $0) }
+                                ), in: 0.1...1.0, step: 0.05)
+                            }
+                        }
+                        Text("Illuminates dark surfaces, niches, trenches, and interiors during capture.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Section("Storage") {
                     Text("Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive.")
                     Text("After a camera interruption or a switch to the background, the scan can still be exported. Additional points are captured in a new scan.")

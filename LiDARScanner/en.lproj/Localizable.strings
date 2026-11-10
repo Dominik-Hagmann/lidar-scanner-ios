@@ -220,3 +220,9 @@
 "Processing paused to let the iPhone cool down." = "Processing paused to let the iPhone cool down.";
 "Camera tracking was interrupted. The saved views are available to process." = "Camera tracking was interrupted. The saved views are available to process.";
 "Recording was interrupted. The saved views remain available." = "Recording was interrupted. The saved views remain available.";
+"Illumination" = "Illumination";
+"Torch" = "Torch";
+"Turn On Torch" = "Turn On Torch";
+"Turn Off Torch" = "Turn Off Torch";
+"Brightness" = "Brightness";
+"Illuminates dark surfaces, niches, trenches, and interiors during capture." = "Illuminates dark surfaces, niches, trenches, and interiors during capture.";

@@ -118,4 +118,16 @@ final class ScanTests: XCTestCase {
         let bytes = try Data(contentsOf: zip)
         XCTAssertEqual(Array(bytes.prefix(4)), [0x50, 0x4b, 0x03, 0x04])
     }
+
+    func testTorchServiceInitializationAndSafeFallback() {
+        let torch = TorchService.shared
+        XCTAssertFalse(torch.isOn)
+        torch.setTorch(on: true, level: 0.8)
+        if !torch.isAvailable {
+            XCTAssertFalse(torch.isOn)
+        }
+        torch.toggle()
+        torch.turnOff()
+        XCTAssertFalse(torch.isOn)
+    }
 }
