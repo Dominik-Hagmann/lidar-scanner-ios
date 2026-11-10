@@ -118,4 +118,13 @@ final class ScanTests: XCTestCase {
         let bytes = try Data(contentsOf: zip)
         XCTAssertEqual(Array(bytes.prefix(4)), [0x50, 0x4b, 0x03, 0x04])
     }
+
+    func testMeasurementDistanceCalculation() {
+        let p1 = SIMD3<Float>(0.0, 0.0, 0.0)
+        let p2 = SIMD3<Float>(0.3, 0.4, 0.0) // 3-4-5 right triangle -> 0.5 m = 50.0 cm
+        let dist = simd_distance(p1, p2)
+        XCTAssertEqual(dist, 0.5, accuracy: 0.0001)
+        let cm = dist * 100
+        XCTAssertEqual(cm, 50.0, accuracy: 0.01)
+    }
 }

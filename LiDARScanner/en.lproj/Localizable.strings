@@ -220,3 +220,8 @@
 "Processing paused to let the iPhone cool down." = "Processing paused to let the iPhone cool down.";
 "Camera tracking was interrupted. The saved views are available to process." = "Camera tracking was interrupted. The saved views are available to process.";
 "Recording was interrupted. The saved views remain available." = "Recording was interrupted. The saved views remain available.";
+"Measure" = "Measure";
+"Distance" = "Distance";
+"Reset" = "Reset";
+"Tap second point to measure distance" = "Tap second point to measure distance";
+"Tap first point in the scene" = "Tap first point in the scene";

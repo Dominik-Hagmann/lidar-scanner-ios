@@ -220,3 +220,8 @@
 "Processing paused to let the iPhone cool down." = "Die Verarbeitung pausiert, damit das iPhone abkühlen kann.";
 "Camera tracking was interrupted. The saved views are available to process." = "Das Kamera-Tracking wurde unterbrochen. Die gespeicherten Ansichten können verarbeitet werden.";
 "Recording was interrupted. The saved views remain available." = "Die Aufnahme wurde unterbrochen. Die gespeicherten Ansichten bleiben verfügbar.";
+"Measure" = "Messen";
+"Distance" = "Distanz";
+"Reset" = "Zurücksetzen";
+"Tap second point to measure distance" = "Zweiten Punkt antippen, um Distanz zu messen";
+"Tap first point in the scene" = "Ersten Punkt in der Szene antippen";
