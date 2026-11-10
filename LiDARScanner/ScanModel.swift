@@ -47,6 +47,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     // Keep the original reason in metadata; localize only the displayed notice.
     private var closedReason: String?
     private var localizedClosedReason: String?
+    private var meshAnchors: [UUID: ARMeshAnchor] = [:]
+    var hasMesh: Bool { !meshAnchors.isEmpty }
     // Worker queue only:
     private var workerFrames = 0
     private var workerSeconds: Double = 0
@@ -105,8 +107,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func startSession(reset: Bool) {
         guard foreground, supported, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
+        if reset { meshAnchors.removeAll() }
         let configuration = ARWorldTrackingConfiguration()
         configuration.frameSemantics = [.sceneDepth]
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            configuration.sceneReconstruction = .mesh
+        }
         configuration.worldAlignment = .gravity
         configuration.isLightEstimationEnabled = false
         session.run(configuration, options: reset ? [.resetTracking, .removeExistingAnchors] : [])
@@ -162,6 +168,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             self.workerWidth = 0; self.workerHeight = 0
             self.cachedScan = nil; self.savedSamples = 0; self.savedTitle = ""
             DispatchQueue.main.async {
+                self.meshAnchors.removeAll()
                 self.pointCount = 0; self.activeSeconds = 0
                 self.preview = []; self.previewVersion += 1
                 self.scanTitle = ""; self.sessionClosed = !self.foreground
@@ -284,6 +291,24 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
 
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        for a in anchors {
+            if let m = a as? ARMeshAnchor { meshAnchors[m.identifier] = m }
+        }
+    }
+
+    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        for a in anchors {
+            if let m = a as? ARMeshAnchor { meshAnchors[m.identifier] = m }
+        }
+    }
+
+    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        for a in anchors {
+            if let m = a as? ARMeshAnchor { meshAnchors.removeValue(forKey: m.identifier) }
+        }
+    }
+
     func leaveMode() {
         guard !isBusy, !isRecording else { return }
         closeSession(reason: "The scan mode was changed. This capture is complete.")
@@ -295,7 +320,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         if !sessionStarted { prepare() }
     }
 
-    func saveCurrent(share: Bool, report: Bool = false) {
+    func saveCurrent(share: Bool, report: Bool = false, shareMesh: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false
         UIApplication.shared.isIdleTimerDisabled = false
@@ -310,6 +335,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             ? "Capture session closed; not resumable. " + (closedReason ?? "")
             : "Capture paused; ARSession remained active."
         let format = share ? exportFormat : .binaryPLY
+        let currentMeshAnchors = Array(meshAnchors.values)
         worker.async {
             do {
                 let stats = pc_stats(cloud)
@@ -340,6 +366,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     saved = try ScanStorage.save(cloud, metadata: metadata, format: format)
                     self.cachedScan = saved; self.savedSamples = stats.acceptedSamples; self.savedTitle = title
                 }
+                if !currentMeshAnchors.isEmpty && (!FileManager.default.fileExists(atPath: saved.meshURL.path) || self.savedSamples != stats.acceptedSamples) {
+                    try? MeshExporter.writeOBJ(anchors: currentMeshAnchors, to: saved.meshURL)
+                }
                 var snapshot = [PCPoint](repeating: PCPoint(), count: min(40_000, Int(stats.pointCount)))
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
                 let archive = try ScanStorage.list()
@@ -353,6 +382,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         : String(localized: "Scan saved on this device.")
                     if share { self.sharedFiles = SharedFiles(urls: [saved.url(for: format), saved.metadataURL]) }
                     if let reportURL { self.sharedFiles = SharedFiles(urls: [reportURL]) }
+                    if shareMesh && FileManager.default.fileExists(atPath: saved.meshURL.path) {
+                        self.sharedFiles = SharedFiles(urls: [saved.meshURL])
+                    }
                     self.endBackgroundTask()
                 }
             } catch {
@@ -364,6 +396,11 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 }
             }
         }
+    }
+
+    func shareMesh(_ scan: SavedScan) {
+        guard scan.hasMesh else { return }
+        sharedFiles = SharedFiles(urls: [scan.meshURL])
     }
 
     func refreshArchive() {

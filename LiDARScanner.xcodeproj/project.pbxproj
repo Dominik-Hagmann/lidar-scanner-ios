@@ -15,6 +15,7 @@
 		2A7CABA154D824EA1430320D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B52991869259B387973DF071 /* MetalKit.framework */; };
 		2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00745DD212891C12D2C7D923 /* ExportSheet.swift */; };
 		351CCAB228E2DF1FA9F0117B /* LiDARScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */; };
+		387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DE3BBF4A33738A02461DDD /* MeshExporter.swift */; };
 		49E6752BD21827E7933D1621 /* ScanTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591AE06B83745D2184C647E8 /* ScanTypes.swift */; };
 		513023056F015575CFAD535C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 654E310C9A032255F34E8CED /* Localizable.strings */; };
 		54701E4CB715E3E0E35B2594 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */; };
@@ -80,6 +81,7 @@
 		4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheet.swift; sourceTree = "<group>"; };
 		4A8998633ABD7A09D8577682 /* ScanTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		52E7560BA5CDA6710DD79AEB /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		57DE3BBF4A33738A02461DDD /* MeshExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshExporter.swift; sourceTree = "<group>"; };
 		591AE06B83745D2184C647E8 /* ScanTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypes.swift; sourceTree = "<group>"; };
 		618F90E24DA56B4F20ACFCCD /* GaussianTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianTypes.swift; sourceTree = "<group>"; };
 		667722F4881FB4376538BEF7 /* ScanReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReport.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				BD88BE26E4CAF5629042A93B /* Info.plist */,
 				3EA2DF3528684D17BD3F0544 /* LiDARScanner-Bridging-Header.h */,
 				8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */,
+				57DE3BBF4A33738A02461DDD /* MeshExporter.swift */,
 				A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */,
 				3031CC885A856F3E3A031916 /* ScanModel.swift */,
 				591AE06B83745D2184C647E8 /* ScanTypes.swift */,
@@ -420,6 +423,7 @@
 				FB22C03C779ECC4B0DBC43C0 /* GaussianStore.swift in Sources */,
 				751CF40427CCB778FD1391A7 /* GaussianTypes.swift in Sources */,
 				351CCAB228E2DF1FA9F0117B /* LiDARScannerApp.swift in Sources */,
+				387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */,
 				E9E0878D75E8A1CFAAF51A19 /* PointCloudCore.cpp in Sources */,
 				02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */,
 				E60B4B046724916013523E68 /* ScanModeView.swift in Sources */,

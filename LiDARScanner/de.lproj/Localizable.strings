@@ -220,3 +220,5 @@
 "Processing paused to let the iPhone cool down." = "Die Verarbeitung pausiert, damit das iPhone abkühlen kann.";
 "Camera tracking was interrupted. The saved views are available to process." = "Das Kamera-Tracking wurde unterbrochen. Die gespeicherten Ansichten können verarbeitet werden.";
 "Recording was interrupted. The saved views remain available." = "Die Aufnahme wurde unterbrochen. Die gespeicherten Ansichten bleiben verfügbar.";
+"Mesh · Wavefront OBJ" = "3D-Netz · Wavefront OBJ";
+"Export 3D Mesh (OBJ)" = "3D-Netz exportieren (OBJ)";

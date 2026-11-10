@@ -118,4 +118,23 @@ final class ScanTests: XCTestCase {
         let bytes = try Data(contentsOf: zip)
         XCTAssertEqual(Array(bytes.prefix(4)), [0x50, 0x4b, 0x03, 0x04])
     }
+
+    func testSavedScanMeshProperties() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let date = Date()
+        let metadata = ScanMetadata(schemaVersion: 1, appVersion: "1.0", appBuild: "1", scanID: UUID(),
+            title: "Test", startedAt: date, savedAt: date, pointCount: 10, acceptedSamples: 10,
+            processedFrames: 1, activeSeconds: 1.0, settings: ScanSettings(), deviceModel: "iPhone",
+            systemVersion: "18.0", depthWidth: 100, depthHeight: 100, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "LiDAR", confidenceMeaning: "none", pointSelection: "none",
+            colorSource: "RGB", sessionNote: "")
+        let scan = SavedScan(metadata: metadata, directory: tempDir)
+        XCTAssertEqual(scan.meshURL.lastPathComponent, "mesh.obj")
+        XCTAssertFalse(scan.hasMesh)
+        try "test".write(to: scan.meshURL, atomically: true, encoding: .utf8)
+        XCTAssertTrue(scan.hasMesh)
+    }
 }

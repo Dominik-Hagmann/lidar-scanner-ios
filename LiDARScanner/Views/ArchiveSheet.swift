@@ -26,6 +26,11 @@ struct ArchiveSheet: View {
                                         sharing = SharedFiles(urls: [scan.url(for: format), scan.metadataURL])
                                     }
                                 }
+                                if scan.hasMesh {
+                                    Button("Mesh · Wavefront OBJ") {
+                                        sharing = SharedFiles(urls: [scan.meshURL])
+                                    }
+                                }
                                 Button("Export Report") {
                                     DispatchQueue.global(qos: .userInitiated).async {
                                         do {

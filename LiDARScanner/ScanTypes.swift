@@ -71,6 +71,8 @@ struct SavedScan: Identifiable {
     var existingFormats: [ExportFormat] {
         ExportFormat.allCases.filter { FileManager.default.fileExists(atPath: url(for: $0).path) }
     }
+    var meshURL: URL { directory.appendingPathComponent("mesh.obj") }
+    var hasMesh: Bool { FileManager.default.fileExists(atPath: meshURL.path) }
 }
 
 struct SharedFiles: Identifiable {
