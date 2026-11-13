@@ -8,6 +8,7 @@ struct GaussianScannerView: View {
     @State private var details = false
     @State private var archive = false
     @State private var preview = false
+    @State private var previewFullScreen = false
     @State private var showCredits = false
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
@@ -102,8 +103,18 @@ struct GaussianScannerView: View {
         .sheet(isPresented: $archive) { GaussianArchiveView(model: model) }
         .sheet(isPresented: $details) { GaussianDetailsView(model: model) }
         .sheet(isPresented: $showCredits) { CreditsSheet() }
-        .sheet(isPresented: $preview) {
-            if let p = model.current { GaussianPreviewSheet(url: p.resultURL) }
+        .sheet(isPresented: Binding(
+            get: { preview && !previewFullScreen },
+            set: { preview = $0 }
+        )) {
+            if let p = model.current {
+                GaussianPreviewSheet(url: p.resultURL, isFullScreen: $previewFullScreen)
+            }
+        }
+        .fullScreenCover(isPresented: $previewFullScreen) {
+            if let p = model.current {
+                GaussianPreviewSheet(url: p.resultURL, isFullScreen: $previewFullScreen)
+            }
         }
         .sheet(item: Binding(get: { details ? nil : model.sharing }, set: { model.sharing = $0 })) { ShareSheet(urls: $0.urls) }
         .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !details }, set: { if !$0 { model.errorMessage = nil } })) {

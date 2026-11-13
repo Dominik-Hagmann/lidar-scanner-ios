@@ -96,15 +96,20 @@ struct OrbitCloudView: UIViewRepresentable {
 struct CloudPreviewSheet: View {
     let points: [PCPoint]
     let total: Int
+    @Binding var isFullScreen: Bool
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedDetent: PresentationDetent = .large
-    @State private var isMaximized = true
+
+    init(points: [PCPoint], total: Int, isFullScreen: Binding<Bool> = .constant(false)) {
+        self.points = points
+        self.total = total
+        self._isFullScreen = isFullScreen
+    }
 
     var body: some View {
         NavigationStack {
             OrbitCloudView(points: points).ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .bottom) {
-                    if !isMaximized {
+                    if !isFullScreen {
                         Text("Rotate with One Finger · Pinch to Zoom\nPreview points: \(points.count.formatted()) of \(total.formatted()). The export contains all points.")
                             .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
                             .padding(10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
@@ -122,22 +127,22 @@ struct CloudPreviewSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             withAnimation(.easeInOut(duration: 0.25)) {
-                                isMaximized.toggle()
-                                selectedDetent = isMaximized ? .large : .medium
+                                isFullScreen.toggle()
                             }
                         } label: {
-                            Image(systemName: isMaximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         }
-                        .accessibilityLabel(LocalizedStringKey(isMaximized ? "Minimize" : "Maximize"))
+                        .accessibilityLabel(LocalizedStringKey(isFullScreen ? "Minimize" : "Maximize"))
                     }
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isFullScreen = false
+                            dismiss()
+                        }
+                    }
                 }
         }
-        .presentationDetents([.medium, .large], selection: $selectedDetent)
-        .presentationDragIndicator(.visible)
-        .onChange(of: selectedDetent) { _, newDetent in
-            isMaximized = (newDetent == .large)
-        }
+        .interactiveDismissDisabled(true)
     }
 }
 

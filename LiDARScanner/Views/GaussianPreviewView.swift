@@ -6,11 +6,15 @@ import simd
 
 struct GaussianPreviewSheet: View {
     let url: URL
+    @Binding var isFullScreen: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var loading = true
-    @State private var selectedDetent: PresentationDetent = .large
-    @State private var isMaximized = true
+
+    init(url: URL, isFullScreen: Binding<Bool> = .constant(false)) {
+        self.url = url
+        self._isFullScreen = isFullScreen
+    }
 
     var body: some View {
         NavigationStack {
@@ -29,22 +33,22 @@ struct GaussianPreviewSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             withAnimation(.easeInOut(duration: 0.25)) {
-                                isMaximized.toggle()
-                                selectedDetent = isMaximized ? .large : .medium
+                                isFullScreen.toggle()
                             }
                         } label: {
-                            Image(systemName: isMaximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         }
-                        .accessibilityLabel(LocalizedStringKey(isMaximized ? "Minimize" : "Maximize"))
+                        .accessibilityLabel(LocalizedStringKey(isFullScreen ? "Minimize" : "Maximize"))
                     }
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isFullScreen = false
+                            dismiss()
+                        }
+                    }
                 }
         }
-        .presentationDetents([.medium, .large], selection: $selectedDetent)
-        .presentationDragIndicator(.visible)
-        .onChange(of: selectedDetent) { _, newDetent in
-            isMaximized = (newDetent == .large)
-        }
+        .interactiveDismissDisabled(true)
     }
 }
 

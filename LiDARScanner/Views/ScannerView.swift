@@ -8,7 +8,7 @@ struct ScannerView: View {
     @State private var showSettings = false
     @State private var showArchive = false
     @State private var showPreview = false
-    @State private var showExport = false
+    @State private var previewFullScreen = false
     @State private var confirmReset = false
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
@@ -76,15 +76,23 @@ struct ScannerView: View {
         .onDisappear { torch.turnOff() }
         .sheet(isPresented: $showSettings) { SettingsSheet(model: model) }
         .sheet(isPresented: $showArchive) { ArchiveSheet(model: model) }
-        .sheet(isPresented: $showPreview) { CloudPreviewSheet(points: model.preview, total: model.pointCount) }
-        .sheet(isPresented: $showExport) { ExportSheet(model: model) }
+        .sheet(isPresented: Binding(
+            get: { showPreview && !previewFullScreen },
+            set: { showPreview = $0 }
+        )) {
+            CloudPreviewSheet(points: model.preview, total: model.pointCount, isFullScreen: $previewFullScreen)
+        }
+        .fullScreenCover(isPresented: $previewFullScreen) {
+            CloudPreviewSheet(points: model.preview, total: model.pointCount, isFullScreen: $previewFullScreen)
+        }
+        .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
         .alert("Start a New Scan?", isPresented: $confirmReset) {
             Button("Cancel", role: .cancel) {}
             Button("New Scan", role: .destructive) { model.newScan() }
         } message: {
             Text("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first.")
         }
-        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showExport && !showArchive },
+        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showArchive },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
@@ -162,13 +170,37 @@ struct ScannerView: View {
                     if model.pointCount > 0 { confirmReset = true } else { model.newScan() }
                 }.disabled(model.isRecording || model.isBusy || !model.supported || model.cameraDenied)
                 Spacer()
-                Button {
-                    if model.isRecording { model.pauseAndSave() }
-                    showExport = true
+                Menu {
+                    Button {
+                        if model.isRecording { model.pauseAndSave() }
+                        model.saveCurrent(share: true, report: false)
+                    } label: {
+                        Label("Share Point Cloud", systemImage: "cube.transparent")
+                    }
+
+                    Menu {
+                        ForEach(ExportFormat.allCases) { format in
+                            Button(format.title) {
+                                model.exportFormat = format
+                                if model.isRecording { model.pauseAndSave() }
+                                model.saveCurrent(share: true, report: false)
+                            }
+                        }
+                    } label: {
+                        Label("Export Formats", systemImage: "arrow.triangle.branch")
+                    }
+
+                    Button {
+                        if model.isRecording { model.pauseAndSave() }
+                        model.exportReport()
+                    } label: {
+                        Label("Export Report", systemImage: "doc.richtext")
+                    }
                 } label: {
                     if model.isBusy { ProgressView().padding(.trailing, 4) }
-                    Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Export"), systemImage: "square.and.arrow.up")
-                }.disabled(model.pointCount == 0 || model.isBusy)
+                    Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Share"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(model.pointCount == 0 || model.isBusy)
             }.font(.subheadline.weight(.medium))
         }
         .padding(20).frame(maxWidth: 680).frame(maxWidth: .infinity)

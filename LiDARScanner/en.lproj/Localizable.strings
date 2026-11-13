@@ -149,6 +149,7 @@
 "Engine: %@" = "Engine: %@";
 "Export Capture" = "Export Capture";
 "Export Processing Log" = "Export Processing Log";
+"Export Formats" = "Export Formats";
 "Export Report" = "Export Report";
 "Finish and Create" = "Finish and Create";
 "Gaussian Scans" = "Gaussian Scans";
@@ -185,6 +186,7 @@
 "Selected images and camera poses are saved on this device. Processing uses all saved views and LiDAR depth as its starting point." = "Selected images and camera poses are saved on this device. Processing uses all saved views and LiDAR depth as its starting point.";
 "Share" = "Share";
 "Share 3D Scene" = "Share 3D Scene";
+"Share Point Cloud" = "Share Point Cloud";
 "Similar View" = "Similar View";
 "Status" = "Status";
 "Step %lld of %lld" = "Step %lld of %lld";

@@ -314,6 +314,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
+    func exportReport() {
+        saveCurrent(share: false, report: true)
+    }
+
     func saveCurrent(share: Bool, report: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false

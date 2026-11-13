@@ -229,4 +229,27 @@ final class ScanTests: XCTestCase {
         XCTAssertFalse(model.isBusy)
         XCTAssertFalse(model.isRecording)
     }
+
+    func testPointCloudReportGeneration() throws {
+        let metadata = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.2.0", appBuild: "4", scanID: UUID(),
+            title: "Test Scan", startedAt: Date(), savedAt: Date(), pointCount: 1500,
+            acceptedSamples: 1500, processedFrames: 30, activeSeconds: 12.5,
+            settings: ScanSettings(), deviceModel: "iPhone", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: "Test note"
+        )
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let saved = SavedScan(directory: dir, metadata: metadata)
+        let url = try ScanReport.pointCloud(saved)
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        let doc = try XCTUnwrap(PDFDocument(url: url))
+        XCTAssertGreaterThan(doc.pageCount, 0)
+        XCTAssertTrue(doc.string?.contains("Test Scan") == true)
+    }
 }

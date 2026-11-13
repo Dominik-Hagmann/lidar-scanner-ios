@@ -149,6 +149,7 @@
 "Engine: %@" = "Engine: %@";
 "Export Capture" = "Aufnahmedaten exportieren";
 "Export Processing Log" = "Verarbeitungsprotokoll exportieren";
+"Export Formats" = "Exportformate";
 "Export Report" = "Bericht exportieren";
 "Finish and Create" = "Fertig und berechnen";
 "Gaussian Scans" = "Gaussian-Scans";
@@ -185,6 +186,7 @@
 "Selected images and camera poses are saved on this device. Processing uses all saved views and LiDAR depth as its starting point." = "Ausgewählte Bilder und Kameraposen werden auf diesem Gerät gespeichert. Die Berechnung verwendet alle gespeicherten Ansichten und LiDAR-Tiefendaten als Ausgangspunkt.";
 "Share" = "Teilen";
 "Share 3D Scene" = "3D-Szene teilen";
+"Share Point Cloud" = "Punktwolke teilen";
 "Similar View" = "Ähnliche Ansicht";
 "Status" = "Status";
 "Step %lld of %lld" = "Schritt %lld von %lld";
