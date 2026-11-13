@@ -1,6 +1,10 @@
 # LiDAR Scanner for iPhone and iPad
 
 <p align="center">
+  <strong>English</strong> · <a href="README.de.md">Deutsch</a>
+</p>
+
+<p align="center">
   <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="180">
 </p>
 
