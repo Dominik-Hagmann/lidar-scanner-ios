@@ -5,10 +5,12 @@ type: software
 authors:
   - family-names: Hagmann
     given-names: Dominik
+    affiliation: "University of Vienna / Institute of Archaeology (IARH), Zagreb"
+    orcid: "https://orcid.org/0000-0003-4905-2678"
 version: "1.2.0 (Build 4)"
 repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 url: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
-abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds and exporting them as binary or ASCII PLY and XYZ files with accompanying metadata."
+abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds and exporting them as binary or ASCII PLY and XYZ files with accompanying metadata. Developed in the framework of the RIM Project (IP-2025-02-1060, HRZZ / IARH)."
 license: MIT
 keywords:
   - LiDAR
@@ -19,3 +21,7 @@ keywords:
   - 3D scanning
   - archaeology
   - field documentation
+  - RIM Project
+  - Roman Infrastructure Mapping
+  - HRZZ
+  - IARH

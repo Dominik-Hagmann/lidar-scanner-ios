@@ -12,14 +12,19 @@ struct SettingsSheet: View {
                         Text("1 cm").tag(1.0)
                         Text("2 cm").tag(2.0)
                         Text("5 cm").tag(5.0)
-                    }
+                    }.disabled(model.pointCount > 0)
                     Picker("Depth Pixels", selection: $model.settings.pixelStep) {
                         Text("Every Pixel").tag(1)
                         Text("Every Second Pixel per Axis").tag(2)
                         Text("Every Fourth Pixel per Axis").tag(4)
+                    }.disabled(model.pointCount > 0)
+                    if model.pointCount > 0 {
+                        Text("Point density settings cannot be changed during an active scan and will apply to the next new scan.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("One point is retained per voxel. Voxel size determines subsampling, not measurement accuracy.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("One point is retained per voxel. Voxel size determines subsampling, not measurement accuracy.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Depth Range and Filters") {
                     Picker("Maximum Depth", selection: $model.settings.maxDepth) {

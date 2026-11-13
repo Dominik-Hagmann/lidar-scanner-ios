@@ -86,6 +86,7 @@
 "Please move more slowly" = "Bitte langsamer bewegen";
 "Point Cloud" = "Punktwolke";
 "Point Density" = "Punktdichte";
+"Point density settings cannot be changed during an active scan and will apply to the next new scan." = "Die Punktdichte kann während eines laufenden Scans nicht geändert werden und gilt für den nächsten neuen Scan.";
 "Point Limit" = "Punktlimit";
 "Point limit reached. Please export or start a new scan." = "Punktlimit erreicht. Bitte exportieren oder einen neuen Scan beginnen.";
 "Point limit reached. Saving the scan; all captured points are retained." = "Punktlimit erreicht. Der Scan wird gesichert; alle erfassten Punkte bleiben erhalten.";
@@ -233,3 +234,5 @@
 "The selected file could not be read or does not exist." = "Die ausgewählte Datei konnte nicht gelesen werden oder existiert nicht.";
 "Import failed: %@" = "Import fehlgeschlagen: %@";
 "The point cloud file contains no valid points." = "Die Punktwolkendatei enthält keine gültigen Punkte.";
+"Maximize" = "Maximieren";
+"Minimize" = "Minimieren";

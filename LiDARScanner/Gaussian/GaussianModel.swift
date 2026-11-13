@@ -79,7 +79,23 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func begin() {
-        guard !isBusy, !isRecording, current == nil, cameraReady, trackingNormal else { return }
+        guard !isBusy, !isRecording, current == nil else { return }
+        guard supported else {
+            errorMessage = String(localized: "Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
+            return
+        }
+        guard !cameraDenied else {
+            status = String(localized: "Please allow camera access in the device settings.")
+            return
+        }
+        guard cameraReady else {
+            prepare()
+            return
+        }
+        guard trackingNormal else {
+            status = String(localized: "Detecting surroundings…")
+            return
+        }
         isBusy = true; status = String(localized: "Starting capture…"); lastPose = nil; lastTime = -Double.infinity
         let now = Date()
         let project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
@@ -174,7 +190,13 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         if !process { stop.set(reason) }
         worker.async {
             do {
-                guard let store = self.store else { return }
+                guard let store = self.store else {
+                    DispatchQueue.main.async {
+                        self.isBusy = false
+                        self.processingActive = false
+                    }
+                    return
+                }
                 store.project.phase = .captured
                 if reason != "user_finished" { store.project.lastIssue = reason }
                 try store.event("capture_finished", ["reason": reason, "savedViews": "\(store.project.frames.count)"])
@@ -192,7 +214,13 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         isBusy = true; processingActive = true; stop.reset(); UIApplication.shared.isIdleTimerDisabled = true
         worker.async {
             do {
-                guard let store = self.store else { return }
+                guard let store = self.store else {
+                    DispatchQueue.main.async {
+                        self.isBusy = false
+                        self.processingActive = false
+                    }
+                    return
+                }
                 try self.process(store)
             } catch { self.fail(error) }
         }
@@ -215,9 +243,14 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func leaveMode() {
         guard !isBusy, !isRecording else { return }
+        TorchService.shared.turnOff()
         session.pause(); cameraReady = false; trackingNormal = false; foreground = false
     }
-    func enterMode() { foreground = true; prepare(); refreshArchive() }
+    func enterMode() {
+        foreground = true
+        if current == nil { prepare() }
+        refreshArchive()
+    }
     func sceneChanged(_ phase: ScenePhase) {
         if phase != .active {
             foreground = false
@@ -286,7 +319,10 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         isBusy = true; status = kind == .report ? String(localized: "Writing your report…") : String(localized: "Preparing export…")
         worker.async {
             do {
-                guard let store = self.store else { return }
+                guard let store = self.store else {
+                    DispatchQueue.main.async { self.isBusy = false }
+                    return
+                }
                 try store.event("export_requested", ["kind": "\(kind)"])
                 try store.save()
                 let urls: [URL]

@@ -68,7 +68,7 @@ struct ScannerView: View {
             }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { controls }
-        .task { model.prepare() }
+        .task { model.enterMode() }
         .onChange(of: scenePhase) { _, phase in
             model.sceneChanged(phase)
             if phase != .active { torch.turnOff() }
@@ -103,7 +103,7 @@ struct ScannerView: View {
             }.accessibilityLabel("Saved Scans").disabled(model.isBusy || model.isRecording)
             Button { showSettings = true } label: {
                 Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
-            }.accessibilityLabel("Scan Settings").disabled(model.isBusy || model.isRecording || model.pointCount > 0)
+            }.accessibilityLabel("Scan Settings").disabled(model.isBusy || model.isRecording)
         }.foregroundStyle(.white)
     }
 

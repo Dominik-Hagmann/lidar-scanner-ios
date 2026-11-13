@@ -11,6 +11,20 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
 </p>
 
+<p align="center">
+  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
+    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="65">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://hrzz.hr/en/" target="_blank">
+    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="42">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.iarh.hr/en/home/" target="_blank">
+    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="42">
+  </a>
+</p>
+
 **LiDAR Scanner** is a native, open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It exports **coloured point clouds** or **locally processed Gaussian scenes** for further work in other software. The app focuses on straightforward capture, transparent processing and open export formats.
 
 ## Features
@@ -35,6 +49,7 @@
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Roadmap](#roadmap)
+- [Research Context: RIM Project](#research-context--project-affiliation-rim-project)
 - [Citation](#citation)
 - [License, Disclaimer and Provenance](#license-disclaimer-and-provenance)
 
@@ -251,6 +266,30 @@ Prospective additions, not features of version 1.2.0 (Build 4):
 
 1. CSV export as an additional open text format.
 2. GNSS metadata accompanying scans.
+
+## Research Context & Project Affiliation (RIM Project)
+
+This application is developed and used within the research project **[Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping (RIM)](https://rim.iarh.hr/index.php/en)** (Project ID: `IP-2025-02-1060`, 2025–2028).
+
+<p align="center">
+  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
+    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="75">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://hrzz.hr/en/" target="_blank">
+    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="50">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.iarh.hr/en/home/" target="_blank">
+    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="50">
+  </a>
+</p>
+
+- **Project Title:** *Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping – RIM* ([rim.iarh.hr](https://rim.iarh.hr/index.php/en))
+- **Project Code:** IP-2025-02-1060 (December 2025 – December 2028)
+- **Host Institution:** [Institut za arheologiju / Institute of Archaeology (IARH)](https://www.iarh.hr/en/home/), Zagreb, Croatia
+- **Funding Body:** [Hrvatska zaklada za znanost / Croatian Science Foundation (HRZZ)](https://hrzz.hr/en/)
+- **Research Scope:** An interdisciplinary initiative exploring and reconstructing provincial Roman rural landscapes and infrastructural networks in eastern Croatia (ancient Pannonia) through remote sensing, GIS integration, and LiDAR-based 3D field recording.
 
 ## Citation
 

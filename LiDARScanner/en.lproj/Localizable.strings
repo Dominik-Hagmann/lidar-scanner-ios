@@ -86,6 +86,7 @@
 "Please move more slowly" = "Please move more slowly";
 "Point Cloud" = "Point Cloud";
 "Point Density" = "Point Density";
+"Point density settings cannot be changed during an active scan and will apply to the next new scan." = "Point density settings cannot be changed during an active scan and will apply to the next new scan.";
 "Point Limit" = "Point Limit";
 "Point limit reached. Please export or start a new scan." = "Point limit reached. Please export or start a new scan.";
 "Point limit reached. Saving the scan; all captured points are retained." = "Point limit reached. Saving the scan; all captured points are retained.";
@@ -233,3 +234,5 @@
 "The selected file could not be read or does not exist." = "The selected file could not be read or does not exist.";
 "Import failed: %@" = "Import failed: %@";
 "The point cloud file contains no valid points." = "The point cloud file contains no valid points.";
+"Maximize" = "Maximize";
+"Minimize" = "Minimize";

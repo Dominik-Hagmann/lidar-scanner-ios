@@ -127,9 +127,9 @@ struct GaussianScannerView: View {
             } else if model.current == nil {
                 Button { model.begin() } label: {
                     Label("Start Scan", systemImage: "record.circle").frame(maxWidth: .infinity, minHeight: 46)
-                }.buttonStyle(.borderedProminent).tint(mint)
-                    .foregroundStyle(model.cameraReady && model.trackingNormal ? Color.black : Color.white.opacity(0.55))
-                    .disabled(!model.cameraReady || !model.trackingNormal)
+                }.buttonStyle(.borderedProminent)
+                    .tint(model.cameraReady && model.trackingNormal ? mint : Color(.systemGray4))
+                    .foregroundStyle(model.cameraReady && model.trackingNormal ? Color.black : Color.secondary)
             } else if let p = model.current {
                 if !p.hasResult && p.frames.count >= 12 {
                     Button("Continue Processing", systemImage: "play.fill") { model.resume() }

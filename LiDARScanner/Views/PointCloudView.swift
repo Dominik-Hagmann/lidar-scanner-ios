@@ -97,17 +97,46 @@ struct CloudPreviewSheet: View {
     let points: [PCPoint]
     let total: Int
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedDetent: PresentationDetent = .large
+    @State private var isMaximized = true
+
     var body: some View {
         NavigationStack {
             OrbitCloudView(points: points).ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .bottom) {
-                    Text("Rotate with One Finger · Pinch to Zoom\nPreview points: \(points.count.formatted()) of \(total.formatted()). The export contains all points.")
-                        .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
-                        .padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .padding(.horizontal).padding(.bottom, 24)
+                    if !isMaximized {
+                        Text("Rotate with One Finger · Pinch to Zoom\nPreview points: \(points.count.formatted()) of \(total.formatted()). The export contains all points.")
+                            .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                            .padding(10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                            .padding(.horizontal).padding(.bottom, 16)
+                    } else {
+                        Text("\(points.count.formatted()) / \(total.formatted()) points")
+                            .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .padding(.bottom, 16)
+                    }
                 }
                 .navigationTitle("Point Cloud").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isMaximized.toggle()
+                                selectedDetent = isMaximized ? .large : .medium
+                            }
+                        } label: {
+                            Image(systemName: isMaximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        }
+                        .accessibilityLabel(LocalizedStringKey(isMaximized ? "Minimize" : "Maximize"))
+                    }
+                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                }
+        }
+        .presentationDetents([.medium, .large], selection: $selectedDetent)
+        .presentationDragIndicator(.visible)
+        .onChange(of: selectedDetent) { _, newDetent in
+            isMaximized = (newDetent == .large)
         }
     }
 }

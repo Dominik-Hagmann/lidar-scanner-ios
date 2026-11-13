@@ -289,13 +289,29 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func leaveMode() {
         guard !isBusy, !isRecording else { return }
-        closeSession(reason: "The scan mode was changed. This capture is complete.")
+        TorchService.shared.turnOff()
+        if pointCount > 0 {
+            closeSession(reason: "The scan mode was changed. This capture is complete.")
+        } else {
+            session.pause()
+            trackingNormal = false
+        }
         foreground = false
     }
 
     func enterMode() {
         foreground = true
-        if !sessionStarted { prepare() }
+        if !sessionStarted {
+            prepare()
+        } else if pointCount == 0 {
+            sessionClosed = false
+            startSession(reset: true)
+            notice = String(localized: "Move slowly and capture surfaces from multiple angles.")
+        } else if !sessionClosed {
+            startSession(reset: false)
+        } else {
+            notice = String(localized: "Scan complete. Export or start a new scan.")
+        }
     }
 
     func saveCurrent(share: Bool, report: Bool = false) {

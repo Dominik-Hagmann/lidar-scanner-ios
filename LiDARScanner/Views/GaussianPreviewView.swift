@@ -9,6 +9,9 @@ struct GaussianPreviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var loading = true
+    @State private var selectedDetent: PresentationDetent = .large
+    @State private var isMaximized = true
+
     var body: some View {
         NavigationStack {
             GaussianMetalView(url: url, loading: $loading, error: $error)
@@ -18,11 +21,29 @@ struct GaussianPreviewSheet: View {
                     if let error { Text(error).padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16)) }
                 }
                 .overlay(alignment: .bottom) {
-                    Text("Drag to Rotate · Pinch to Zoom").font(.caption).padding()
-                        .background(.ultraThinMaterial, in: Capsule()).padding(.bottom, 24)
+                    Text("Drag to Rotate · Pinch to Zoom").font(.caption).padding(10)
+                        .background(.ultraThinMaterial, in: Capsule()).padding(.bottom, 20)
                 }
                 .navigationTitle("3D Scene").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isMaximized.toggle()
+                                selectedDetent = isMaximized ? .large : .medium
+                            }
+                        } label: {
+                            Image(systemName: isMaximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        }
+                        .accessibilityLabel(LocalizedStringKey(isMaximized ? "Minimize" : "Maximize"))
+                    }
+                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                }
+        }
+        .presentationDetents([.medium, .large], selection: $selectedDetent)
+        .presentationDragIndicator(.visible)
+        .onChange(of: selectedDetent) { _, newDetent in
+            isMaximized = (newDetent == .large)
         }
     }
 }
