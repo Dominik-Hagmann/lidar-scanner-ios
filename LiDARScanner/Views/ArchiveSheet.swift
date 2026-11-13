@@ -1,4 +1,3 @@
-import SplatIO
 import SwiftUI
 
 struct ArchiveSheet: View {
@@ -9,6 +8,7 @@ struct ArchiveSheet: View {
     @State private var showImporter = false
     @State private var previewScan: SavedScan?
     @State private var previewPoints: [PCPoint] = []
+    @State private var previewFullScreen = false
     var body: some View {
         NavigationStack {
             List {
@@ -46,15 +46,7 @@ struct ArchiveSheet: View {
                                 Button {
                                     Task {
                                         do {
-                                            let pts = await model.loadPreview(for: scan)
-                                            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-                                            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-                                            let plyURL = tempDir.appendingPathComponent("\(scan.metadata.title)-gaussians.ply")
-                                            let splatPoints = PCPoint.toSplatPoints(pts)
-                                            let writer = try SplatPLYSceneWriter(to: .file(plyURL))
-                                            try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
-                                            try await writer.write(splatPoints)
-                                            try await writer.close()
+                                            let plyURL = try await Self.exportAllGaussians(for: scan)
                                             await MainActor.run { sharing = SharedFiles(urls: [plyURL]) }
                                         } catch {
                                             await MainActor.run { model.errorMessage = error.localizedDescription }
@@ -93,8 +85,29 @@ struct ArchiveSheet: View {
                 }
             }
             .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
-            .sheet(item: $previewScan) { scan in
-                CloudPreviewSheet(points: previewPoints, total: scan.metadata.pointCount)
+            .sheet(item: Binding(
+                get: { previewFullScreen ? nil : previewScan },
+                set: { if $0 == nil && !previewFullScreen { previewScan = nil } }
+            )) { scan in
+                CloudPreviewSheet(
+                    points: previewPoints,
+                    total: scan.metadata.pointCount,
+                    isFullScreen: $previewFullScreen,
+                    exportFullGaussians: { try await Self.exportAllGaussians(for: scan) },
+                    onClose: { previewScan = nil; previewFullScreen = false }
+                )
+            }
+            .fullScreenCover(item: Binding(
+                get: { previewFullScreen ? previewScan : nil },
+                set: { if $0 == nil { previewFullScreen = false } }
+            )) { scan in
+                CloudPreviewSheet(
+                    points: previewPoints,
+                    total: scan.metadata.pointCount,
+                    isFullScreen: $previewFullScreen,
+                    exportFullGaussians: { try await Self.exportAllGaussians(for: scan) },
+                    onClose: { previewScan = nil; previewFullScreen = false }
+                )
             }
             .fileImporter(
                 isPresented: $showImporter,
@@ -125,5 +138,12 @@ struct ArchiveSheet: View {
                     Button("OK") { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }
+    }
+
+    private static func exportAllGaussians(for scan: SavedScan) async throws -> URL {
+        let points = await Task.detached(priority: .userInitiated) {
+            ScanStorage.readAllPoints(for: scan)
+        }.value
+        return try await ScanModel.writeGaussians(from: points, title: scan.metadata.title)
     }
 }

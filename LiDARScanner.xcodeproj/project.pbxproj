@@ -34,6 +34,7 @@
 		9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33170E03775E44A0FE0F08 /* TorchService.swift */; };
 		A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */; };
 		ADA408CC506FA2612DD3B192 /* GaussianNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */; };
+		B8D51BFAE1AFF59C1F35A6AB /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ADC29840B87F25D548CB1A /* ZipArchive.swift */; };
 		BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */; };
 		C08E5E357470D7F2A06C37A0 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */; };
 		CE8C34B3D8E008DC82BA520C /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = D96B24678C6851D7E87FDD98 /* SplatIO */; };
@@ -111,6 +112,7 @@
 		BD88BE26E4CAF5629042A93B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C54C110F98C051702389A5B5 /* GaussianStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianStore.swift; sourceTree = "<group>"; };
 		D3DF538AB4A0784E3215B7F8 /* PointCloudCore.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PointCloudCore.cpp; sourceTree = "<group>"; };
+		D5ADC29840B87F25D548CB1A /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		D7E1C70452383F1A34740120 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
 		DC8AB7058F8BA939FDF5C424 /* GaussianModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianModel.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				591AE06B83745D2184C647E8 /* ScanTypes.swift */,
 				6FD3D088CBFAC3C78C218D2E /* ThirdPartyLicenses.txt */,
 				4E33170E03775E44A0FE0F08 /* TorchService.swift */,
+				D5ADC29840B87F25D548CB1A /* ZipArchive.swift */,
 				086BBBF6C8B03AEC8A2A8E5F /* Core */,
 				4AAFDB7FB6D055E570EC4FF9 /* Gaussian */,
 				49B78147AC2AB1AEF37F7983 /* InfoPlist.strings */,
@@ -440,6 +443,7 @@
 				0D3198EB1A47172D1593C06A /* ScannerView.swift in Sources */,
 				BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */,
 				9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */,
+				B8D51BFAE1AFF59C1F35A6AB /* ZipArchive.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

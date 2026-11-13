@@ -7,6 +7,7 @@ struct ScannerView: View {
     @State private var showPoints = true
     @State private var showSettings = false
     @State private var showArchive = false
+    @State private var showExport = false
     @State private var showPreview = false
     @State private var previewFullScreen = false
     @State private var confirmReset = false
@@ -76,14 +77,27 @@ struct ScannerView: View {
         .onDisappear { torch.turnOff() }
         .sheet(isPresented: $showSettings) { SettingsSheet(model: model) }
         .sheet(isPresented: $showArchive) { ArchiveSheet(model: model) }
+        .sheet(isPresented: $showExport) { ExportSheet(model: model) }
         .sheet(isPresented: Binding(
             get: { showPreview && !previewFullScreen },
-            set: { showPreview = $0 }
+            set: { if !$0 && !previewFullScreen { showPreview = false } }
         )) {
-            CloudPreviewSheet(points: model.preview, total: model.pointCount, isFullScreen: $previewFullScreen)
+            CloudPreviewSheet(
+                points: model.preview,
+                total: model.pointCount,
+                isFullScreen: $previewFullScreen,
+                exportFullGaussians: { try await model.makeGaussianExportURL() },
+                onClose: { showPreview = false; previewFullScreen = false }
+            )
         }
         .fullScreenCover(isPresented: $previewFullScreen) {
-            CloudPreviewSheet(points: model.preview, total: model.pointCount, isFullScreen: $previewFullScreen)
+            CloudPreviewSheet(
+                points: model.preview,
+                total: model.pointCount,
+                isFullScreen: $previewFullScreen,
+                exportFullGaussians: { try await model.makeGaussianExportURL() },
+                onClose: { showPreview = false; previewFullScreen = false }
+            )
         }
         .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
         .alert("Start a New Scan?", isPresented: $confirmReset) {
@@ -92,7 +106,7 @@ struct ScannerView: View {
         } message: {
             Text("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first.")
         }
-        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showArchive },
+        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
@@ -136,13 +150,16 @@ struct ScannerView: View {
     }
 
     private var controls: some View {
-        VStack(spacing: 14) {
+        let canCapture = !model.isBusy && !model.sessionClosed && model.ready && model.trackingNormal
+        return VStack(spacing: 14) {
             if model.pointCount == 0 && !model.isRecording {
-                Text(model.notice)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                if model.supported && !model.cameraDenied {
+                    Text(model.notice)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button {
                     model.toggleRecording()
                 } label: {
@@ -151,9 +168,9 @@ struct ScannerView: View {
                         .frame(maxWidth: .infinity, minHeight: 46)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(model.ready && model.trackingNormal ? mint : Color(.systemGray4))
-                .foregroundStyle(model.ready && model.trackingNormal ? Color.black : Color.secondary)
-                .disabled(model.isBusy || model.sessionClosed || !model.ready || !model.trackingNormal)
+                .tint(canCapture ? mint : Color.white.opacity(0.16))
+                .foregroundStyle(canCapture ? Color.black : Color.white.opacity(0.72))
+                .disabled(!canCapture)
             } else {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -184,9 +201,10 @@ struct ScannerView: View {
                             Label("Resume", systemImage: "record.circle")
                                 .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                         }
-                        .buttonStyle(.borderedProminent).tint(mint)
-                        .foregroundStyle(.black)
-                        .disabled(model.isBusy || model.sessionClosed || !model.ready || !model.trackingNormal)
+                        .buttonStyle(.borderedProminent)
+                        .tint(canCapture ? mint : Color.white.opacity(0.16))
+                        .foregroundStyle(canCapture ? Color.black : Color.white.opacity(0.72))
+                        .disabled(!canCapture)
 
                         Button { showPreview = true } label: {
                             Label("3D View", systemImage: "cube.transparent")
@@ -205,6 +223,12 @@ struct ScannerView: View {
                         Spacer()
 
                         Menu {
+                            Button {
+                                showExport = true
+                            } label: {
+                                Label("Export Point Cloud", systemImage: "doc.badge.gearshape")
+                            }
+
                             Button {
                                 model.saveCurrent(share: true, report: false)
                             } label: {

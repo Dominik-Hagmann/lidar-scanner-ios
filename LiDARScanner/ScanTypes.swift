@@ -104,10 +104,11 @@ enum ScanStorage {
         return try FileManager.default.contentsOfDirectory(at: root(), includingPropertiesForKeys: nil,
                                                            options: [.skipsHiddenFiles]).compactMap { url in
             guard let data = try? Data(contentsOf: url.appendingPathComponent("metadata.json")),
-                  let metadata = try? decoder.decode(ScanMetadata.self, from: data),
-                  FileManager.default.fileExists(atPath: url.appendingPathComponent("points.ply").path)
+                  let metadata = try? decoder.decode(ScanMetadata.self, from: data)
             else { return nil }
-            return SavedScan(directory: url, metadata: metadata)
+            let scan = SavedScan(directory: url, metadata: metadata)
+            guard !scan.existingFormats.isEmpty else { return nil }
+            return scan
         }.sorted { $0.metadata.savedAt > $1.metadata.savedAt }
     }
 
@@ -163,13 +164,6 @@ enum ScanStorage {
             let targetFile = staging.appendingPathComponent(format.fileName)
             try FileManager.default.copyItem(at: sourceURL, to: targetFile)
 
-            if format != .binaryPLY {
-                let defaultPly = staging.appendingPathComponent(ExportFormat.binaryPLY.fileName)
-                if !FileManager.default.fileExists(atPath: defaultPly.path) {
-                    try? FileManager.default.copyItem(at: sourceURL, to: defaultPly)
-                }
-            }
-
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -183,17 +177,19 @@ enum ScanStorage {
     }
 
     static func readPreview(for scan: SavedScan, maxPoints: Int = 40_000) -> [PCPoint] {
-        let plyURL = scan.url(for: .binaryPLY)
-        if FileManager.default.fileExists(atPath: plyURL.path) {
-            return ScanImporter.readPreviewPoints(from: plyURL, maxPoints: maxPoints)
-        }
-        let asciiPlyURL = scan.url(for: .asciiPLY)
-        if FileManager.default.fileExists(atPath: asciiPlyURL.path) {
-            return ScanImporter.readPreviewPoints(from: asciiPlyURL, maxPoints: maxPoints)
-        }
-        let xyzURL = scan.url(for: .xyz)
-        if FileManager.default.fileExists(atPath: xyzURL.path) {
-            return ScanImporter.readPreviewPoints(from: xyzURL, maxPoints: maxPoints)
+        readPoints(for: scan, maxPoints: maxPoints)
+    }
+
+    static func readAllPoints(for scan: SavedScan) -> [PCPoint] {
+        readPoints(for: scan, maxPoints: nil)
+    }
+
+    private static func readPoints(for scan: SavedScan, maxPoints: Int?) -> [PCPoint] {
+        for format in [ExportFormat.binaryPLY, .asciiPLY, .xyz] {
+            let fileURL = scan.url(for: format)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                return ScanImporter.readPoints(from: fileURL, formatHint: format, maxPoints: maxPoints)
+            }
         }
         return []
     }

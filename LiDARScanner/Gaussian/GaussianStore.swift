@@ -181,19 +181,58 @@ final class GaussianStore {
             throw ScanImportError.invalidFile
         }
 
-        if isDir.boolValue {
-            let scanJson = url.appendingPathComponent("scan.json")
-            guard FileManager.default.fileExists(atPath: scanJson.path),
-                  let data = try? Data(contentsOf: scanJson),
-                  let project = try? decoder.decode(GaussianProject.self, from: data) else {
+        if !isDir.boolValue {
+            guard url.pathExtension.lowercased() == "zip" else {
                 throw ScanImportError.unsupportedFormat
             }
-            let target = root.appendingPathComponent(project.id.uuidString, isDirectory: true)
-            if !FileManager.default.fileExists(atPath: target.path) {
-                try FileManager.default.copyItem(at: url, to: target)
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("gaussian-import-" + UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+            try ZipArchive.extract(from: url, to: tempDir)
+            guard let projectDir = findProjectDirectory(in: tempDir, depth: 0) else {
+                throw ScanImportError.unsupportedFormat
             }
-            return project
+            return try installProjectDirectory(projectDir)
         }
-        throw ScanImportError.unsupportedFormat
+
+        guard let projectDir = findProjectDirectory(in: url, depth: 0) else {
+            throw ScanImportError.unsupportedFormat
+        }
+        return try installProjectDirectory(projectDir)
+    }
+
+    private static func findProjectDirectory(in directory: URL, depth: Int) -> URL? {
+        let scanJson = directory.appendingPathComponent("scan.json")
+        if FileManager.default.fileExists(atPath: scanJson.path) {
+            return directory
+        }
+        guard depth < 2,
+              let children = try? FileManager.default.contentsOfDirectory(
+                  at: directory,
+                  includingPropertiesForKeys: [.isDirectoryKey],
+                  options: [.skipsHiddenFiles]
+              ) else {
+            return nil
+        }
+        for child in children where child.lastPathComponent != "__MACOSX" {
+            let isDir = (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isDir, let found = findProjectDirectory(in: child, depth: depth + 1) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private static func installProjectDirectory(_ projectDir: URL) throws -> GaussianProject {
+        let scanJson = projectDir.appendingPathComponent("scan.json")
+        guard let data = try? Data(contentsOf: scanJson),
+              let project = try? decoder.decode(GaussianProject.self, from: data) else {
+            throw ScanImportError.unsupportedFormat
+        }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let target = root.appendingPathComponent(project.id.uuidString, isDirectory: true)
+        if !FileManager.default.fileExists(atPath: target.path) {
+            try FileManager.default.copyItem(at: projectDir, to: target)
+        }
+        return project
     }
 }

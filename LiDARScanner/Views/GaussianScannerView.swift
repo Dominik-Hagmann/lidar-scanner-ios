@@ -105,19 +105,27 @@ struct GaussianScannerView: View {
         .sheet(isPresented: $showCredits) { CreditsSheet() }
         .sheet(isPresented: Binding(
             get: { preview && !previewFullScreen },
-            set: { preview = $0 }
+            set: { if !$0 && !previewFullScreen { preview = false } }
         )) {
             if let p = model.current {
-                GaussianPreviewSheet(url: p.resultURL, isFullScreen: $previewFullScreen)
+                GaussianPreviewSheet(
+                    url: p.resultURL,
+                    isFullScreen: $previewFullScreen,
+                    onClose: { preview = false; previewFullScreen = false }
+                )
             }
         }
         .fullScreenCover(isPresented: $previewFullScreen) {
             if let p = model.current {
-                GaussianPreviewSheet(url: p.resultURL, isFullScreen: $previewFullScreen)
+                GaussianPreviewSheet(
+                    url: p.resultURL,
+                    isFullScreen: $previewFullScreen,
+                    onClose: { preview = false; previewFullScreen = false }
+                )
             }
         }
         .sheet(item: Binding(get: { details ? nil : model.sharing }, set: { model.sharing = $0 })) { ShareSheet(urls: $0.urls) }
-        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !details }, set: { if !$0 { model.errorMessage = nil } })) {
+        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !details && !archive }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
     }
@@ -161,11 +169,13 @@ struct GaussianScannerView: View {
                         .buttonStyle(.bordered)
                 }
             } else if model.current == nil {
+                let canStart = model.cameraReady && model.trackingNormal
                 Button { model.begin() } label: {
                     Label("Start Scan", systemImage: "record.circle").frame(maxWidth: .infinity, minHeight: 46)
                 }.buttonStyle(.borderedProminent)
-                    .tint(model.cameraReady && model.trackingNormal ? mint : Color(.systemGray4))
-                    .foregroundStyle(model.cameraReady && model.trackingNormal ? Color.black : Color.secondary)
+                    .tint(canStart ? mint : Color.white.opacity(0.16))
+                    .foregroundStyle(canStart ? Color.black : Color.white.opacity(0.72))
+                    .disabled(!canStart)
             } else if let p = model.current {
                 if !p.hasResult && p.frames.count >= 12 {
                     Button("Continue Processing", systemImage: "play.fill") { model.resume() }
@@ -234,7 +244,9 @@ struct GaussianDetailsView: View {
                     Section("Technical Details") {
                         Text(p.coordinateSystem).font(.caption).textSelection(.enabled)
                         Text("Engine: \(p.engineRevision)").font(.caption).textSelection(.enabled)
-                        if let data = try? GaussianStore.encoder.encode(p.profile), let json = String(data: data, encoding: .utf8) {
+                        if let profile = p.profile,
+                           let data = try? GaussianStore.encoder.encode(profile),
+                           let json = String(data: data, encoding: .utf8) {
                             Text(json).font(.caption.monospaced()).textSelection(.enabled)
                         }
                         Text("The report explains the processing in full sentences. The log contains the exact recorded settings, decisions, steps and file checksums.")
@@ -297,7 +309,7 @@ private struct GaussianArchiveView: View {
                 }
                 .fileImporter(
                     isPresented: $showImporter,
-                    allowedContentTypes: [.folder],
+                    allowedContentTypes: [.folder, .zip],
                     allowsMultipleSelection: true
                 ) { result in
                     switch result {
@@ -319,6 +331,9 @@ private struct GaussianArchiveView: View {
                     Button("Cancel", role: .cancel) { deleting = nil }
                     Button("Delete", role: .destructive) { if let deleting { model.delete(deleting) }; deleting = nil }
                 } message: { Text("The capture, 3D scene and processing log will be removed from this device.") }
+                .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && deleting == nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                    Button("OK") { model.errorMessage = nil }
+                } message: { Text(model.errorMessage ?? "") }
         }
     }
 }

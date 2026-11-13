@@ -143,16 +143,28 @@ struct CloudPreviewSheet: View {
     let points: [PCPoint]
     let total: Int
     @Binding var isFullScreen: Bool
+    let exportFullGaussians: (() async throws -> URL)?
+    let onClose: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var renderMode: RenderMode = .points
     @State private var gaussianLoading = true
     @State private var gaussianError: String?
+    @State private var exportError: String?
+    @State private var isExportingGaussians = false
     @State private var sharing: SharedFiles?
 
-    init(points: [PCPoint], total: Int, isFullScreen: Binding<Bool> = .constant(false)) {
+    init(
+        points: [PCPoint],
+        total: Int,
+        isFullScreen: Binding<Bool> = .constant(false),
+        exportFullGaussians: (() async throws -> URL)? = nil,
+        onClose: (() -> Void)? = nil
+    ) {
         self.points = points
         self.total = total
         self._isFullScreen = isFullScreen
+        self.exportFullGaussians = exportFullGaussians
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -234,40 +246,56 @@ struct CloudPreviewSheet: View {
                         } label: {
                             Label("Export 3D Gaussian Splats", systemImage: "aqi.medium")
                         }
+                        .disabled(isExportingGaussians)
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        if isExportingGaussians {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
                     .accessibilityLabel("Export Options")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         isFullScreen = false
-                        dismiss()
+                        if let onClose {
+                            onClose()
+                        } else {
+                            dismiss()
+                        }
                     }
                 }
             }
             .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
+            .alert("Export Failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+                Button("OK") { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
         }
         .interactiveDismissDisabled(true)
     }
 
     private func exportGaussians() {
+        guard !isExportingGaussians else { return }
+        isExportingGaussians = true
         Task {
             do {
-                let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-                try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-                let plyURL = tempDir.appendingPathComponent("pointcloud-gaussians.ply")
-                let splats = PCPoint.toSplatPoints(points)
-                let writer = try SplatPLYSceneWriter(to: .file(plyURL))
-                try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splats.count)
-                try await writer.write(splats)
-                try await writer.close()
+                let plyURL: URL
+                if let exportFullGaussians {
+                    plyURL = try await exportFullGaussians()
+                } else {
+                    plyURL = try await ScanModel.writeGaussians(from: points, title: "pointcloud")
+                }
                 await MainActor.run {
+                    isExportingGaussians = false
                     sharing = SharedFiles(urls: [plyURL])
                 }
             } catch {
                 await MainActor.run {
-                    gaussianError = error.localizedDescription
+                    isExportingGaussians = false
+                    exportError = error.localizedDescription
                 }
             }
         }

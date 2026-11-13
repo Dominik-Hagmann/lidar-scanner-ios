@@ -188,10 +188,184 @@ final class ScanTests: XCTestCase {
         let saved = try ScanImporter.importScan(from: sourceURL)
         defer { try? FileManager.default.removeItem(at: saved.directory) }
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.url(for: .binaryPLY).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.url(for: .asciiPLY).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: saved.url(for: .binaryPLY).path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: saved.metadataURL.path))
         XCTAssertEqual(saved.metadata.pointCount, 2)
         XCTAssertEqual(saved.metadata.title, "imported_cloud")
+        XCTAssertTrue(try ScanStorage.list().contains(where: { $0.id == saved.id }))
+        XCTAssertEqual(ScanStorage.readPreview(for: saved).count, 2)
+    }
+
+    func testBinaryPLYWithNegativeCoordinatesAndPackedRGBParsesCorrectly() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // 15-byte packed stride (float x,y,z + uchar r,g,b) with negative coordinates producing bytes >= 0x80
+        var data = Data("""
+        ply\r
+        format binary_little_endian 1.0\r
+        element vertex 2\r
+        property float x\r
+        property float y\r
+        property float z\r
+        property uchar red\r
+        property uchar green\r
+        property uchar blue\r
+        end_header\r\n
+        """.utf8)
+        func appendLE(_ value: Float) {
+            var bits = value.bitPattern.littleEndian
+            withUnsafeBytes(of: &bits) { data.append(contentsOf: $0) }
+        }
+        appendLE(-1.2345); appendLE(-2.5); appendLE(3.25)
+        data.append(contentsOf: [10, 20, 30])
+        appendLE(4.5); appendLE(5.5); appendLE(-6.75)
+        data.append(contentsOf: [200, 100, 50])
+
+        let plyURL = tempDir.appendingPathComponent("packed_negative.ply")
+        try data.write(to: plyURL)
+
+        let header = try XCTUnwrap(ScanImporter.parsePLYHeader(from: plyURL))
+        XCTAssertEqual(header.vertexCount, 2)
+        XCTAssertTrue(header.isBinary)
+        XCTAssertTrue(header.hasColor)
+
+        let pts = ScanImporter.readPreviewPoints(from: plyURL, maxPoints: 10)
+        XCTAssertEqual(pts.count, 2)
+        XCTAssertEqual(pts[0].x, -1.2345, accuracy: 0.0001)
+        XCTAssertEqual(pts[0].y, 3.25, accuracy: 0.0001)
+        XCTAssertEqual(pts[0].z, 2.5, accuracy: 0.0001)
+        XCTAssertEqual(pts[0].r, 10)
+        XCTAssertEqual(pts[1].x, 4.5, accuracy: 0.0001)
+        XCTAssertEqual(pts[1].g, 100)
+    }
+
+    func testASCIIPLYAndXYZMultipleWhitespaceParsing() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let plyURL = tempDir.appendingPathComponent("spaced.ply")
+        try """
+        ply
+        format ascii 1.0
+        element vertex 2
+        property float x
+        property float y
+        property float z
+        property uchar red
+        property uchar green
+        property uchar blue
+        end_header
+          1.0   2.0\t3.0  12 34 56
+        -1.0  0.5  -2.5  255 128 0
+        """.write(to: plyURL, atomically: true, encoding: .utf8)
+
+        let plyPoints = ScanImporter.readPoints(from: plyURL, maxPoints: nil)
+        XCTAssertEqual(plyPoints.count, 2)
+        XCTAssertEqual(plyPoints[0].r, 12)
+        XCTAssertEqual(plyPoints[1].x, -1.0)
+
+        let xyzURL = tempDir.appendingPathComponent("spaced.xyz")
+        try """
+        # Header comment
+        1.5   -2.5   3.5
+          4.0\t5.0  -6.0
+        """.write(to: xyzURL, atomically: true, encoding: .utf8)
+
+        let savedXYZ = try ScanImporter.importScan(from: xyzURL)
+        defer { try? FileManager.default.removeItem(at: savedXYZ.directory) }
+        XCTAssertEqual(savedXYZ.existingFormats, [.xyz])
+        XCTAssertTrue(try ScanStorage.list().contains(where: { $0.id == savedXYZ.id }))
+        let loaded = ScanStorage.readAllPoints(for: savedXYZ)
+        XCTAssertEqual(loaded.count, 2)
+        XCTAssertEqual(loaded[0].x, 1.5, accuracy: 0.001)
+    }
+
+    func testImportZIPArchivePointCloudAndGaussianProject() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = tempDir.appendingPathComponent("BundleFolder", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let plyURL = folder.appendingPathComponent("zipped.ply")
+        try """
+        ply
+        format ascii 1.0
+        element vertex 2
+        property float x
+        property float y
+        property float z
+        end_header
+        1 2 3
+        4 5 6
+        """.write(to: plyURL, atomically: true, encoding: .utf8)
+
+        let zipURL = tempDir.appendingPathComponent("Bundle.zip")
+        var coordError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: folder, options: .forUploading, error: &coordError) { producedZip in
+            do { try FileManager.default.copyItem(at: producedZip, to: zipURL) } catch { copyError = error }
+        }
+        if let err = coordError ?? (copyError as NSError?) { throw err }
+
+        let importedCloud = try ScanImporter.importScan(from: zipURL)
+        defer { try? FileManager.default.removeItem(at: importedCloud.directory) }
+        XCTAssertEqual(importedCloud.metadata.title, "zipped")
+        XCTAssertEqual(ScanStorage.readAllPoints(for: importedCloud).count, 2)
+
+        // Also test Gaussian capture ZIP export -> delete original -> re-import into GaussianStore
+        let p = project()
+        let store = try GaussianStore(project: p)
+        try store.saveDataset()
+        let captureZIP = try store.exportInputs()
+        defer { try? FileManager.default.removeItem(at: captureZIP.deletingLastPathComponent()) }
+        try? FileManager.default.removeItem(at: GaussianStore.root)
+
+        let reimported = try GaussianStore.importProject(from: captureZIP)
+        defer { try? FileManager.default.removeItem(at: reimported.directory) }
+        XCTAssertEqual(reimported.id, p.id)
+        XCTAssertTrue(try GaussianStore.list().contains(where: { $0.id == p.id }))
+    }
+
+    func testZipPathTraversalIsRejected() throws {
+        let name = Data("../evil.ply".utf8)
+        var local = Data()
+        func appendLE16(_ d: inout Data, _ v: UInt16) { var x = v.littleEndian; withUnsafeBytes(of: &x) { d.append(contentsOf: $0) } }
+        func appendLE32(_ d: inout Data, _ v: UInt32) { var x = v.littleEndian; withUnsafeBytes(of: &x) { d.append(contentsOf: $0) } }
+
+        appendLE32(&local, 0x0403_4b50)
+        appendLE16(&local, 20); appendLE16(&local, 0); appendLE16(&local, 0)
+        appendLE16(&local, 0); appendLE16(&local, 0)
+        appendLE32(&local, 0); appendLE32(&local, 0); appendLE32(&local, 0)
+        appendLE16(&local, UInt16(name.count)); appendLE16(&local, 0)
+        local.append(name)
+
+        let cdOffset = UInt32(local.count)
+        var cd = Data()
+        appendLE32(&cd, 0x0201_4b50)
+        appendLE16(&cd, 20); appendLE16(&cd, 20); appendLE16(&cd, 0); appendLE16(&cd, 0)
+        appendLE16(&cd, 0); appendLE16(&cd, 0)
+        appendLE32(&cd, 0); appendLE32(&cd, 0); appendLE32(&cd, 0)
+        appendLE16(&cd, UInt16(name.count)); appendLE16(&cd, 0); appendLE16(&cd, 0)
+        appendLE16(&cd, 0); appendLE16(&cd, 0); appendLE32(&cd, 0); appendLE32(&cd, 0)
+        cd.append(name)
+
+        var eocd = Data()
+        appendLE32(&eocd, 0x0605_4b50)
+        appendLE16(&eocd, 0); appendLE16(&eocd, 0)
+        appendLE16(&eocd, 1); appendLE16(&eocd, 1)
+        appendLE32(&eocd, UInt32(cd.count)); appendLE32(&eocd, cdOffset); appendLE16(&eocd, 0)
+
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let zipURL = tempDir.appendingPathComponent("traversal.zip")
+        try (local + cd + eocd).write(to: zipURL)
+
+        XCTAssertThrowsError(try ZipArchive.extract(from: zipURL, to: tempDir.appendingPathComponent("out")))
     }
 
     func testScanModelModeSwitchingPreservesSessionWhenNoPoints() {

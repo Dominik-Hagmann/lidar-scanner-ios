@@ -7,13 +7,15 @@ import simd
 struct GaussianPreviewSheet: View {
     let url: URL
     @Binding var isFullScreen: Bool
+    let onClose: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var loading = true
 
-    init(url: URL, isFullScreen: Binding<Bool> = .constant(false)) {
+    init(url: URL, isFullScreen: Binding<Bool> = .constant(false), onClose: (() -> Void)? = nil) {
         self.url = url
         self._isFullScreen = isFullScreen
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -25,8 +27,10 @@ struct GaussianPreviewSheet: View {
                     if let error { Text(error).padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16)) }
                 }
                 .overlay(alignment: .bottom) {
-                    Text("Drag to Rotate · Pinch to Zoom").font(.caption).padding(10)
-                        .background(.ultraThinMaterial, in: Capsule()).padding(.bottom, 20)
+                    if !isFullScreen {
+                        Text("Drag to Rotate · Pinch to Zoom").font(.caption).padding(10)
+                            .background(.ultraThinMaterial, in: Capsule()).padding(.bottom, 20)
+                    }
                 }
                 .navigationTitle("3D Scene").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -43,7 +47,11 @@ struct GaussianPreviewSheet: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
                             isFullScreen = false
-                            dismiss()
+                            if let onClose {
+                                onClose()
+                            } else {
+                                dismiss()
+                            }
                         }
                     }
                 }

@@ -168,13 +168,13 @@ size_t pc_copy_preview(const PCCloud *c, PCPoint *out, size_t capacity) {
 
 int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *error, size_t capacity) {
     if (!c || c->points.empty() || !path || !*path || format < 0 || format > 2) {
-        errorText(error, capacity, "Keine Punkte oder ungültiges Exportziel."); return 0;
+        errorText(error, capacity, "No points or invalid export destination."); return 0;
     }
     std::string temporary;
     try {
         temporary = std::string(path) + ".partial";
         std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-        if (!out) { errorText(error, capacity, "Exportdatei konnte nicht angelegt werden."); return 0; }
+        if (!out) { errorText(error, capacity, "Could not create the export file."); return 0; }
         out.imbue(std::locale::classic());
         out.precision(9); /* round-trippable float32, independent of device locale */
         if (format != 2) {
@@ -204,11 +204,11 @@ int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *erro
         good = good && !out.fail();
         if (!good || std::rename(temporary.c_str(), path) != 0) {
             std::remove(temporary.c_str());
-            errorText(error, capacity, "Export fehlgeschlagen. Bitte freien Speicher und Ziel prüfen."); return 0;
+            errorText(error, capacity, "Export failed. Please check available storage and the destination."); return 0;
         }
         errorText(error, capacity, ""); return 1;
     } catch (...) {
         if (!temporary.empty()) std::remove(temporary.c_str());
-        errorText(error, capacity, "Export konnte nicht abgeschlossen werden."); return 0;
+        errorText(error, capacity, "Could not complete the export."); return 0;
     }
 }

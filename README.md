@@ -106,11 +106,11 @@ Apple documents device installation in [Running your app on simulated or physica
 2. Wait until **Tracking stable** is displayed.
 3. Tap **Start Scan** and move the camera slowly across the scene. Points are superimposed on the camera image; the point icon shows or hides them.
 4. Tap **Pause**. The current state is saved automatically. The scan can be resumed as long as the camera session continues without interruption.
-5. Use the cube icon to rotate and zoom the point cloud. The preview shows at most 40,000 evenly selected points; the export contains the complete point set.
-6. Tap **Export**, enter a designation, choose a format, and tap **Save and Share**.
+5. Use **3D View** to rotate and zoom the point cloud or preview it as 3D Gaussian splats. The preview shows at most 40,000 evenly selected points; exports contain all points.
+6. Tap **Share → Export Point Cloud** to enter a designation, choose a format, and tap **Save and Share** (or export directly via **Share Point Cloud**, **Export 3D Gaussian Splats**, **Export Formats**, or **Export Report**).
 7. In the share sheet, choose **Save to Files**, AirDrop or another destination. The point file and metadata are offered together.
 
-**Archive:** Completed saves are stored under **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive, where formats can be shared again and individual saves deleted. Saving an unchanged scan under the same designation reuses the existing save; additional points or a different designation create a new archived state.
+**Archive & Import:** Completed saves are stored under **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive, where scans can be previewed in 3D, imported (`.ply`, `.xyz`, `.zip`, or scan folders), shared again (including full-resolution Gaussian splat export and PDF reports), and deleted. Saving an unchanged scan under the same designation reuses the existing save; additional points or a different designation create a new archived state.
 
 ### Point-cloud settings and memory
 

@@ -322,46 +322,66 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func exportGaussians() {
         guard !isBusy, let cloud else { return }
-        if isRecording { pauseAndSave() }
+        isRecording = false
+        UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
-        let cleanTitle = scanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = cleanTitle.isEmpty ? "LiDAR-Scan" : cleanTitle
-        worker.async {
-            let stats = pc_stats(cloud)
-            guard stats.pointCount > 0 else {
-                DispatchQueue.main.async { self.isBusy = false }
-                return
-            }
-            let count = Int(stats.pointCount)
-            var points = [PCPoint](repeating: PCPoint(), count: count)
-            let written = points.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
-            if written < count { points.removeLast(count - written) }
-
-            Task.detached(priority: .userInitiated) {
-                do {
-                    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-                    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-                    let plyURL = tempDir.appendingPathComponent("\(title)-gaussians.ply")
-
-                    let splatPoints = PCPoint.toSplatPoints(points)
-                    let writer = try SplatPLYSceneWriter(to: .file(plyURL))
-                    try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
-                    try await writer.write(splatPoints)
-                    try await writer.close()
-
-                    await MainActor.run {
-                        self.isBusy = false
-                        self.sharedFiles = SharedFiles(urls: [plyURL])
-                        self.notice = String(localized: "3D Gaussian Splats exported successfully.")
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.isBusy = false
-                        self.errorMessage = String(localized: "Exporting Gaussians failed: \(error.localizedDescription)")
-                    }
+        Task {
+            do {
+                let plyURL = try await makeGaussianExportURL(cloud: cloud)
+                await MainActor.run {
+                    self.isBusy = false
+                    self.sharedFiles = SharedFiles(urls: [plyURL])
+                    self.notice = String(localized: "3D Gaussian Splats exported successfully.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.isBusy = false
+                    self.errorMessage = String(localized: "Exporting Gaussians failed: \(error.localizedDescription)")
                 }
             }
         }
+    }
+
+    func makeGaussianExportURL() async throws -> URL {
+        guard let cloud else { throw ScanImportError.emptyPointCloud }
+        return try await makeGaussianExportURL(cloud: cloud)
+    }
+
+    private func makeGaussianExportURL(cloud: OpaquePointer) async throws -> URL {
+        let cleanTitle = await MainActor.run { scanTitle.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let title = cleanTitle.isEmpty ? "LiDAR-Scan" : cleanTitle
+        let points: [PCPoint] = try await withCheckedThrowingContinuation { continuation in
+            worker.async {
+                let stats = pc_stats(cloud)
+                guard stats.pointCount > 0 else {
+                    continuation.resume(throwing: ScanImportError.emptyPointCloud)
+                    return
+                }
+                let count = Int(stats.pointCount)
+                var copied = [PCPoint](repeating: PCPoint(), count: count)
+                let written = copied.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
+                if written < count { copied.removeLast(count - written) }
+                continuation.resume(returning: copied)
+            }
+        }
+        return try await Self.writeGaussians(from: points, title: title)
+    }
+
+    static func writeGaussians(from points: [PCPoint], title: String) async throws -> URL {
+        guard !points.isEmpty else { throw ScanImportError.emptyPointCloud }
+        let safeTitle = title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+        let fileStem = safeTitle.isEmpty ? "LiDAR-Scan" : safeTitle
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let plyURL = tempDir.appendingPathComponent("\(fileStem)-gaussians.ply")
+        let splatPoints = PCPoint.toSplatPoints(points)
+        let writer = try SplatPLYSceneWriter(to: .file(plyURL))
+        try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
+        try await writer.write(splatPoints)
+        try await writer.close()
+        return plyURL
     }
 
     func saveCurrent(share: Bool, report: Bool = false) {
@@ -463,6 +483,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         return scan
     }
 
+    func notifyImported(_ scan: SavedScan) {
+        notice = String(format: String(localized: "Imported scan: %@"), scan.metadata.title)
+    }
+
     func loadPreview(for scan: SavedScan) async -> [PCPoint] {
         await Task.detached(priority: .userInitiated) {
             ScanStorage.readPreview(for: scan)
@@ -471,7 +495,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func beginBackgroundTask() {
         guard backgroundTask == .invalid else { return }
-        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Scan sichern") { [weak self] in
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Save point cloud") { [weak self] in
             self?.endBackgroundTask()
         }
     }

@@ -41,12 +41,12 @@
 "Every Fourth Pixel per Axis" = "Jeder vierte je Achse";
 "Every Pixel" = "Jeder Pixel";
 "Every Second Pixel per Axis" = "Jeder zweite je Achse";
+"Could not complete the export." = "Export konnte nicht abgeschlossen werden.";
+"Could not create the export file." = "Exportdatei konnte nicht angelegt werden.";
 "Export" = "Exportieren";
 "Export Failed" = "Export fehlgeschlagen";
 "Export Point Cloud" = "Punktwolke exportieren";
-"Export fehlgeschlagen. Bitte freien Speicher und Ziel prüfen." = "Export fehlgeschlagen. Bitte freien Speicher und Ziel prüfen.";
-"Export konnte nicht abgeschlossen werden." = "Export konnte nicht abgeschlossen werden.";
-"Exportdatei konnte nicht angelegt werden." = "Exportdatei konnte nicht angelegt werden.";
+"Export failed. Please check available storage and the destination." = "Export fehlgeschlagen. Bitte freien Speicher und Ziel prüfen.";
 "File Format" = "Dateiformat";
 "Format" = "Format";
 "Hide Points" = "Punkte ausblenden";
@@ -54,7 +54,7 @@
 "In automatic mode, available memory determines the number of points that can be captured. When memory runs low, the app stops capture and saves the scan. Memory monitoring also applies when a fixed point limit is selected." = "Im automatischen Modus bestimmt der verfügbare Arbeitsspeicher die erreichbare Punktzahl. Wenn der Arbeitsspeicher knapp wird, beendet die App die Erfassung und sichert den Scan. Die Speicherüberwachung gilt auch bei fest gewählten Punktlimits.";
 "In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device." = "Im nächsten Schritt „In Dateien sichern“ oder AirDrop auswählen. Eine binäre PLY-Kopie bleibt im Scan-Archiv auf diesem Gerät.";
 "Kamerabild konnte nicht gelesen werden." = "Kamerabild konnte nicht gelesen werden.";
-"Keine Punkte oder ungültiges Exportziel." = "Keine Punkte oder ungültiges Exportziel.";
+"No points or invalid export destination." = "Keine Punkte oder ungültiges Exportziel.";
 "Konfidenzbild konnte nicht gelesen werden." = "Konfidenzbild konnte nicht gelesen werden.";
 "LiDAR Sensor Required" = "LiDAR-Scanner erforderlich";
 "LiDAR required" = "LiDAR erforderlich";
@@ -280,3 +280,10 @@
 "%@ / %@ points" = "%@ / %@ Punkte";
 "Mode" = "Modus";
 "Export Options" = "Exportoptionen";
+"Imported scan: %@" = "Scan importiert: %@";
+"The ZIP archive is invalid or damaged." = "Das ZIP-Archiv ist ungültig oder beschädigt.";
+"Encrypted ZIP archives are not supported." = "Verschlüsselte ZIP-Archive werden nicht unterstützt.";
+"Unsupported ZIP compression method (%d)." = "Nicht unterstützte ZIP-Komprimierung (%d).";
+"ZIP archive contains an unsafe path: %@" = "Das ZIP-Archiv enthält einen unsicheren Pfad: %@";
+"ZIP entry could not be extracted: %@" = "ZIP-Eintrag konnte nicht entpackt werden: %@";
+"ZIP archive exceeds the allowed extraction limit." = "Das ZIP-Archiv überschreitet das zulässige Entpackungslimit.";

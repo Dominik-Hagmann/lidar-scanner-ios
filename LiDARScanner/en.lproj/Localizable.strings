@@ -41,12 +41,12 @@
 "Every Fourth Pixel per Axis" = "Every Fourth Pixel per Axis";
 "Every Pixel" = "Every Pixel";
 "Every Second Pixel per Axis" = "Every Second Pixel per Axis";
+"Could not complete the export." = "Could not complete the export.";
+"Could not create the export file." = "Could not create the export file.";
 "Export" = "Export";
 "Export Failed" = "Export Failed";
 "Export Point Cloud" = "Export Point Cloud";
-"Export fehlgeschlagen. Bitte freien Speicher und Ziel prüfen." = "Export failed. Please check available storage and the destination.";
-"Export konnte nicht abgeschlossen werden." = "Could not complete the export.";
-"Exportdatei konnte nicht angelegt werden." = "Could not create the export file.";
+"Export failed. Please check available storage and the destination." = "Export failed. Please check available storage and the destination.";
 "File Format" = "File Format";
 "Format" = "Format";
 "Hide Points" = "Hide Points";
@@ -54,7 +54,7 @@
 "In automatic mode, available memory determines the number of points that can be captured. When memory runs low, the app stops capture and saves the scan. Memory monitoring also applies when a fixed point limit is selected." = "In automatic mode, available memory determines the number of points that can be captured. When memory runs low, the app stops capture and saves the scan. Memory monitoring also applies when a fixed point limit is selected.";
 "In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device." = "In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device.";
 "Kamerabild konnte nicht gelesen werden." = "Could not read the camera image.";
-"Keine Punkte oder ungültiges Exportziel." = "No points or invalid export destination.";
+"No points or invalid export destination." = "No points or invalid export destination.";
 "Konfidenzbild konnte nicht gelesen werden." = "Could not read the confidence image.";
 "LiDAR Sensor Required" = "LiDAR Sensor Required";
 "LiDAR required" = "LiDAR required";
@@ -280,3 +280,10 @@
 "%@ / %@ points" = "%@ / %@ points";
 "Mode" = "Mode";
 "Export Options" = "Export Options";
+"Imported scan: %@" = "Imported scan: %@";
+"The ZIP archive is invalid or damaged." = "The ZIP archive is invalid or damaged.";
+"Encrypted ZIP archives are not supported." = "Encrypted ZIP archives are not supported.";
+"Unsupported ZIP compression method (%d)." = "Unsupported ZIP compression method (%d).";
+"ZIP archive contains an unsafe path: %@" = "ZIP archive contains an unsafe path: %@";
+"ZIP entry could not be extracted: %@" = "ZIP entry could not be extracted: %@";
+"ZIP archive exceeds the allowed extraction limit." = "ZIP archive exceeds the allowed extraction limit.";

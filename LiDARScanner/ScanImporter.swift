@@ -21,6 +21,230 @@ enum ScanImportError: LocalizedError {
     }
 }
 
+private enum PLYFormat {
+    case ascii
+    case binaryLittleEndian
+    case binaryBigEndian
+
+    var isBinary: Bool {
+        self != .ascii
+    }
+}
+
+private enum PLYScalarType {
+    case int8, uint8, int16, uint16, int32, uint32, float32, float64
+
+    var byteSize: Int {
+        switch self {
+        case .int8, .uint8: return 1
+        case .int16, .uint16: return 2
+        case .int32, .uint32, .float32: return 4
+        case .float64: return 8
+        }
+    }
+
+    init?(plyToken: String) {
+        switch plyToken.lowercased() {
+        case "char", "int8": self = .int8
+        case "uchar", "uint8": self = .uint8
+        case "short", "int16": self = .int16
+        case "ushort", "uint16": self = .uint16
+        case "int", "int32": self = .int32
+        case "uint", "uint32": self = .uint32
+        case "float", "float32": self = .float32
+        case "double", "float64": self = .float64
+        default: return nil
+        }
+    }
+
+    func readFloat(from raw: UnsafeRawBufferPointer, offset: Int, bigEndian: Bool) -> Float {
+        switch self {
+        case .int8: return Float(loadUnaligned(raw, offset: offset, as: Int8.self))
+        case .uint8: return Float(loadUnaligned(raw, offset: offset, as: UInt8.self))
+        case .int16:
+            let v = loadUnaligned(raw, offset: offset, as: Int16.self)
+            return Float(bigEndian ? Int16(bigEndian: v) : Int16(littleEndian: v))
+        case .uint16:
+            let v = loadUnaligned(raw, offset: offset, as: UInt16.self)
+            return Float(bigEndian ? UInt16(bigEndian: v) : UInt16(littleEndian: v))
+        case .int32:
+            let v = loadUnaligned(raw, offset: offset, as: Int32.self)
+            return Float(bigEndian ? Int32(bigEndian: v) : Int32(littleEndian: v))
+        case .uint32:
+            let v = loadUnaligned(raw, offset: offset, as: UInt32.self)
+            return Float(bigEndian ? UInt32(bigEndian: v) : UInt32(littleEndian: v))
+        case .float32:
+            let bits = loadUnaligned(raw, offset: offset, as: UInt32.self)
+            return Float(bitPattern: bigEndian ? UInt32(bigEndian: bits) : UInt32(littleEndian: bits))
+        case .float64:
+            let bits = loadUnaligned(raw, offset: offset, as: UInt64.self)
+            return Float(Double(bitPattern: bigEndian ? UInt64(bigEndian: bits) : UInt64(littleEndian: bits)))
+        }
+    }
+
+    func readByteColor(from raw: UnsafeRawBufferPointer, offset: Int, bigEndian: Bool) -> UInt8 {
+        switch self {
+        case .uint8:
+            return loadUnaligned(raw, offset: offset, as: UInt8.self)
+        case .int8:
+            return UInt8(max(0, Int(loadUnaligned(raw, offset: offset, as: Int8.self))))
+        case .float32, .float64:
+            let val = readFloat(from: raw, offset: offset, bigEndian: bigEndian)
+            let scaled = (val >= 0 && val <= 1.0) ? val * 255.0 : val
+            return UInt8(clamping: Int(scaled.rounded()))
+        default:
+            return UInt8(clamping: Int(readFloat(from: raw, offset: offset, bigEndian: bigEndian).rounded()))
+        }
+    }
+
+    private func loadUnaligned<T>(_ raw: UnsafeRawBufferPointer, offset: Int, as type: T.Type) -> T {
+        precondition(offset >= 0 && offset + MemoryLayout<T>.size <= raw.count)
+        return withUnsafeTemporaryAllocation(byteCount: MemoryLayout<T>.size, alignment: MemoryLayout<T>.alignment) { temp in
+            memcpy(temp.baseAddress!, raw.baseAddress!.advanced(by: offset), MemoryLayout<T>.size)
+            return temp.baseAddress!.assumingMemoryBound(to: T.self).pointee
+        }
+    }
+}
+
+private struct PLYProperty {
+    let type: PLYScalarType
+    let byteOffset: Int
+    let columnIndex: Int
+}
+
+private struct PLYHeader {
+    let format: PLYFormat
+    let vertexCount: Int
+    let headerByteLength: Int
+    let recordSize: Int
+    let x: PLYProperty
+    let y: PLYProperty
+    let z: PLYProperty
+    let red: PLYProperty?
+    let green: PLYProperty?
+    let blue: PLYProperty?
+    let confidence: PLYProperty?
+
+    var isBinary: Bool { format.isBinary }
+    var hasColor: Bool { red != nil && green != nil && blue != nil }
+
+    static func parse(from url: URL) -> PLYHeader? {
+        guard let file = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? file.close() }
+
+        let maxHeaderBytes = 65_536
+        var headerData = Data()
+        while headerData.count < maxHeaderBytes {
+            guard let chunk = try? file.read(upToCount: 8192), !chunk.isEmpty else { break }
+            headerData.append(chunk)
+            if locateEndHeader(in: headerData) != nil { break }
+        }
+
+        guard let endRange = locateEndHeader(in: headerData) else { return nil }
+        let asciiHeaderData = headerData.subdata(in: 0..<endRange.upperBound)
+        guard let headerString = String(data: asciiHeaderData, encoding: .utf8) ?? String(data: asciiHeaderData, encoding: .isoLatin1) else {
+            return nil
+        }
+
+        let lines = headerString.split(whereSeparator: \.isNewline)
+        guard let firstLine = lines.first?.trimmingCharacters(in: .whitespaces), firstLine == "ply" else {
+            return nil
+        }
+
+        var format: PLYFormat?
+        var vertexCount = -1
+        var inVertexElement = false
+        var properties: [String: PLYProperty] = [:]
+        var byteOffset = 0
+        var columnIndex = 0
+
+        for rawLine in lines.dropFirst() {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line.hasPrefix("comment ") || line.hasPrefix("obj_info ") { continue }
+            if line == "end_header" { break }
+
+            let parts = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard let keyword = parts.first else { continue }
+
+            switch keyword {
+            case "format":
+                guard parts.count >= 2 else { return nil }
+                switch parts[1] {
+                case "ascii": format = .ascii
+                case "binary_little_endian": format = .binaryLittleEndian
+                case "binary_big_endian": format = .binaryBigEndian
+                default: return nil
+                }
+            case "element":
+                guard parts.count >= 3 else { continue }
+                if parts[1] == "vertex" {
+                    guard let count = Int(parts[2]), count >= 0 else { return nil }
+                    vertexCount = count
+                    inVertexElement = true
+                } else {
+                    inVertexElement = false
+                }
+            case "property":
+                guard inVertexElement else { continue }
+                if parts.count >= 2 && parts[1] == "list" {
+                    if format?.isBinary == true { return nil }
+                    columnIndex += 1
+                    continue
+                }
+                guard parts.count >= 3, let scalar = PLYScalarType(plyToken: parts[1]) else { continue }
+                let prop = PLYProperty(type: scalar, byteOffset: byteOffset, columnIndex: columnIndex)
+                properties[parts[2].lowercased()] = prop
+                byteOffset += scalar.byteSize
+                columnIndex += 1
+            default:
+                continue
+            }
+        }
+
+        guard let resolvedFormat = format, vertexCount >= 0,
+              let x = properties["x"], let y = properties["y"], let z = properties["z"] else {
+            return nil
+        }
+
+        let red = properties["red"] ?? properties["r"]
+        let green = properties["green"] ?? properties["g"]
+        let blue = properties["blue"] ?? properties["b"]
+        let conf = properties["confidence"] ?? properties["conf"]
+
+        return PLYHeader(
+            format: resolvedFormat,
+            vertexCount: vertexCount,
+            headerByteLength: endRange.upperBound,
+            recordSize: byteOffset,
+            x: x, y: y, z: z,
+            red: red, green: green, blue: blue,
+            confidence: conf
+        )
+    }
+
+    private static func locateEndHeader(in data: Data) -> Range<Int>? {
+        let lfMarker = Data("end_header\n".utf8)
+        let crlfMarker = Data("end_header\r\n".utf8)
+        let lfRange = data.range(of: lfMarker)
+        let crlfRange = data.range(of: crlfMarker)
+
+        switch (lfRange, crlfRange) {
+        case (.some(let a), .some(let b)):
+            return a.lowerBound < b.lowerBound ? a : b
+        case (.some(let a), .none):
+            return a
+        case (.none, .some(let b)):
+            return b
+        case (.none, .none):
+            let eofMarker = Data("end_header".utf8)
+            if let r = data.range(of: eofMarker), r.upperBound == data.count {
+                return r
+            }
+            return nil
+        }
+    }
+}
+
 enum ScanImporter {
     static let supportedContentTypes: [UTType] = [
         UTType(filenameExtension: "ply") ?? .data,
@@ -32,167 +256,203 @@ enum ScanImporter {
 
     /// Parses a PLY file header to determine the vertex count and whether it is binary or ASCII.
     static func parsePLYHeader(from url: URL) -> (vertexCount: Int, isBinary: Bool, hasColor: Bool)? {
-        guard let file = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? file.close() }
-
-        guard let initialData = try? file.read(upToCount: 8192),
-              let headerString = String(data: initialData, encoding: .utf8) ?? String(data: initialData, encoding: .ascii),
-              headerString.hasPrefix("ply") else {
-            return nil
-        }
-
-        let isBinary = headerString.contains("format binary_little_endian")
-        let hasColor = headerString.contains("red") && headerString.contains("green") && headerString.contains("blue")
-        var vertexCount = 0
-
-        let lines = headerString.components(separatedBy: .newlines)
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("element vertex ") {
-                let parts = trimmed.components(separatedBy: " ")
-                if parts.count >= 3, let count = Int(parts[2]) {
-                    vertexCount = count
-                    break
-                }
-            }
-            if trimmed == "end_header" { break }
-        }
-
-        return (vertexCount: vertexCount, isBinary: isBinary, hasColor: hasColor)
+        guard let header = PLYHeader.parse(from: url) else { return nil }
+        return (vertexCount: header.vertexCount, isBinary: header.isBinary, hasColor: header.hasColor)
     }
 
-    /// Reads up to `maxPoints` from a PLY or XYZ file for 3D preview in the app.
+    /// Reads up to `maxPoints` evenly sampled points from a PLY or XYZ file for 3D preview.
     static func readPreviewPoints(from url: URL, maxPoints: Int = 40_000) -> [PCPoint] {
-        if url.pathExtension.lowercased() == "xyz" {
-            return readXYZPreviewPoints(from: url, maxPoints: maxPoints)
+        readPoints(from: url, formatHint: nil, maxPoints: maxPoints)
+    }
+
+    /// Reads points from a PLY or XYZ file. Pass `nil` for `maxPoints` to load every point.
+    static func readPoints(from url: URL, formatHint: ExportFormat? = nil, maxPoints: Int? = 40_000) -> [PCPoint] {
+        let isXYZ = formatHint == .xyz || (formatHint == nil && url.pathExtension.lowercased() == "xyz")
+        if isXYZ {
+            return readXYZPoints(from: url, maxPoints: maxPoints)
         }
+        return readPLYPoints(from: url, maxPoints: maxPoints)
+    }
+
+    private static func readPLYPoints(from url: URL, maxPoints: Int?) -> [PCPoint] {
+        guard let header = PLYHeader.parse(from: url), header.vertexCount > 0 else { return [] }
+        if let maxPoints, maxPoints <= 0 { return [] }
 
         guard let file = try? FileHandle(forReadingFrom: url) else { return [] }
         defer { try? file.close() }
-
-        guard let initialData = try? file.read(upToCount: 8192),
-              let headerString = String(data: initialData, encoding: .utf8) ?? String(data: initialData, encoding: .ascii),
-              let endHeaderRange = headerString.range(of: "end_header\n") ?? headerString.range(of: "end_header\r\n") else {
+        do {
+            try file.seek(toOffset: UInt64(header.headerByteLength))
+        } catch {
             return []
         }
 
-        let isBinary = headerString.contains("format binary_little_endian")
-        var vertexCount = 0
-        let lines = headerString.components(separatedBy: .newlines)
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("element vertex ") {
-                let parts = trimmed.components(separatedBy: " ")
-                if parts.count >= 3, let count = Int(parts[2]) {
-                    vertexCount = count
-                    break
-                }
-            }
-        }
-
-        guard vertexCount > 0 else { return [] }
-        let headerLength = headerString[..<endHeaderRange.upperBound].utf8.count
-        try? file.seek(toOffset: UInt64(headerLength))
-
+        let targetCount = maxPoints.map { min($0, header.vertexCount) } ?? header.vertexCount
         var points: [PCPoint] = []
-        points.reserveCapacity(min(maxPoints, vertexCount))
-        let step = max(1, vertexCount / maxPoints)
+        points.reserveCapacity(targetCount)
 
-        if isBinary {
-            let hasColors = headerString.contains("property uchar red") || headerString.contains("property uint8 red")
-            let recordSize = hasColors ? 16 : 12
-            let bufferSize = 65536
-            var remainingVertices = vertexCount
+        if header.isBinary {
+            guard header.recordSize > 0 else { return [] }
+            let recordSize = header.recordSize
+            let bigEndian = header.format == .binaryBigEndian
+            let readSize = max(recordSize, (65_536 / recordSize) * recordSize)
+
+            var remainder = Data()
             var vertexIndex = 0
+            var sampled = 0
+            var nextSampleIndex = 0
 
-            while remainingVertices > 0 {
-                guard let chunk = try? file.read(upToCount: min(bufferSize, remainingVertices * recordSize)),
-                      chunk.count >= recordSize else { break }
-                let countInChunk = chunk.count / recordSize
+            while vertexIndex < header.vertexCount && points.count < targetCount {
+                guard let chunk = try? file.read(upToCount: readSize), !chunk.isEmpty else { break }
+                var buffer = remainder
+                buffer.append(chunk)
 
-                chunk.withUnsafeBytes { raw in
-                    for i in 0..<countInChunk {
+                let usableBytes = (buffer.count / recordSize) * recordSize
+                let countInBuffer = min(usableBytes / recordSize, header.vertexCount - vertexIndex)
+                if usableBytes < buffer.count {
+                    remainder = buffer.subdata(in: usableBytes..<buffer.count)
+                } else {
+                    remainder.removeAll(keepingCapacity: true)
+                }
+
+                buffer.withUnsafeBytes { raw in
+                    for i in 0..<countInBuffer {
                         let globalIndex = vertexIndex + i
-                        if globalIndex % step == 0 {
-                            let offset = i * recordSize
-                            let x = raw.load(fromByteOffset: offset, as: Float.self)
-                            let y = raw.load(fromByteOffset: offset + 4, as: Float.self)
-                            let z = raw.load(fromByteOffset: offset + 8, as: Float.self)
+                        guard globalIndex == nextSampleIndex else { continue }
 
-                            var r: UInt8 = 200, g: UInt8 = 200, b: UInt8 = 200, conf: UInt8 = 2
-                            if recordSize >= 16 {
-                                r = raw.load(fromByteOffset: offset + 12, as: UInt8.self)
-                                g = raw.load(fromByteOffset: offset + 13, as: UInt8.self)
-                                b = raw.load(fromByteOffset: offset + 14, as: UInt8.self)
-                                conf = raw.load(fromByteOffset: offset + 15, as: UInt8.self)
-                            }
-                            // Convert PLY (X, -Z, Y) to ARKit preview orientation (X, Y_arkit, Z_arkit)
-                            points.append(PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: conf))
-                            if points.count >= maxPoints { return }
-                        }
+                        let base = i * recordSize
+                        let x = header.x.type.readFloat(from: raw, offset: base + header.x.byteOffset, bigEndian: bigEndian)
+                        let y = header.y.type.readFloat(from: raw, offset: base + header.y.byteOffset, bigEndian: bigEndian)
+                        let z = header.z.type.readFloat(from: raw, offset: base + header.z.byteOffset, bigEndian: bigEndian)
+
+                        let r = header.red.map { $0.type.readByteColor(from: raw, offset: base + $0.byteOffset, bigEndian: bigEndian) } ?? 200
+                        let g = header.green.map { $0.type.readByteColor(from: raw, offset: base + $0.byteOffset, bigEndian: bigEndian) } ?? 200
+                        let b = header.blue.map { $0.type.readByteColor(from: raw, offset: base + $0.byteOffset, bigEndian: bigEndian) } ?? 200
+                        let conf = header.confidence.map { $0.type.readByteColor(from: raw, offset: base + $0.byteOffset, bigEndian: bigEndian) } ?? 2
+
+                        // Convert PLY (X, -Z, Y) back to ARKit preview orientation (X, Y_arkit, Z_arkit)
+                        points.append(PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: conf))
+                        sampled += 1
+                        if sampled >= targetCount { break }
+                        nextSampleIndex = (targetCount == header.vertexCount) ? sampled : (sampled * header.vertexCount / targetCount)
                     }
                 }
-                if points.count >= maxPoints { break }
-                vertexIndex += countInChunk
-                remainingVertices -= countInChunk
+                vertexIndex += countInBuffer
             }
         } else {
             guard let restData = try? file.readToEnd(),
-                  let restString = String(data: restData, encoding: .utf8) ?? String(data: restData, encoding: .ascii) else {
+                  let restString = String(data: restData, encoding: .utf8) ?? String(data: restData, encoding: .isoLatin1) else {
                 return []
             }
-            var i = 0
+
+            var vertexIndex = 0
+            var sampled = 0
+            var nextSampleIndex = 0
+
             restString.enumerateLines { line, stop in
+                if vertexIndex >= header.vertexCount || sampled >= targetCount {
+                    stop = true
+                    return
+                }
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty else { return }
-                if i % step == 0 {
-                    let parts = trimmed.components(separatedBy: .whitespaces)
-                    if parts.count >= 3,
-                       let x = Float(parts[0]),
-                       let y = Float(parts[1]),
-                       let z = Float(parts[2]) {
-                        var r: UInt8 = 200, g: UInt8 = 200, b: UInt8 = 200
-                        if parts.count >= 6,
-                           let red = UInt8(parts[3]),
-                           let green = UInt8(parts[4]),
-                           let blue = UInt8(parts[5]) {
-                            r = red; g = green; b = blue
-                        }
-                        points.append(PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: 2))
-                        if points.count >= maxPoints { stop = true }
-                    }
+
+                defer { vertexIndex += 1 }
+                guard vertexIndex == nextSampleIndex else { return }
+
+                let parts = trimmed.split(whereSeparator: \.isWhitespace)
+                let needed = max(header.x.columnIndex, header.y.columnIndex, header.z.columnIndex)
+                guard parts.count > needed,
+                      let x = Float(parts[header.x.columnIndex]),
+                      let y = Float(parts[header.y.columnIndex]),
+                      let z = Float(parts[header.z.columnIndex]) else {
+                    return
                 }
-                i += 1
+
+                let r = header.red.flatMap { parts.indices.contains($0.columnIndex) ? parseASCIIColor(parts[$0.columnIndex]) : nil } ?? 200
+                let g = header.green.flatMap { parts.indices.contains($0.columnIndex) ? parseASCIIColor(parts[$0.columnIndex]) : nil } ?? 200
+                let b = header.blue.flatMap { parts.indices.contains($0.columnIndex) ? parseASCIIColor(parts[$0.columnIndex]) : nil } ?? 200
+                let conf = header.confidence.flatMap { parts.indices.contains($0.columnIndex) ? UInt8(parts[$0.columnIndex]) : nil } ?? 2
+
+                points.append(PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: conf))
+                sampled += 1
+                nextSampleIndex = (targetCount == header.vertexCount) ? sampled : (sampled * header.vertexCount / targetCount)
+                if sampled >= targetCount { stop = true }
             }
         }
 
         return points
     }
 
-    private static func readXYZPreviewPoints(from url: URL, maxPoints: Int) -> [PCPoint] {
-        guard let data = try? Data(contentsOf: url),
-              let content = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
+    private static func readXYZPoints(from url: URL, maxPoints: Int?) -> [PCPoint] {
+        if let maxPoints, maxPoints <= 0 { return [] }
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let content = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             return []
         }
+
         var points: [PCPoint] = []
-        var totalLines = 0
-        content.enumerateLines { _, _ in totalLines += 1 }
-        let step = max(1, totalLines / maxPoints)
-        var i = 0
-        content.enumerateLines { line, stop in
-            if i % step == 0 {
-                let parts = line.trimmingCharacters(in: .whitespaces).components(separatedBy: .whitespaces)
-                if parts.count >= 3,
-                   let x = Float(parts[0]),
-                   let y = Float(parts[1]),
-                   let z = Float(parts[2]) {
-                    points.append(PCPoint(x: x, y: z, z: -y, r: 200, g: 200, b: 200, confidence: 2))
-                    if points.count >= maxPoints { stop = true }
+        guard let maxPoints else {
+            content.enumerateLines { line, _ in
+                if let point = parseXYZLine(line) {
+                    points.append(point)
                 }
             }
-            i += 1
+            return points
+        }
+
+        var validLines = 0
+        content.enumerateLines { line, _ in
+            if parseXYZLine(line) != nil { validLines += 1 }
+        }
+        guard validLines > 0 else { return [] }
+
+        let targetCount = min(maxPoints, validLines)
+        points.reserveCapacity(targetCount)
+        var validIndex = 0
+        var sampled = 0
+        var nextSampleIndex = 0
+
+        content.enumerateLines { line, stop in
+            guard let point = parseXYZLine(line) else { return }
+            if validIndex == nextSampleIndex {
+                points.append(point)
+                sampled += 1
+                if sampled >= targetCount {
+                    stop = true
+                    return
+                }
+                nextSampleIndex = (targetCount == validLines) ? sampled : (sampled * validLines / targetCount)
+            }
+            validIndex += 1
         }
         return points
+    }
+
+    private static func parseXYZLine(_ line: String) -> PCPoint? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), !trimmed.hasPrefix("//") else { return nil }
+        let parts = trimmed.split(whereSeparator: \.isWhitespace)
+        guard parts.count >= 3,
+              let x = Float(parts[0]),
+              let y = Float(parts[1]),
+              let z = Float(parts[2]) else {
+            return nil
+        }
+        var r: UInt8 = 200, g: UInt8 = 200, b: UInt8 = 200
+        if parts.count >= 6,
+           let red = parseASCIIColor(parts[3]),
+           let green = parseASCIIColor(parts[4]),
+           let blue = parseASCIIColor(parts[5]) {
+            r = red; g = green; b = blue
+        }
+        return PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: 2)
+    }
+
+    private static func parseASCIIColor(_ token: Substring) -> UInt8? {
+        if let byte = UInt8(token) { return byte }
+        guard let floatVal = Float(token) else { return nil }
+        let scaled = (floatVal >= 0 && floatVal <= 1.0) ? floatVal * 255.0 : floatVal
+        return UInt8(clamping: Int(scaled.rounded()))
     }
 
     /// Imports an external file or directory into the app's Scans archive.
@@ -210,11 +470,10 @@ enum ScanImporter {
         }
 
         if isDir.boolValue {
-            return try importDirectory(sourceURL)
+            return try importDirectory(sourceURL, depth: 0)
         }
 
-        let ext = sourceURL.pathExtension.lowercased()
-        switch ext {
+        switch sourceURL.pathExtension.lowercased() {
         case "ply":
             return try importPLYFile(sourceURL)
         case "xyz":
@@ -227,94 +486,114 @@ enum ScanImporter {
     }
 
     private static func importPLYFile(_ fileURL: URL) throws -> SavedScan {
-        guard let header = parsePLYHeader(from: fileURL), header.vertexCount > 0 else {
+        guard let header = PLYHeader.parse(from: fileURL), header.vertexCount > 0 else {
             throw ScanImportError.emptyPointCloud
         }
 
         let baseTitle = fileURL.deletingPathExtension().lastPathComponent
-        let metadata = makeMetadata(title: baseTitle, pointCount: header.vertexCount, formatNote: header.isBinary ? "Binary PLY" : "ASCII PLY")
-        return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: header.isBinary ? .binaryPLY : .asciiPLY)
+        let format: ExportFormat = header.isBinary ? .binaryPLY : .asciiPLY
+        let note = header.isBinary ? "Binary PLY" : "ASCII PLY"
+        let metadata = makeMetadata(title: baseTitle, pointCount: header.vertexCount, formatNote: note)
+        return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: format)
     }
 
     private static func importXYZFile(_ fileURL: URL) throws -> SavedScan {
-        guard let data = try? Data(contentsOf: fileURL),
-              let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
+        guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe),
+              let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw ScanImportError.invalidFile
         }
 
-        var lineCount = 0
+        var pointCount = 0
         text.enumerateLines { line, _ in
-            if !line.trimmingCharacters(in: .whitespaces).isEmpty { lineCount += 1 }
+            if parseXYZLine(line) != nil { pointCount += 1 }
         }
-        guard lineCount > 0 else { throw ScanImportError.emptyPointCloud }
+        guard pointCount > 0 else { throw ScanImportError.emptyPointCloud }
 
         let baseTitle = fileURL.deletingPathExtension().lastPathComponent
-        let metadata = makeMetadata(title: baseTitle, pointCount: lineCount, formatNote: "XYZ text coordinates")
+        let metadata = makeMetadata(title: baseTitle, pointCount: pointCount, formatNote: "XYZ text coordinates")
         return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: .xyz)
     }
 
-    private static func importDirectory(_ dirURL: URL) throws -> SavedScan {
-        let metadataURL = dirURL.appendingPathComponent("metadata.json")
-        let pointsPlyURL = dirURL.appendingPathComponent("points.ply")
-
-        if FileManager.default.fileExists(atPath: metadataURL.path),
-           FileManager.default.fileExists(atPath: pointsPlyURL.path) {
-            // Already a full scan directory: copy it into Scans/
-            let base = try ScanStorage.root()
-            let id = UUID().uuidString
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-            let target = base.appendingPathComponent(formatter.string(from: Date()) + "_" + String(id.prefix(8)) + "_" + dirURL.lastPathComponent)
-            try FileManager.default.copyItem(at: dirURL, to: target)
-
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let data = try Data(contentsOf: target.appendingPathComponent("metadata.json"))
-            let metadata = try decoder.decode(ScanMetadata.self, from: data)
-            return SavedScan(directory: target, metadata: metadata)
+    private static func importDirectory(_ dirURL: URL, depth: Int) throws -> SavedScan {
+        if let saved = try tryImportScanContainer(dirURL) {
+            return saved
         }
 
-        // Look for any .ply file inside the folder
-        let files = try FileManager.default.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)
-        if let plyFile = files.first(where: { $0.pathExtension.lowercased() == "ply" }) {
+        let children = try FileManager.default.contentsOfDirectory(
+            at: dirURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ).filter { $0.lastPathComponent != "__MACOSX" }
+
+        if let plyFile = children.first(where: { $0.pathExtension.lowercased() == "ply" }) {
             return try importPLYFile(plyFile)
         }
-        if let xyzFile = files.first(where: { $0.pathExtension.lowercased() == "xyz" }) {
+        if let xyzFile = children.first(where: { $0.pathExtension.lowercased() == "xyz" }) {
             return try importXYZFile(xyzFile)
         }
 
+        if depth < 2 {
+            var lastError: Error?
+            for child in children {
+                let isDir = (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                if isDir {
+                    do {
+                        return try importDirectory(child, depth: depth + 1)
+                    } catch {
+                        lastError = error
+                    }
+                }
+            }
+            if let lastError, !(lastError is ScanImportError) {
+                throw lastError
+            }
+            if case .emptyPointCloud? = lastError as? ScanImportError {
+                throw ScanImportError.emptyPointCloud
+            }
+        }
+
         throw ScanImportError.unsupportedFormat
+    }
+
+    private static func tryImportScanContainer(_ dirURL: URL) throws -> SavedScan? {
+        let metadataURL = dirURL.appendingPathComponent("metadata.json")
+        guard FileManager.default.fileExists(atPath: metadataURL.path) else { return nil }
+
+        let hasPointFile = ExportFormat.allCases.contains {
+            FileManager.default.fileExists(atPath: dirURL.appendingPathComponent($0.fileName).path)
+        }
+        guard hasPointFile else { return nil }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try Data(contentsOf: metadataURL)
+        let metadata = try decoder.decode(ScanMetadata.self, from: data)
+
+        let base = try ScanStorage.root()
+        let id = UUID().uuidString
+        let staging = base.appendingPathComponent(".pending-" + id, isDirectory: true)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let cleanTitle = metadata.title.replacingOccurrences(of: "/", with: "-")
+        let final = base.appendingPathComponent(formatter.string(from: Date()) + "_" + String(id.prefix(8)) + "_" + cleanTitle,
+                                                isDirectory: true)
+        do {
+            try FileManager.default.copyItem(at: dirURL, to: staging)
+            try FileManager.default.moveItem(at: staging, to: final)
+            return SavedScan(directory: final, metadata: metadata)
+        } catch {
+            try? FileManager.default.removeItem(at: staging)
+            throw error
+        }
     }
 
     private static func importZIPArchive(_ zipURL: URL) throws -> SavedScan {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("import-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
 
-        // Use iOS FileManager unzip or folder discovery
-        // Unzip via system or find files
-        let coordinator = NSFileCoordinator()
-        var coordinatedError: NSError?
-        var importedScan: SavedScan?
-
-        coordinator.coordinate(readingItemAt: zipURL, options: [], error: &coordinatedError) { readURL in
-            // Look inside the uncompressed folder if system mounted or unpack
-            // In iOS, FileManager can unpack if zipped or read as container
-            do {
-                let items = try FileManager.default.contentsOfDirectory(at: readURL, includingPropertiesForKeys: nil)
-                if let scanDir = items.first(where: { (try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil))?.contains(where: { $0.lastPathComponent == "points.ply" }) == true }) {
-                    importedScan = try? importDirectory(scanDir)
-                } else if let ply = items.first(where: { $0.pathExtension.lowercased() == "ply" }) {
-                    importedScan = try? importPLYFile(ply)
-                }
-            } catch {}
-        }
-
-        if let importedScan {
-            return importedScan
-        }
-        throw ScanImportError.unsupportedFormat
+        try ZipArchive.extract(from: zipURL, to: tempDir)
+        return try importDirectory(tempDir, depth: 0)
     }
 
     private static func makeMetadata(title: String, pointCount: Int, formatNote: String) -> ScanMetadata {

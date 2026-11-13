@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct CreditsView: View {
-    @Environment(\.openURL) private var openURL
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
     private var appVersionString: String {
