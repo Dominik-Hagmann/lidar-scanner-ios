@@ -111,6 +111,9 @@ struct GaussianScannerView: View {
             if let p = model.current {
                 GaussianPreviewSheet(
                     url: p.resultURL,
+                    exportMetadata: AnnotationExportMetadata(gaussian: p),
+                    annotations: p.annotations ?? [],
+                    onSaveAnnotations: { model.updateAnnotations(for: p, annotations: $0) },
                     isFullScreen: $previewFullScreen,
                     onClose: { preview = false; previewFullScreen = false }
                 )
@@ -120,13 +123,16 @@ struct GaussianScannerView: View {
             if let p = model.current {
                 GaussianPreviewSheet(
                     url: p.resultURL,
+                    exportMetadata: AnnotationExportMetadata(gaussian: p),
+                    annotations: p.annotations ?? [],
+                    onSaveAnnotations: { model.updateAnnotations(for: p, annotations: $0) },
                     isFullScreen: $previewFullScreen,
                     onClose: { preview = false; previewFullScreen = false }
                 )
             }
         }
         .sheet(item: Binding(get: { details ? nil : model.sharing }, set: { model.sharing = $0 })) { ShareSheet(urls: $0.urls) }
-        .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !details && !archive }, set: { if !$0 { model.errorMessage = nil } })) {
+        .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !details && !archive }, set: { if !$0 { model.errorMessage = nil } })) {
             Button(L("OK")) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
     }
@@ -192,6 +198,25 @@ struct GaussianScannerView: View {
                     Menu {
                         Button(L("Share 3D Scene"), systemImage: "cube.transparent") { model.share(.scene) }.disabled(!p.hasResult)
                         Button(L("Export Capture"), systemImage: "photo.stack") { model.share(.capture) }
+                        if let annotations = p.annotations, !annotations.isEmpty {
+                            Menu(L("Export Annotations")) {
+                                Button(L("GeoJSON (3D · QGIS / GIS)")) {
+                                    if !FileManager.default.fileExists(atPath: p.annotationsGeoJSONURL.path),
+                                       let data = try? AnnotationExporter.geoJSONData(for: annotations, exportMetadata: AnnotationExportMetadata(gaussian: p)) {
+                                        try? data.write(to: p.annotationsGeoJSONURL, options: .atomic)
+                                    }
+                                    model.sharing = SharedFiles(urls: [p.annotationsGeoJSONURL])
+                                }
+                                Button(L("CSV + WKT (Excel / QGIS)")) {
+                                    try? AnnotationExporter.csvData(for: annotations).write(to: p.annotationsCSVURL, options: .atomic)
+                                    model.sharing = SharedFiles(urls: [p.annotationsCSVURL])
+                                }
+                                Button(L("DXF (CAD · Layers by Tag)")) {
+                                    try? AnnotationExporter.dxfData(for: annotations).write(to: p.annotationsDXFURL, options: .atomic)
+                                    model.sharing = SharedFiles(urls: [p.annotationsDXFURL])
+                                }
+                            }
+                        }
                         Button(L("Export Report"), systemImage: "doc.richtext") { model.share(.report) }
                         Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
                     } label: { Label(L("Share"), systemImage: "square.and.arrow.up") }
@@ -258,7 +283,7 @@ struct GaussianDetailsView: View {
             }.navigationTitle(L("Scan Details")).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L("Done")) { dismiss() } } }
                 .sheet(item: $model.sharing) { ShareSheet(urls: $0.urls) }
-                .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
                     Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }
@@ -294,7 +319,16 @@ private struct GaussianArchiveView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(scan.title).font(.headline)
                             Text(scan.phase.title).font(.subheadline).foregroundStyle(.secondary)
-                            Text(L("Saved views: %lld", Int64(scan.frames.count))).font(.caption)
+                            HStack(spacing: 6) {
+                                Text(L("Saved views: %lld", Int64(scan.frames.count))).font(.caption)
+                                if let annCount = scan.annotations?.count, annCount > 0 {
+                                    Text(L("Tags %@", annCount.formatted()))
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(.cyan.opacity(0.2), in: Capsule())
+                                        .foregroundStyle(.cyan)
+                                }
+                            }
                         }.padding(.vertical, 6)
                     }.swipeActions { Button(L("Delete"), role: .destructive) { deleting = scan } }
                 }
@@ -334,7 +368,7 @@ private struct GaussianArchiveView: View {
                     Button(L("Cancel"), role: .cancel) { deleting = nil }
                     Button(L("Delete"), role: .destructive) { if let deleting { model.delete(deleting) }; deleting = nil }
                 } message: { Text(L("The capture, 3D scene and processing log will be removed from this device.")) }
-                .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && deleting == nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && deleting == nil }, set: { if !$0 { model.errorMessage = nil } })) {
                     Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }

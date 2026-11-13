@@ -11,20 +11,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
 </p>
 
-<p align="center">
-  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
-    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="65">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://hrzz.hr/en/" target="_blank">
-    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="42">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.iarh.hr/en/home/" target="_blank">
-    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="42">
-  </a>
-</p>
-
 The **LiDAR Scanner App** is a native, free and open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It produces **point clouds**, **surface meshes** and **locally processed Gaussian scenes** and exports them in open formats for further work in specialised software.
 
 ## Why another iOS LiDAR scanner app?
@@ -45,8 +31,8 @@ This is exactly what the LiDAR Scanner App is made for.
 
 - **Two capture modes**
   - **Point Cloud** – accumulates coloured LiDAR depth points and optional ARKit surface meshes; exports binary PLY, ASCII PLY, XYZ, CSV, ASPRS LAS, compressed LAZ, ASTM E57, and Wavefront OBJ (`mesh.obj`) with JSON metadata, GNSS tags, and Ground Control Points (`gcps.csv`).
-  - **Gaussian Splatting** – captures distinct views automatically and optimizes a 3D Gaussian scene directly on the device.
-- **On-device 3D analysis & field georeferencing** – interactive 3D preview with point-to-point distance measurement, 3D **Annotations** (points, polygons, and 3D rectangles) with custom **tags** and **GeoJSON / CSV+WKT / DXF / JSON** export, 3D Ground Control Point (GCP) tagging/editing, and optional offline GNSS coordinates, altitude, and compass heading.
+  - **Gaussian Splatting** – captures distinct views automatically and optimizes a 3D Gaussian scene directly on the device (`scene.ply`, `annotations.geojson`).
+- **On-device 3D analysis & field georeferencing** – interactive 3D preview for both **Point Clouds** and **Gaussian Splats** with point-to-point distance measurement, 3D **Annotations** (points and polygons with floating name labels, 3D vertex/point editing, custom **tags**, and **GeoJSON / CSV+WKT / DXF / JSON** export), 3D Ground Control Point (GCP) tagging/editing, and optional offline GNSS coordinates, altitude, and compass heading.
 - **Fully on-device** – no API keys, servers or in-app accounts. Scans are processed offline; the share sheet passes only the selected files to the destination chosen by the user.
 - **Traceable records** – optional narrative PDF report and a processing log with recorded settings, decisions, processing steps and SHA-256 file hashes.
 - **Robust saving** – automatic saves on pause, memory monitoring, processing checkpoints and recovery after interruption.
@@ -65,9 +51,9 @@ This is exactly what the LiDAR Scanner App is made for.
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Roadmap](#roadmap)
-- [Research Context: RIM Project](#research-context--project-affiliation-rim-project)
 - [Citation](#citation)
 - [License, Disclaimer and Provenance](#license-disclaimer-and-provenance)
+- [Acknowledgments](#acknowledgments)
 
 ## Status
 
@@ -126,7 +112,7 @@ Apple documents device installation in [Running your app on simulated or physica
 6. Tap **Share → Export Point Cloud** to enter a designation, choose a format, and tap **Save and Share** (or export directly via **Share Point Cloud**, **Export 3D Gaussian Splats**, **Export Formats**, or **Export Report**).
 7. In the share sheet, choose **Save to Files**, AirDrop or another destination. The point file and metadata are offered together.
 
-**Archive & Import:** Completed saves are stored under **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans**. The folder icon opens the internal archive, where scans can be previewed in 3D, imported (`.ply`, `.xyz`, `.zip`, or scan folders), shared again (including full-resolution Gaussian splat export and PDF reports), and deleted. Saving an unchanged scan under the same designation reuses the existing save; additional points or a different designation create a new archived state.
+**Archive & Import:** Completed saves are stored under **Files → On My iPhone / On My iPad → LiDAR Scanner → Scans**. The folder icon opens the internal archive, where scans can be previewed in 3D, imported (`.ply`, `.xyz`, `.zip`, or scan folders), shared again (including full-resolution Gaussian splat export and PDF reports), and deleted. Saving an unchanged scan under the same designation reuses the existing save; additional points or a different designation create a new archived state.
 
 ### Point-cloud settings and memory
 
@@ -238,7 +224,7 @@ One observation is initially retained per grid cell; a later observation replace
 If iOS or iPadOS shows **“App is no longer available”** (German: **„App ist nicht mehr verfügbar“**; wording may vary) when you tap the icon of an app installed through Xcode:
 
 > [!CAUTION]
-> **Do not delete the app** — [deleting an app also removes its local data](https://support.apple.com/guide/iphone/remove-or-delete-apps-iph248b543ca/ios). If accessible, first copy **Files → On My iPhone / On My iPad → LiDAR-Scanner → Scans** to iCloud Drive or a Mac.
+> **Do not delete the app** — [deleting an app also removes its local data](https://support.apple.com/guide/iphone/remove-or-delete-apps-iph248b543ca/ios). If accessible, first copy **Files → On My iPhone / On My iPad → LiDAR Scanner → Scans** to iCloud Drive or a Mac.
 
 1. Connect the device to the Mac and unlock it.
 2. Open the same `LiDARScanner.xcodeproj` used for the original installation and select the physical device (not the Simulator).
@@ -291,37 +277,13 @@ Implemented in **1.3.0 (Build 5)**:
 
 - CSV, ASPRS LAS, compressed LAZ, and ASTM E57 point-cloud exports plus Wavefront OBJ surface mesh reconstruction.
 - Offline GNSS georeferencing metadata (`metadata.json` and PDF reports) with Settings opt-out toggle.
-- Interactive 3D point-to-point distance measurement, Ground Control Point (GCP) tagging with `gcps.csv` export, and 3D point/polygon/rectangle annotations with custom tags and GeoJSON / CSV+WKT / DXF / JSON exports.
-
-## Research Context & Project Affiliation (RIM Project)
-
-This application is developed and used within the research project **[Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping (RIM)](https://rim.iarh.hr/index.php/en)** (Project ID: `IP-2025-02-1060`, 2025–2028).
-
-<p align="center">
-  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
-    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="75">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://hrzz.hr/en/" target="_blank">
-    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="50">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.iarh.hr/en/home/" target="_blank">
-    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="50">
-  </a>
-</p>
-
-- **Project Title:** *Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping – RIM* ([rim.iarh.hr](https://rim.iarh.hr/index.php/en))
-- **Project Code:** IP-2025-02-1060 (December 2025 – December 2028)
-- **Host Institution:** [Institut za arheologiju / Institute of Archaeology (IARH)](https://www.iarh.hr/en/home/), Zagreb, Croatia
-- **Funding Body:** [Hrvatska zaklada za znanost / Croatian Science Foundation (HRZZ)](https://hrzz.hr/en/)
-- **Research Scope:** An interdisciplinary initiative exploring and reconstructing provincial Roman rural landscapes and infrastructural networks in eastern Croatia (ancient Pannonia) through remote sensing, GIS integration, and LiDAR-based 3D field recording.
+- Interactive 3D point-to-point distance measurement, Ground Control Point (GCP) tagging with `gcps.csv` export, and 3D point/polygon annotations with floating name labels, 3D geometry editing, custom tags, and GeoJSON / CSV+WKT / DXF / JSON exports across both Point Clouds and Gaussian Splats.
 
 ## Citation
 
 Scientific, educational or documentary use should cite the specific version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and offers a “Cite this repository” option.
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.3.0, Build 5) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
+> Hagmann, D. (2026). *LiDAR Scanner App for iPhone and iPad* (Version 1.3.0, Build 5) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
 
 <details>
 <summary><strong>Selected literature on LiDAR for iPhone and iPad</strong></summary>
@@ -350,3 +312,27 @@ The software is intended for research, archaeological documentation and related 
 To the extent permitted by applicable law, the authors, copyright holders and contributors shall not be liable for any direct, indirect, incidental or consequential damages, including data loss or interruption of work, arising from the use of or inability to use the software. You use LiDAR Scanner at your own risk and responsibility.
 
 This section provides additional usage guidance and does not replace or modify the terms of the [MIT License](LICENSE).
+
+## Acknowledgments
+
+<p align="center">
+  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
+    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="75">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://hrzz.hr/en/" target="_blank">
+    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="50">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.iarh.hr/en/home/" target="_blank">
+    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="50">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://rim.iarh.hr/index.php/en">Roman Infrastructure Mapping (RIM)</a>
+  &nbsp;·&nbsp;
+  <a href="https://hrzz.hr/en/">Croatian Science Foundation (HRZZ)</a>
+  &nbsp;·&nbsp;
+  <a href="https://www.iarh.hr/en/home/">Institute of Archaeology (IARH)</a>
+</p>

@@ -1,31 +1,34 @@
 import Foundation
 import simd
 
+struct AnnotationExportMetadata: Equatable {
+    let scanID: UUID
+    let title: String
+    let unit: String
+    let coordinateSystem: String
+
+    init(scanID: UUID, title: String, unit: String = "metre", coordinateSystem: String) {
+        self.scanID = scanID
+        self.title = title
+        self.unit = unit
+        self.coordinateSystem = coordinateSystem
+    }
+
+    init(scan: ScanMetadata) {
+        self.init(scanID: scan.scanID, title: scan.title, unit: scan.unit, coordinateSystem: scan.coordinateSystem)
+    }
+
+    init(gaussian: GaussianProject) {
+        self.init(
+            scanID: gaussian.id,
+            title: gaussian.title,
+            unit: "metre",
+            coordinateSystem: "Local right-handed Cartesian; Z up (metres; converted via (x, -z, y) from ARKit splat space)"
+        )
+    }
+}
+
 enum AnnotationGeometryHelper {
-    /// Builds an ordered 4-corner horizontal rectangle in ARKit space (Y-up; X/Z horizontal) from 2 corners.
-    static func horizontalRectangleARKit(from a: SIMD3<Float>, to b: SIMD3<Float>) -> [SIMD3<Float>] {
-        let midY = (a.y + b.y) * 0.5
-        return [
-            SIMD3<Float>(a.x, midY, a.z),
-            SIMD3<Float>(b.x, midY, a.z),
-            SIMD3<Float>(b.x, midY, b.z),
-            SIMD3<Float>(a.x, midY, b.z)
-        ]
-    }
-
-    /// Builds an exact 3D rectangle in ARKit space from an anchor edge (p0 -> p1) and a third point p2 defining perpendicular height.
-    static func orientedRectangleARKit(p0: SIMD3<Float>, p1: SIMD3<Float>, p2: SIMD3<Float>) -> [SIMD3<Float>] {
-        let base = p1 - p0
-        let baseLenSq = simd_length_squared(base)
-        guard baseLenSq > 1e-8 else {
-            return horizontalRectangleARKit(from: p0, to: p2)
-        }
-        let u = base / sqrt(baseLenSq)
-        let delta = p2 - p0
-        let height = delta - simd_dot(delta, u) * u
-        return [p0, p1, p1 + height, p0 + height]
-    }
-
     /// Computes perimeter in metres of a closed vertex loop (0 for single point).
     static func perimeter(_ vertices: [AnnotationPoint3D]) -> Double {
         guard vertices.count >= 2 else { return 0 }
@@ -58,6 +61,10 @@ enum AnnotationExporter {
 
     /// RFC 7946 GeoJSON FeatureCollection preserving 3D Z-up local coordinates (metres), tags, and computed metrics.
     static func geoJSONData(for annotations: [CloudAnnotation], metadata: ScanMetadata? = nil) throws -> Data {
+        try geoJSONData(for: annotations, exportMetadata: metadata.map(AnnotationExportMetadata.init(scan:)))
+    }
+
+    static func geoJSONData(for annotations: [CloudAnnotation], exportMetadata: AnnotationExportMetadata?) throws -> Data {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
@@ -90,12 +97,12 @@ enum AnnotationExporter {
                 "perimeterMeters": (ann.perimeterMeters * 10_000).rounded() / 10_000,
                 "areaSquareMeters": (ann.areaSquareMeters * 10_000).rounded() / 10_000,
                 "createdAt": iso.string(from: ann.createdAt),
-                "coordinateUnit": "metre",
-                "coordinateSystem": metadata?.coordinateSystem ?? "Local right-handed Cartesian; Z up"
+                "coordinateUnit": exportMetadata?.unit ?? "metre",
+                "coordinateSystem": exportMetadata?.coordinateSystem ?? "Local right-handed Cartesian; Z up"
             ]
-            if let metadata {
-                props["scanID"] = metadata.scanID.uuidString
-                props["scanTitle"] = metadata.title
+            if let exportMetadata {
+                props["scanID"] = exportMetadata.scanID.uuidString
+                props["scanTitle"] = exportMetadata.title
             }
             return [
                 "type": "Feature",
@@ -109,12 +116,12 @@ enum AnnotationExporter {
             "type": "FeatureCollection",
             "features": features
         ]
-        if let metadata {
+        if let exportMetadata {
             root["metadata"] = [
-                "scanID": metadata.scanID.uuidString,
-                "title": metadata.title,
-                "unit": metadata.unit,
-                "coordinateSystem": metadata.coordinateSystem
+                "scanID": exportMetadata.scanID.uuidString,
+                "title": exportMetadata.title,
+                "unit": exportMetadata.unit,
+                "coordinateSystem": exportMetadata.coordinateSystem
             ]
         }
         return try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])

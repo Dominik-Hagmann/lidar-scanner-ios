@@ -113,7 +113,7 @@ struct ScannerView: View {
         } message: {
             Text(L("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first."))
         }
-        .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
+        .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
             Button(L("OK")) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
@@ -122,7 +122,7 @@ struct ScannerView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text(L("LiDAR-Scanner")).font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(L("LiDAR Scanner")).font(.system(size: 20, weight: .bold, design: .rounded))
                     .lineLimit(1).minimumScaleFactor(0.75)
                 Text(L("LiDAR · Scene to Point Cloud")).font(.caption).foregroundStyle(.secondary)
             }

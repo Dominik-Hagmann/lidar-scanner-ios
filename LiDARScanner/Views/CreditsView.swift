@@ -27,8 +27,9 @@ struct CreditsView: View {
                         .foregroundStyle(mint)
                         .padding(.top, 8)
 
-                    Text(L("LiDAR-Scanner"))
+                    Text(L("LiDAR Scanner App for iPhone and iPad"))
                         .font(.title2.bold())
+                        .multilineTextAlignment(.center)
 
                     Text(appVersionString)
                         .font(.subheadline)
@@ -44,94 +45,15 @@ struct CreditsView: View {
                 .listRowBackground(Color.clear)
             }
 
-            // Research Project: RIM
-            Section(L("Research Project")) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .center, spacing: 14) {
-                        Image("LogoRIM")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 48, height: 48)
-                            .padding(4)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(L("RIM Project"))
-                                .font(.headline)
-                            Text(L("Roman Infrastructure Mapping"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text("IP-2025-02-1060 · 2025–2028")
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Text(L("Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Link(destination: URL(string: "https://rim.iarh.hr/index.php/en")!) {
-                        Label(L("Visit Project Website (rim.iarh.hr)"), systemImage: "arrow.up.right.square")
-                            .font(.caption.weight(.medium))
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-
-            // Institutional Host & Funding
-            Section(L("Host Institution & Funding")) {
-                HStack(alignment: .center, spacing: 14) {
-                    Image("LogoIARH")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 48, height: 48)
-                        .padding(4)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("Institut za arheologiju (IARH)"))
-                            .font(.subheadline.weight(.semibold))
-                        Text(L("Institute of Archaeology, Zagreb"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Link(destination: URL(string: "https://www.iarh.hr/en/home/")!) {
-                            Text("iarh.hr").font(.caption2)
-                        }
-                    }
-                }
-                .padding(.vertical, 2)
-
-                HStack(alignment: .center, spacing: 14) {
-                    Image("LogoHRZZ")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 48, height: 32)
-                        .padding(4)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 8))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("Hrvatska zaklada za znanost (HRZZ)"))
-                            .font(.subheadline.weight(.semibold))
-                        Text(L("Croatian Science Foundation"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Link(destination: URL(string: "https://hrzz.hr/en/")!) {
-                            Text("hrzz.hr").font(.caption2)
-                        }
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            // Authors & Scientific Direction
-            Section(L("Author & Scientific Direction")) {
+            // Author
+            Section(L("Author")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Dominik Hagmann")
                         .font(.headline)
-                    Text(L("University of Vienna / Institute of Archaeology (IARH), Zagreb"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Link(destination: URL(string: "https://orcid.org/0000-0003-4905-2678")!) {
+                        Text("ORCID: 0000-0003-4905-2678")
+                            .font(.caption)
+                    }
                 }
                 .padding(.vertical, 2)
 
@@ -170,6 +92,72 @@ struct CreditsView: View {
                 Text(L("This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            // Acknowledgments
+            Section(L("Acknowledgments")) {
+                HStack(alignment: .center, spacing: 14) {
+                    Image("LogoRIM")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 48, height: 48)
+                        .padding(4)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("RIM Project"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(L("Roman Infrastructure Mapping"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Link(destination: URL(string: "https://rim.iarh.hr/index.php/en")!) {
+                            Text("rim.iarh.hr").font(.caption2)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+
+                HStack(alignment: .center, spacing: 14) {
+                    Image("LogoHRZZ")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 48, height: 32)
+                        .padding(4)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("Hrvatska zaklada za znanost (HRZZ)"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(L("Croatian Science Foundation"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Link(destination: URL(string: "https://hrzz.hr/en/")!) {
+                            Text("hrzz.hr").font(.caption2)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+
+                HStack(alignment: .center, spacing: 14) {
+                    Image("LogoIARH")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 48, height: 48)
+                        .padding(4)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("Institut za arheologiju (IARH)"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(L("Institute of Archaeology, Zagreb"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Link(destination: URL(string: "https://www.iarh.hr/en/home/")!) {
+                            Text("iarh.hr").font(.caption2)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
             }
 
             // License

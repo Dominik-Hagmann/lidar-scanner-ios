@@ -235,4 +235,24 @@ final class GaussianStore {
         }
         return project
     }
+
+    static func updateAnnotations(for project: GaussianProject, annotations: [CloudAnnotation]) throws -> GaussianProject {
+        var updated = project
+        updated.annotations = annotations.isEmpty ? nil : annotations
+        updated.updatedAt = Date()
+        if FileManager.default.fileExists(atPath: updated.directory.path) {
+            let scanURL = updated.directory.appendingPathComponent("scan.json")
+            try encoder.encode(updated).write(to: scanURL, options: .atomic)
+            if annotations.isEmpty {
+                try? FileManager.default.removeItem(at: updated.annotationsGeoJSONURL)
+            } else {
+                try AnnotationExporter.geoJSONData(
+                    for: annotations,
+                    exportMetadata: AnnotationExportMetadata(gaussian: updated)
+                )
+                .write(to: updated.annotationsGeoJSONURL, options: .atomic)
+            }
+        }
+        return updated
+    }
 }

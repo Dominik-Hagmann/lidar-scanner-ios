@@ -123,15 +123,23 @@ struct GroundControlPoint: Codable, Equatable, Identifiable {
 enum CloudAnnotationGeometryType: String, Codable, CaseIterable, Identifiable {
     case point
     case polygon
-    case rectangle
 
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        switch raw {
+        case "point": self = .point
+        case "polygon", "rectangle": self = .polygon
+        default: self = .polygon
+        }
+    }
 
     var title: String {
         switch self {
         case .point: return LanguageManager.string("Point")
         case .polygon: return LanguageManager.string("Polygon")
-        case .rectangle: return LanguageManager.string("Rectangle")
         }
     }
 
@@ -139,7 +147,6 @@ enum CloudAnnotationGeometryType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .point: return "mappin.circle.fill"
         case .polygon: return "pentagon"
-        case .rectangle: return "rectangle"
         }
     }
 }

@@ -62,7 +62,6 @@ enum ScanReport {
             let typeName: String = switch ann.type {
             case .point: text("Point", "Punkt")
             case .polygon: text("Polygon", "Polygon")
-            case .rectangle: text("Rectangle", "Rechteck")
             }
             var line = "\(ann.title) [\(typeName)]"
             if !ann.tags.isEmpty {
@@ -83,8 +82,8 @@ enum ScanReport {
     static func gaussianParagraphs(_ p: GaussianProject) -> [String] {
         var paragraphs = [
             text("Gaussian Splatting — processing report", "Gaussian Splatting – Verarbeitungsbericht"),
-            text("This report describes scan \(p.id.uuidString), started at \(date(p.startedAt)). It uses the saved processing record as of \(date(p.updatedAt)). The scan was recorded with LiDAR-Scanner \(p.appVersion), build \(p.appBuild), on \(p.device) running iOS \(p.operatingSystem).",
-                 "Dieser Bericht beschreibt den Scan \(p.id.uuidString), begonnen am \(date(p.startedAt)). Grundlage ist der gespeicherte Verarbeitungsstand vom \(date(p.updatedAt)). Die Aufnahme erfolgte mit LiDAR-Scanner \(p.appVersion), Build \(p.appBuild), auf \(p.device) mit iOS \(p.operatingSystem)."),
+            text("This report describes scan \(p.id.uuidString), started at \(date(p.startedAt)). It uses the saved processing record as of \(date(p.updatedAt)). The scan was recorded with LiDAR Scanner App for iPhone and iPad \(p.appVersion), build \(p.appBuild), on \(p.device) running iOS \(p.operatingSystem).",
+                 "Dieser Bericht beschreibt den Scan \(p.id.uuidString), begonnen am \(date(p.startedAt)). Grundlage ist der gespeicherte Verarbeitungsstand vom \(date(p.updatedAt)). Die Aufnahme erfolgte mit LiDAR Scanner App for iPhone and iPad \(p.appVersion), Build \(p.appBuild), auf \(p.device) mit iOS \(p.operatingSystem)."),
             text("Capture", "Aufnahme"),
             text("The saved record contains \(p.receivedFrames) camera-frame decisions and \(p.frames.count) saved images. Images were selected only while ARKit tracking was normal, at least 0.5 seconds after the preceding selected view, and after at least 0.025 metres of camera movement or 3 degrees of rotation. Only one image was written at a time. No blur score or independent image-quality assessment was calculated.",
                  "Der gespeicherte Stand enthält \(p.receivedFrames) Entscheidungen zu Kamerabildern und \(p.frames.count) gespeicherte Bilder. Bilder wurden bei normalem ARKit-Tracking ausgewählt, frühestens 0,5 Sekunden nach der vorigen ausgewählten Ansicht und nach mindestens 0,025 Metern Kamerabewegung oder 3 Grad Drehung. Es wurde jeweils ein Bild gleichzeitig geschrieben. Ein Unschärfewert oder eine unabhängige Bewertung der Bildqualität wurde nicht berechnet."),
@@ -126,6 +125,9 @@ enum ScanReport {
             "Aufnahme und Gaussian-PLY verwenden das lokale ARKit-Koordinatensystem in Metern mit Y nach oben, ohne Kartenbezug, EPSG-Code oder Nordausrichtung. Die Kameramatrizen folgen der OpenGL-Konvention. Die Engine zentriert/skaliert intern und stellt beim Export das ursprüngliche Koordinatensystem wieder her (keepCrs=true). Dies unterscheidet sich vom Z-oben-Export des separaten Punktwolkenmodus. Kameraposen wurden aus ARKit übernommen, ohne separate Bündelausgleichung oder nachträgliche Driftkorrektur. Die Optimierung kann Gaussian-Zentren gegenüber gemessenen Tiefenpunkten verschieben. Unabhängige metrische Genauigkeit, vollständige Abdeckung oder Vermessungseignung wurden nicht nachgewiesen."))
         paragraphs.append(text("All capture, processing and report generation took place on the device. The app made no upload for these operations. Sharing is initiated separately by the user through the system share sheet. The images and transforms.json can be exported for processing in other software. scan.json stores the full parameters; events.jsonl stores chronological decisions, steps and errors. SHA-256 checksums identify file contents; the linked event hashes are not a digital signature. GPU floating-point accumulation and random camera sampling mean rerunning training need not produce a bit-identical result.",
             "Aufnahme, Verarbeitung und Berichtserstellung erfolgten auf dem Gerät. Die App führte dafür keinen Upload aus. Eine Weitergabe erfolgt separat auf Initiative des Nutzers über den Systemdialog. Bilder und transforms.json können zur Verarbeitung in anderer Software exportiert werden. scan.json enthält die vollständigen Parameter; events.jsonl enthält zeitlich geordnete Entscheidungen, Schritte und Fehler. SHA-256-Prüfsummen identifizieren Dateiinhalte; die verketteten Ereignisprüfsummen sind keine digitale Signatur. GPU-Gleitkommaoperationen und zufällige Kameraauswahl können bei wiederholter Berechnung zu nicht bitidentischen Ergebnissen führen."))
+        if let annotations = p.annotations, !annotations.isEmpty {
+            paragraphs.append(contentsOf: annotationParagraphs(annotations))
+        }
         paragraphs.append(text("Technical record", "Technischer Datensatz"))
         paragraphs.append("Engine: \(p.engineRevision)\nViewer: \(p.viewerRevision)\nPLY SHA-256: \(p.resultHash ?? "—")\nSeed SHA-256: \(p.seedHash ?? "—")\nCheckpoint SHA-256: \(p.checkpointHash ?? "—")\nAudit head: \(p.auditHead)")
         if let profile = p.profile, let data = try? GaussianStore.encoder.encode(profile), let json = String(data: data, encoding: .utf8) {
@@ -197,7 +199,7 @@ enum ScanReport {
                 let frame = CTFramesetterCreateFrame(setter, CFRange(location: offset, length: 0), path, nil)
                 CTFrameDraw(frame, cg); let visible = CTFrameGetVisibleStringRange(frame)
                 cg.restoreGState()
-                let footer = "LiDAR-Scanner · \(page)"
+                let footer = "LiDAR Scanner App for iPhone and iPad · \(page)"
                 (footer as NSString).draw(at: CGPoint(x: 44, y: 810), withAttributes: [.font: UIFont.systemFont(ofSize: 9), .foregroundColor: UIColor.darkGray])
                 guard visible.length > 0 else { break }
                 offset += visible.length

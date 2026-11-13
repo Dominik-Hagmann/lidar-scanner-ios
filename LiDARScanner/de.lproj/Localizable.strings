@@ -59,7 +59,9 @@
 "LiDAR Sensor Required" = "LiDAR-Scanner erforderlich";
 "LiDAR required" = "LiDAR erforderlich";
 "LiDAR · Scene to Point Cloud" = "LiDAR · Szene als Punktwolke";
-"LiDAR-Scanner" = "LiDAR-Scanner";
+"LiDAR Scanner" = "LiDAR Scanner";
+"LiDAR Scanner App for iPhone and iPad" = "LiDAR Scanner App for iPhone and iPad";
+"LiDAR-Scanner" = "LiDAR Scanner";
 "Local · Meters · Z Up" = "Lokal · Meter · Z nach oben";
 "Maximum Depth" = "Maximale Tiefe";
 "Medium and High" = "Mittel und hoch";
@@ -81,7 +83,7 @@
 "POINTS" = "PUNKTE";
 "Pause" = "Pausieren";
 "Paused. Camera tracking remains active." = "Pausiert. Die Kameraposition wird weiter verfolgt.";
-"Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive." = "Beim Pausieren wird der Scan automatisch auf diesem Gerät gesichert. Du findest ihn in „Dateien“ unter „Auf meinem iPhone“ bzw. „Auf meinem iPad“ → „LiDAR-Scanner“ → „Scans“ und im Scan-Archiv der App.";
+"Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR Scanner” → “Scans” and in the app’s scan archive." = "Beim Pausieren wird der Scan automatisch auf diesem Gerät gesichert. Du findest ihn in „Dateien“ unter „Auf meinem iPhone“ bzw. „Auf meinem iPad“ → „LiDAR Scanner“ → „Scans“ und im Scan-Archiv der App.";
 "Please allow camera access in the device settings." = "Bitte den Kamerazugriff in den Geräteeinstellungen erlauben.";
 "Please move more slowly" = "Bitte langsamer bewegen";
 "Point Cloud" = "Punktwolke";
@@ -242,6 +244,8 @@
 "Project & Credits" = "Projekt & Credits";
 "Native on-device 3D LiDAR & Gaussian Splatting for field archaeology and surveying." = "Natives 3D-LiDAR & Gaussian Splatting auf dem Gerät für Feldarchäologie und Vermessung.";
 "Research Project" = "Forschungsprojekt";
+"Acknowledgments" = "Danksagung";
+"Author" = "Autor";
 "RIM Project" = "RIM-Projekt";
 "Roman Infrastructure Mapping" = "Roman Infrastructure Mapping";
 "IP-2025-02-1060 · 2025–2028" = "IP-2025-02-1060 · 2025–2028";
@@ -323,7 +327,6 @@
 "Save" = "Sichern";
 "Point" = "Punkt";
 "Polygon" = "Polygon";
-"Rectangle" = "Rechteck";
 "Feature" = "Befund";
 "Find" = "Fund";
 "Wall" = "Mauer";
@@ -361,10 +364,14 @@
 "CSV + WKT (Excel / QGIS)" = "CSV + WKT (Excel / QGIS)";
 "DXF (CAD · Layers by Tag)" = "DXF (CAD · Layer nach Tag)";
 "JSON (Native)" = "JSON (Nativ)";
-"No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points, polygons, or rectangles." = "Noch keine 3D-Annotationen vorhanden. In der 3D-Vorschau zum Annotationsmodus wechseln, um Punkte, Polygone oder Rechtecke zu setzen.";
+"No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points or polygons." = "Noch keine 3D-Annotationen vorhanden. In der 3D-Vorschau zum Annotationsmodus wechseln, um Punkte oder Polygone zu setzen.";
 "No annotations match the active filter." = "Keine Annotationen entsprechen dem aktiven Filter.";
 "Tap a point to add annotation" = "Punkt für Annotation antippen";
 "Polygon: %@ vertices (min 3)" = "Polygon: %@ Punkte (min. 3)";
-"Rectangle: %@/3 corners (Finish at 2 for flat)" = "Rechteck: %@/3 Ecken (Fertig bei 2 = horizontal)";
+"Editing: %@" = "Bearbeiten: %@";
+"Tap scene to move point" = "Szene antippen, um Punkt zu verschieben";
+"Tap scene to add corners (%@)" = "Szene antippen, um Ecken hinzuzufügen (%@)";
+"Move Point in 3D" = "Punkt in 3D verschieben";
+"Edit Points in 3D" = "Punkte in 3D bearbeiten";
 "Undo" = "Zurück";
 "Finish" = "Fertig";

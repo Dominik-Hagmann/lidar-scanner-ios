@@ -1,2 +1,4 @@
-"NSCameraUsageDescription" = "LiDAR-Scanner needs the camera and LiDAR sensor to capture point clouds and 3D scenes.";
-"NSLocationWhenInUseUsageDescription" = "LiDAR-Scanner records optional GNSS coordinates to georeference scans for documentation.";
+"CFBundleDisplayName" = "LiDAR Scanner";
+"CFBundleName" = "LiDAR Scanner App for iPhone and iPad";
+"NSCameraUsageDescription" = "LiDAR Scanner App needs the camera and LiDAR sensor to capture point clouds and 3D scenes.";
+"NSLocationWhenInUseUsageDescription" = "LiDAR Scanner App records optional GNSS coordinates to georeference scans for documentation.";

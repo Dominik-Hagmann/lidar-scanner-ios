@@ -92,7 +92,7 @@ struct ArchiveSheet: View {
                 Button(L("Cancel"), role: .cancel) { toDelete = nil }
                 Button(L("Delete"), role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
             } message: { Text(L("The saved scan and its export files will be removed from this device.")) }
-            .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && toDelete == nil },
+            .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && toDelete == nil },
                 set: { if !$0 { model.errorMessage = nil } })) {
                     Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }

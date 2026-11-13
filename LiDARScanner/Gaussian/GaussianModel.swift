@@ -343,6 +343,42 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             } catch { self.fail(error) }
         }
     }
+    func updateAnnotations(for project: GaussianProject, annotations: [CloudAnnotation]) {
+        worker.async {
+            do {
+                let updated: GaussianProject
+                if let store = self.store, store.project.id == project.id {
+                    store.project.annotations = annotations.isEmpty ? nil : annotations
+                    try store.event("annotations_updated", ["count": "\(annotations.count)"])
+                    try store.save()
+                    if annotations.isEmpty {
+                        try? FileManager.default.removeItem(at: store.project.annotationsGeoJSONURL)
+                    } else {
+                        try AnnotationExporter.geoJSONData(
+                            for: annotations,
+                            exportMetadata: AnnotationExportMetadata(gaussian: store.project)
+                        )
+                        .write(to: store.project.annotationsGeoJSONURL, options: .atomic)
+                    }
+                    updated = store.project
+                } else {
+                    updated = try GaussianStore.updateAnnotations(for: project, annotations: annotations)
+                }
+                let scans = (try? GaussianStore.list()) ?? []
+                DispatchQueue.main.async {
+                    if self.current?.id == updated.id {
+                        self.current = updated
+                    }
+                    self.archive = scans
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     enum ShareKind: Equatable { case scene, capture, report, log }
     func share(_ kind: ShareKind) {
         guard !isBusy, !isRecording, current != nil else { return }
@@ -359,7 +395,11 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 switch kind {
                 case .scene:
                     guard store.project.hasResult else { throw GaussianError.message(LanguageManager.string("The 3D scene is not ready yet.")) }
-                    urls = [store.project.resultURL, store.directory.appendingPathComponent("scan.json")]
+                    var sceneURLs = [store.project.resultURL, store.directory.appendingPathComponent("scan.json")]
+                    if FileManager.default.fileExists(atPath: store.project.annotationsGeoJSONURL.path) {
+                        sceneURLs.append(store.project.annotationsGeoJSONURL)
+                    }
+                    urls = sceneURLs
                 case .capture: urls = [try store.exportInputs()]
                 case .log: urls = [store.directory.appendingPathComponent("scan.json"), store.directory.appendingPathComponent("events.jsonl")]
                 case .report: urls = [try ScanReport.gaussian(store.project)]

@@ -10,7 +10,7 @@
 		<string>de</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-	<string>LiDAR-Scanner</string>
+	<string>LiDAR Scanner</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -18,7 +18,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>LiDAR Scanner App for iPhone and iPad</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -28,9 +28,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>LiDAR-Scanner needs the camera and LiDAR sensor to capture point clouds and 3D scenes.</string>
+	<string>LiDAR Scanner App needs the camera and LiDAR sensor to capture point clouds and 3D scenes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>LiDAR-Scanner records optional GNSS coordinates to georeference scans for documentation.</string>
+	<string>LiDAR Scanner App records optional GNSS coordinates to georeference scans for documentation.</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>

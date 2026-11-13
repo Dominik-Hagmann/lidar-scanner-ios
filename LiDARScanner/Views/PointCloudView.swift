@@ -178,11 +178,12 @@ struct OrbitCloudView: UIViewRepresentable {
     let annotations: [CloudAnnotation]
     let selectedAnnotationID: UUID?
     let activeTagFilter: String?
-    let annotationShape: CloudAnnotationGeometryType
+    let editingAnnotationID: UUID?
     let draftAnnotationPoints: [SIMD3<Float>]
+    let projectionModel: AnnotationOverlayProjectionModel
     let onPickAnnotationPoint: (SIMD3<Float>) -> Void
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, SCNSceneRendererDelegate {
         var parent: OrbitCloudView
         let overlayNode = SCNNode()
         weak var scnView: SCNView?
@@ -242,6 +243,48 @@ struct OrbitCloudView: UIViewRepresentable {
             return bestPoint
         }
 
+        private var filteredAnnotations: [CloudAnnotation] {
+            parent.annotations.filter { ann in
+                guard let filter = parent.activeTagFilter else { return true }
+                if filter == "__untagged__" { return ann.tags.isEmpty }
+                return ann.tags.contains { $0.caseInsensitiveCompare(filter) == .orderedSame }
+            }
+        }
+
+        func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
+            guard let scnView else { return }
+            let bounds = scnView.bounds
+            guard bounds.width > 0, bounds.height > 0 else { return }
+            let snapshot = filteredAnnotations
+            let selectedID = parent.selectedAnnotationID
+            let model = parent.projectionModel
+            var labels: [ProjectedAnnotationLabel] = []
+            labels.reserveCapacity(snapshot.count)
+
+            for ann in snapshot where !ann.vertices.isEmpty {
+                let c = ann.centroid.arkitPosition
+                let projected = renderer.projectPoint(SCNVector3(c.x, c.y, c.z))
+                guard projected.z > 0 && projected.z < 1,
+                      projected.x.isFinite && projected.y.isFinite else { continue }
+                let pt = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                guard pt.x >= -60, pt.x <= bounds.width + 60,
+                      pt.y >= -60, pt.y <= bounds.height + 60 else { continue }
+                labels.append(ProjectedAnnotationLabel(
+                    id: ann.id,
+                    title: ann.title,
+                    primaryTag: ann.tags.first,
+                    color: ann.color,
+                    type: ann.type,
+                    screenPoint: pt,
+                    isSelected: ann.id == selectedID
+                ))
+            }
+
+            DispatchQueue.main.async {
+                model.update(labels: labels)
+            }
+        }
+
         func updateVisuals() {
             overlayNode.childNodes.forEach { $0.removeFromParentNode() }
             let markerRadius = CGFloat(max(0.005, boundsRadius * 0.014))
@@ -256,12 +299,8 @@ struct OrbitCloudView: UIViewRepresentable {
                 overlayNode.addChildNode(PreviewVisuals.makeMarker(at: gcp.arkitPosition, radius: markerRadius * scale, color: color))
             }
 
-            let visibleAnnotations = parent.annotations.filter { ann in
-                guard let filter = parent.activeTagFilter else { return true }
-                if filter == "__untagged__" { return ann.tags.isEmpty }
-                return ann.tags.contains { $0.caseInsensitiveCompare(filter) == .orderedSame }
-            }
-            for ann in visibleAnnotations {
+            for ann in filteredAnnotations {
+                if ann.id == parent.editingAnnotationID { continue }
                 let isSelected = ann.id == parent.selectedAnnotationID
                 let scale: CGFloat = isSelected ? 1.45 : 1.0
                 let verts = ann.vertices.map(\.arkitPosition)
@@ -286,31 +325,15 @@ struct OrbitCloudView: UIViewRepresentable {
 
             if parent.toolMode == .annotate && !parent.draftAnnotationPoints.isEmpty {
                 let draftColor = UIColor(red: 0.22, green: 0.74, blue: 0.97, alpha: 1)
-                if parent.annotationShape == .rectangle && parent.draftAnnotationPoints.count == 2 {
-                    let previewRect = AnnotationGeometryHelper.horizontalRectangleARKit(
-                        from: parent.draftAnnotationPoints[0],
-                        to: parent.draftAnnotationPoints[1]
-                    )
-                    PreviewVisuals.addShape(
-                        vertices: previewRect,
-                        closed: true,
-                        fill: true,
-                        markerRadius: markerRadius * 0.85,
-                        lineRadius: lineRadius,
-                        color: draftColor,
-                        into: overlayNode
-                    )
-                } else {
-                    PreviewVisuals.addShape(
-                        vertices: parent.draftAnnotationPoints,
-                        closed: parent.draftAnnotationPoints.count >= 3,
-                        fill: parent.draftAnnotationPoints.count >= 3,
-                        markerRadius: markerRadius * 0.9,
-                        lineRadius: lineRadius,
-                        color: draftColor,
-                        into: overlayNode
-                    )
-                }
+                PreviewVisuals.addShape(
+                    vertices: parent.draftAnnotationPoints,
+                    closed: parent.draftAnnotationPoints.count >= 3,
+                    fill: parent.draftAnnotationPoints.count >= 3,
+                    markerRadius: markerRadius * 0.95,
+                    lineRadius: lineRadius * 1.2,
+                    color: draftColor,
+                    into: overlayNode
+                )
             }
 
             guard parent.toolMode == .measure else { return }
@@ -359,6 +382,7 @@ struct OrbitCloudView: UIViewRepresentable {
         view.defaultCameraController.target = SCNVector3(center.x, center.y, center.z)
         view.defaultCameraController.interactionMode = .orbitTurntable
         view.antialiasingMode = .multisampling4X
+        view.delegate = context.coordinator
 
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         tap.cancelsTouchesInView = false
@@ -402,10 +426,12 @@ struct CloudPreviewSheet: View {
     @State private var annotations: [CloudAnnotation]
     @State private var annotationShape: CloudAnnotationGeometryType = .point
     @State private var draftAnnotationPoints: [SIMD3<Float>] = []
+    @State private var editingGeometryAnnotation: CloudAnnotation?
     @State private var selectedAnnotationID: UUID?
     @State private var activeTagFilter: String?
     @State private var annotationEditorState: AnnotationEditorState?
     @State private var showAnnotationList = false
+    @StateObject private var projectionModel = AnnotationOverlayProjectionModel()
 
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -451,11 +477,19 @@ struct CloudPreviewSheet: View {
                     annotations: annotations,
                     selectedAnnotationID: selectedAnnotationID,
                     activeTagFilter: activeTagFilter,
-                    annotationShape: annotationShape,
+                    editingAnnotationID: editingGeometryAnnotation?.id,
                     draftAnnotationPoints: draftAnnotationPoints,
+                    projectionModel: projectionModel,
                     onPickAnnotationPoint: handleAnnotationTap(at:)
                 )
                 .ignoresSafeArea(edges: .bottom)
+
+                AnnotationLabelsOverlayView(projection: projectionModel) { tappedID in
+                    guard editingGeometryAnnotation == nil,
+                          let ann = annotations.first(where: { $0.id == tappedID }) else { return }
+                    selectedAnnotationID = ann.id
+                    annotationEditorState = AnnotationEditorState(existing: ann, initial: ann)
+                }
 
                 VStack(spacing: 10) {
                     if toolMode == .measure {
@@ -463,7 +497,21 @@ struct CloudPreviewSheet: View {
                     } else if toolMode == .gcp {
                         gcpCard
                     } else if toolMode == .annotate {
-                        annotateCard
+                        AnnotationToolHUDCard(
+                            annotations: $annotations,
+                            selectedAnnotationID: $selectedAnnotationID,
+                            activeTagFilter: $activeTagFilter,
+                            annotationShape: $annotationShape,
+                            draftPoints: $draftAnnotationPoints,
+                            editingAnnotation: $editingGeometryAnnotation,
+                            onFinishNewDraft: finishDraftAnnotation,
+                            onCommitGeometryEdit: commitGeometryEdit,
+                            onCancelGeometryEdit: cancelGeometryEdit,
+                            onOpenList: { showAnnotationList = true },
+                            onEditAnnotation: { ann in
+                                annotationEditorState = AnnotationEditorState(existing: ann, initial: ann)
+                            }
+                        )
                     } else if !isFullScreen {
                         infoCard
                     } else {
@@ -563,6 +611,13 @@ struct CloudPreviewSheet: View {
                     },
                     onDelete: state.existing == nil ? nil : {
                         deleteAnnotation(state.initial)
+                    },
+                    onEditGeometry: state.existing == nil ? nil : { updatedDraft in
+                        editingGeometryAnnotation = updatedDraft
+                        selectedAnnotationID = updatedDraft.id
+                        annotationShape = updatedDraft.type
+                        draftAnnotationPoints = updatedDraft.vertices.map(\.arkitPosition)
+                        toolMode = .annotate
                     }
                 )
             }
@@ -571,7 +626,7 @@ struct CloudPreviewSheet: View {
                     annotations: $annotations,
                     selectedAnnotationID: $selectedAnnotationID,
                     activeTagFilter: $activeTagFilter,
-                    metadata: scanMetadata,
+                    exportMetadata: scanMetadata.map(AnnotationExportMetadata.init(scan:)),
                     onChanged: { updated in
                         onSaveAnnotations?(updated)
                     },
@@ -595,6 +650,7 @@ struct CloudPreviewSheet: View {
             selectedGCPID = nil
             selectedAnnotationID = nil
             draftAnnotationPoints = []
+            editingGeometryAnnotation = nil
         } else {
             if target != .measure {
                 selectedA = nil
@@ -602,6 +658,7 @@ struct CloudPreviewSheet: View {
             }
             if target != .annotate {
                 draftAnnotationPoints = []
+                editingGeometryAnnotation = nil
             }
             toolMode = target
         }
@@ -822,161 +879,47 @@ struct CloudPreviewSheet: View {
         onSaveGCPs?(gcps)
     }
 
-    private var annotateCard: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(CloudAnnotationGeometryType.allCases) { shape in
-                    Button {
-                        annotationShape = shape
-                        draftAnnotationPoints = []
-                    } label: {
-                        Label(shape.title, systemImage: shape.systemImage)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(annotationShape == shape ? Color.cyan.opacity(0.28) : Color.secondary.opacity(0.14), in: Capsule())
-                    }
-                    .foregroundStyle(annotationShape == shape ? .cyan : .primary)
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-                if !annotations.isEmpty {
-                    Button(L("List (%@)", annotations.count.formatted())) {
-                        showAnnotationList = true
-                    }
-                    .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
-                    .tint(.cyan)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Circle().fill(Color.cyan).frame(width: 8, height: 8)
-                Text(annotatePromptText)
-                    .font(.caption.weight(.medium))
-                Spacer()
-                if !draftAnnotationPoints.isEmpty {
-                    Button {
-                        draftAnnotationPoints.removeLast()
-                    } label: {
-                        Image(systemName: "arrow.uturn.backward")
-                    }
-                    .font(.caption)
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel(L("Undo"))
-
-                    if canFinishDraftAnnotation {
-                        Button(L("Finish")) {
-                            finishDraftAnnotation()
-                        }
-                        .font(.caption.weight(.semibold))
-                        .buttonStyle(.borderedProminent)
-                        .tint(.cyan)
-                        .foregroundStyle(.black)
-                    }
-                }
-            }
-
-            if let activeTagFilter {
-                HStack(spacing: 6) {
-                    Text(L("Filter: #%@", activeTagFilter == "__untagged__" ? L("Untagged") : activeTagFilter))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.cyan)
-                    Spacer()
-                    Button(L("Clear")) {
-                        self.activeTagFilter = nil
-                    }
-                    .font(.caption2)
-                }
-            } else if !annotations.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(annotations) { ann in
-                            Button {
-                                selectedAnnotationID = ann.id
-                                annotationEditorState = AnnotationEditorState(existing: ann, initial: ann)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: ann.type.systemImage)
-                                    Text(ann.title)
-                                }
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Color(uiColor: ann.color.uiColor).opacity(selectedAnnotationID == ann.id ? 0.35 : 0.18), in: Capsule())
-                            }
-                            .foregroundStyle(.primary)
-                        }
-                    }
-                }
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    private var annotatePromptText: String {
-        switch annotationShape {
-        case .point:
-            return L("Tap a point to add annotation")
-        case .polygon:
-            return L("Polygon: %@ vertices (min 3)", draftAnnotationPoints.count.formatted())
-        case .rectangle:
-            return L("Rectangle: %@/3 corners (Finish at 2 for flat)", draftAnnotationPoints.count.formatted())
-        }
-    }
-
-    private var canFinishDraftAnnotation: Bool {
-        switch annotationShape {
-        case .point: return false
-        case .polygon: return draftAnnotationPoints.count >= 3
-        case .rectangle: return draftAnnotationPoints.count == 2
-        }
-    }
-
     private var allAnnotationTags: [String] {
         CloudAnnotation.normalizedTags(annotations.flatMap(\.tags))
     }
 
     private func handleAnnotationTap(at point: SIMD3<Float>) {
+        if let editing = editingGeometryAnnotation {
+            if editing.type == .point {
+                draftAnnotationPoints = [point]
+            } else {
+                draftAnnotationPoints.append(point)
+            }
+            return
+        }
         switch annotationShape {
         case .point:
             openNewAnnotation(type: .point, arkitVertices: [point])
         case .polygon:
             draftAnnotationPoints.append(point)
-        case .rectangle:
-            draftAnnotationPoints.append(point)
-            if draftAnnotationPoints.count >= 3 {
-                let corners = AnnotationGeometryHelper.orientedRectangleARKit(
-                    p0: draftAnnotationPoints[0],
-                    p1: draftAnnotationPoints[1],
-                    p2: draftAnnotationPoints[2]
-                )
-                draftAnnotationPoints = []
-                openNewAnnotation(type: .rectangle, arkitVertices: corners)
-            }
         }
     }
 
     private func finishDraftAnnotation() {
-        switch annotationShape {
-        case .point:
-            break
-        case .polygon:
-            guard draftAnnotationPoints.count >= 3 else { return }
-            let pts = draftAnnotationPoints
-            draftAnnotationPoints = []
-            openNewAnnotation(type: .polygon, arkitVertices: pts)
-        case .rectangle:
-            guard draftAnnotationPoints.count == 2 else { return }
-            let corners = AnnotationGeometryHelper.horizontalRectangleARKit(
-                from: draftAnnotationPoints[0],
-                to: draftAnnotationPoints[1]
-            )
-            draftAnnotationPoints = []
-            openNewAnnotation(type: .rectangle, arkitVertices: corners)
-        }
+        guard annotationShape == .polygon, draftAnnotationPoints.count >= 3 else { return }
+        let pts = draftAnnotationPoints
+        draftAnnotationPoints = []
+        openNewAnnotation(type: .polygon, arkitVertices: pts)
+    }
+
+    private func commitGeometryEdit() {
+        guard var updated = editingGeometryAnnotation else { return }
+        let minCount = updated.type == .point ? 1 : 3
+        guard draftAnnotationPoints.count >= minCount else { return }
+        updated.vertices = draftAnnotationPoints.map(AnnotationPoint3D.fromARKit)
+        editingGeometryAnnotation = nil
+        draftAnnotationPoints = []
+        saveAnnotation(updated, isNew: false)
+    }
+
+    private func cancelGeometryEdit() {
+        editingGeometryAnnotation = nil
+        draftAnnotationPoints = []
     }
 
     private func openNewAnnotation(type: CloudAnnotationGeometryType, arkitVertices: [SIMD3<Float>]) {

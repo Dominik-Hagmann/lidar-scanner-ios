@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-title: "LiDAR Scanner for iPhone and iPad"
-message: "If you use LiDAR Scanner for iPhone and iPad in research, teaching, or published documentation, please cite this software and the specific version and build used."
+title: "LiDAR Scanner App for iPhone and iPad"
+message: "If you use LiDAR Scanner App for iPhone and iPad in research, teaching, or published documentation, please cite this software and the specific version and build used."
 type: software
 authors:
   - family-names: Hagmann
@@ -10,7 +10,7 @@ authors:
 version: "1.3.0 (Build 5)"
 repository-code: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
 url: "https://github.com/Dominik-Hagmann/lidar-scanner-ios"
-abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds, surface meshes, and Gaussian scenes, with on-device 3D point/polygon/rectangle annotations, tags, Ground Control Points, and exports to PLY, XYZ, CSV, LAS, LAZ, E57, OBJ, GeoJSON, and DXF. Developed in the framework of the RIM Project (IP-2025-02-1060, HRZZ / IARH)."
+abstract: "A native open-source iPhone and iPad application for acquiring LiDAR-derived coloured point clouds, surface meshes, and Gaussian scenes, with on-device 3D point/polygon annotations, floating name labels, tags, Ground Control Points, and exports to PLY, XYZ, CSV, LAS, LAZ, E57, OBJ, GeoJSON, and DXF. Developed in the framework of the RIM Project (IP-2025-02-1060, HRZZ / IARH)."
 license: MIT
 keywords:
   - LiDAR

@@ -555,30 +555,32 @@ final class ScanTests: XCTestCase {
     }
 
     func testAnnotationsGeometryTagsExportPersistenceAndReport() throws {
-        // Horizontal 2-corner rectangle in ARKit X-Z plane (4 x 2 m -> perimeter 12 m, area 8 m²)
-        let flatCorners = AnnotationGeometryHelper.horizontalRectangleARKit(
-            from: SIMD3<Float>(0, 1.0, 0),
-            to: SIMD3<Float>(4.0, 1.5, -2.0)
-        )
-        XCTAssertEqual(flatCorners.count, 4)
-        let flatVerts = flatCorners.map { AnnotationPoint3D.fromARKit($0) }
+        // Horizontal and tilted 3D polygons (4 x 2 m -> 12 m perimeter, 8 m²; 3 x 2 m -> 10 m, 6 m²)
+        let flatVerts = [
+            SIMD3<Float>(0, 1.0, 0),
+            SIMD3<Float>(4.0, 1.0, 0),
+            SIMD3<Float>(4.0, 1.0, -2.0),
+            SIMD3<Float>(0, 1.0, -2.0)
+        ].map { AnnotationPoint3D.fromARKit($0) }
         XCTAssertEqual(AnnotationGeometryHelper.perimeter(flatVerts), 12.0, accuracy: 0.001)
         XCTAssertEqual(AnnotationGeometryHelper.area(flatVerts), 8.0, accuracy: 0.001)
 
-        // Vertical / tilted 3-corner rectangle on a wall (3 x 2 m -> perimeter 10 m, area 6 m²)
-        let wallCorners = AnnotationGeometryHelper.orientedRectangleARKit(
-            p0: SIMD3<Float>(0, 0, 0),
-            p1: SIMD3<Float>(3.0, 0, 0),
-            p2: SIMD3<Float>(3.0, 2.0, 0)
-        )
-        XCTAssertEqual(wallCorners.count, 4)
-        let wallVerts = wallCorners.map { AnnotationPoint3D.fromARKit($0) }
+        let wallVerts = [
+            SIMD3<Float>(0, 0, 0),
+            SIMD3<Float>(3.0, 0, 0),
+            SIMD3<Float>(3.0, 2.0, 0),
+            SIMD3<Float>(0, 2.0, 0)
+        ].map { AnnotationPoint3D.fromARKit($0) }
         XCTAssertEqual(AnnotationGeometryHelper.perimeter(wallVerts), 10.0, accuracy: 0.001)
         XCTAssertEqual(AnnotationGeometryHelper.area(wallVerts), 6.0, accuracy: 0.001)
 
         // Normalized tags deduplicate case-insensitively and trim hashes/whitespace
         let cleanTags = CloudAnnotation.normalizedTags([" #Wall ", "wall", "Trench A", ""])
         XCTAssertEqual(cleanTags, ["Wall", "Trench A"])
+
+        // Legacy "rectangle" JSON decodes cleanly as .polygon
+        let legacyDecoded = try JSONDecoder().decode(CloudAnnotationGeometryType.self, from: Data(#""rectangle""#.utf8))
+        XCTAssertEqual(legacyDecoded, .polygon)
 
         let pointAnn = CloudAnnotation(
             title: "Coin Find",
@@ -601,9 +603,9 @@ final class ScanTests: XCTestCase {
             color: .amber,
             note: "Dark fill"
         )
-        let rectAnn = CloudAnnotation(
+        let wallPolyAnn = CloudAnnotation(
             title: "Wall Section",
-            type: .rectangle,
+            type: .polygon,
             vertices: wallVerts,
             tags: cleanTags,
             color: .cyan
@@ -624,7 +626,7 @@ final class ScanTests: XCTestCase {
             pointSelection: "voxel", colorSource: "camera", sessionNote: ""
         )
         let saved = SavedScan(directory: tempDir, metadata: meta)
-        let updated = try ScanStorage.updateAnnotations(for: saved, annotations: [pointAnn, polyAnn, rectAnn])
+        let updated = try ScanStorage.updateAnnotations(for: saved, annotations: [pointAnn, polyAnn, wallPolyAnn])
         XCTAssertTrue(updated.hasAnnotations)
         XCTAssertTrue(FileManager.default.fileExists(atPath: updated.annotationsGeoJSONURL.path))
 
@@ -636,13 +638,13 @@ final class ScanTests: XCTestCase {
         XCTAssertTrue(geoText.contains("\"Wall Section\""))
 
         // CSV export contains 3D WKT POINT Z and POLYGON Z geometries
-        let csvText = String(decoding: AnnotationExporter.csvData(for: [pointAnn, polyAnn, rectAnn]), as: UTF8.self)
+        let csvText = String(decoding: AnnotationExporter.csvData(for: [pointAnn, polyAnn, wallPolyAnn]), as: UTF8.self)
         XCTAssertTrue(csvText.contains("POINT Z ("))
         XCTAssertTrue(csvText.contains("POLYGON Z (("))
         XCTAssertTrue(csvText.contains("Find; Trench A"))
 
         // DXF export assigns tag layers and creates 3D POLYLINE + POINT entities
-        let dxfText = String(decoding: AnnotationExporter.dxfData(for: [pointAnn, polyAnn, rectAnn]), as: UTF8.self)
+        let dxfText = String(decoding: AnnotationExporter.dxfData(for: [pointAnn, polyAnn, wallPolyAnn]), as: UTF8.self)
         XCTAssertTrue(dxfText.contains("ENTITIES"))
         XCTAssertTrue(dxfText.contains("POLYLINE"))
         XCTAssertTrue(dxfText.contains("\nFind\n"))
@@ -655,5 +657,30 @@ final class ScanTests: XCTestCase {
         let pdfText = doc.string ?? ""
         XCTAssertTrue(pdfText.contains("Coin Find"))
         XCTAssertTrue(pdfText.contains("Pit 4"))
+
+        // Gaussian project annotation persistence, GeoJSON export & PDF report
+        let project = GaussianProject(
+            id: UUID(),
+            startedAt: Date(),
+            updatedAt: Date(),
+            appVersion: "1.3.0",
+            appBuild: "5",
+            device: "iPad16,6",
+            operatingSystem: "18.0",
+            annotations: [pointAnn, polyAnn]
+        )
+        let gaussianGeoJSON = String(
+            decoding: try AnnotationExporter.geoJSONData(for: [pointAnn, polyAnn], exportMetadata: AnnotationExportMetadata(gaussian: project)),
+            as: UTF8.self
+        )
+        XCTAssertTrue(gaussianGeoJSON.contains("\"FeatureCollection\""))
+        XCTAssertTrue(gaussianGeoJSON.contains("\"Coin Find\""))
+
+        let gaussianReportURL = try ScanReport.gaussian(project)
+        defer { try? FileManager.default.removeItem(at: gaussianReportURL.deletingLastPathComponent()) }
+        let gDoc = try XCTUnwrap(PDFDocument(url: gaussianReportURL))
+        let gPdfText = gDoc.string ?? ""
+        XCTAssertTrue(gPdfText.contains("Coin Find"))
+        XCTAssertTrue(gPdfText.contains("LiDAR Scanner App for iPhone and iPad"))
     }
 }

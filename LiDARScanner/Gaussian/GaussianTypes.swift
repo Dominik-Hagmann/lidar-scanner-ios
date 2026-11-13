@@ -100,6 +100,7 @@ struct GaussianProject: Codable, Identifiable {
     var viewerRevision = GaussianProject.pinnedViewerRevision
     var coordinateSystem = "ARKit world; right-handed; metres; Y up; camera-to-world OpenGL (-Z forward, +Y up); no CRS/EPSG or north alignment"
     var location: GeoLocation?
+    var annotations: [CloudAnnotation]? = nil
     var capturePolicy: [String: String] = [
         "minimumIntervalSeconds": "0.5", "minimumTranslationMetres": "0.025",
         "minimumRotationDegrees": "3", "trackingRequired": "normal",
@@ -115,6 +116,10 @@ struct GaussianProject: Codable, Identifiable {
     ]
     var directory: URL { GaussianStore.root.appendingPathComponent(id.uuidString, isDirectory: true) }
     var resultURL: URL { directory.appendingPathComponent("scene.ply") }
+    var annotationsGeoJSONURL: URL { directory.appendingPathComponent("annotations.geojson") }
+    var annotationsCSVURL: URL { directory.appendingPathComponent("annotations.csv") }
+    var annotationsDXFURL: URL { directory.appendingPathComponent("annotations.dxf") }
+    var hasAnnotations: Bool { !(annotations?.isEmpty ?? true) || FileManager.default.fileExists(atPath: annotationsGeoJSONURL.path) }
     var title: String { startedAt.formatted(date: .abbreviated, time: .shortened) }
     var receivedFrames: Int { decisions.values.reduce(0, +) }
     var hasResult: Bool { resultHash != nil && FileManager.default.fileExists(atPath: resultURL.path) }

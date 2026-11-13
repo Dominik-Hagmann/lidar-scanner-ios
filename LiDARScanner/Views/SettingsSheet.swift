@@ -96,7 +96,7 @@ struct SettingsSheet: View {
                     }
                 }
                 Section(L("Storage")) {
-                    Text(L("Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive."))
+                    Text(L("Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR Scanner” → “Scans” and in the app’s scan archive."))
                     Text(L("After a camera interruption or a switch to the background, the scan can still be exported. Additional points are captured in a new scan."))
                 }.font(.footnote)
                 Section(L("About & Credits")) {

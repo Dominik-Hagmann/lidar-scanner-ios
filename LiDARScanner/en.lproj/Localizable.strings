@@ -59,7 +59,9 @@
 "LiDAR Sensor Required" = "LiDAR Sensor Required";
 "LiDAR required" = "LiDAR required";
 "LiDAR · Scene to Point Cloud" = "LiDAR · Scene to Point Cloud";
-"LiDAR-Scanner" = "LiDAR-Scanner";
+"LiDAR Scanner" = "LiDAR Scanner";
+"LiDAR Scanner App for iPhone and iPad" = "LiDAR Scanner App for iPhone and iPad";
+"LiDAR-Scanner" = "LiDAR Scanner";
 "Local · Meters · Z Up" = "Local · Meters · Z Up";
 "Maximum Depth" = "Maximum Depth";
 "Medium and High" = "Medium and High";
@@ -81,7 +83,7 @@
 "POINTS" = "POINTS";
 "Pause" = "Pause";
 "Paused. Camera tracking remains active." = "Paused. Camera tracking remains active.";
-"Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive." = "Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR-Scanner” → “Scans” and in the app’s scan archive.";
+"Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR Scanner” → “Scans” and in the app’s scan archive." = "Pausing automatically saves the scan on this device. You can find it in Files under “On My iPhone” or “On My iPad” → “LiDAR Scanner” → “Scans” and in the app’s scan archive.";
 "Please allow camera access in the device settings." = "Please allow camera access in the device settings.";
 "Please move more slowly" = "Please move more slowly";
 "Point Cloud" = "Point Cloud";
@@ -242,6 +244,8 @@
 "Project & Credits" = "Project & Credits";
 "Native on-device 3D LiDAR & Gaussian Splatting for field archaeology and surveying." = "Native on-device 3D LiDAR & Gaussian Splatting for field archaeology and surveying.";
 "Research Project" = "Research Project";
+"Acknowledgments" = "Acknowledgments";
+"Author" = "Author";
 "RIM Project" = "RIM Project";
 "Roman Infrastructure Mapping" = "Roman Infrastructure Mapping";
 "IP-2025-02-1060 · 2025–2028" = "IP-2025-02-1060 · 2025–2028";
@@ -323,7 +327,6 @@
 "Save" = "Save";
 "Point" = "Point";
 "Polygon" = "Polygon";
-"Rectangle" = "Rectangle";
 "Feature" = "Feature";
 "Find" = "Find";
 "Wall" = "Wall";
@@ -361,10 +364,14 @@
 "CSV + WKT (Excel / QGIS)" = "CSV + WKT (Excel / QGIS)";
 "DXF (CAD · Layers by Tag)" = "DXF (CAD · Layers by Tag)";
 "JSON (Native)" = "JSON (Native)";
-"No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points, polygons, or rectangles." = "No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points, polygons, or rectangles.";
+"No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points or polygons." = "No 3D annotations yet. Switch to Annotate mode in the 3D preview to place points or polygons.";
 "No annotations match the active filter." = "No annotations match the active filter.";
 "Tap a point to add annotation" = "Tap a point to add annotation";
 "Polygon: %@ vertices (min 3)" = "Polygon: %@ vertices (min 3)";
-"Rectangle: %@/3 corners (Finish at 2 for flat)" = "Rectangle: %@/3 corners (Finish at 2 for flat)";
+"Editing: %@" = "Editing: %@";
+"Tap scene to move point" = "Tap scene to move point";
+"Tap scene to add corners (%@)" = "Tap scene to add corners (%@)";
+"Move Point in 3D" = "Move Point in 3D";
+"Edit Points in 3D" = "Edit Points in 3D";
 "Undo" = "Undo";
 "Finish" = "Finish";
