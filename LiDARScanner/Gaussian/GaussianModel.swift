@@ -379,10 +379,12 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    enum ShareKind: Equatable { case scene, capture, report, log }
+    enum ShareKind: Equatable { case scene, capture, report(ReportFormat), log }
     func share(_ kind: ShareKind) {
         guard !isBusy, !isRecording, current != nil else { return }
-        isBusy = true; setStatus(kind == .report ? "Writing your report…" : "Preparing export…")
+        let isReport: Bool
+        if case .report = kind { isReport = true } else { isReport = false }
+        isBusy = true; setStatus(isReport ? "Writing your report…" : "Preparing export…")
         worker.async {
             do {
                 guard let store = self.store else {
@@ -402,7 +404,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                     urls = sceneURLs
                 case .capture: urls = [try store.exportInputs()]
                 case .log: urls = [store.directory.appendingPathComponent("scan.json"), store.directory.appendingPathComponent("events.jsonl")]
-                case .report: urls = [try ScanReport.gaussian(store.project)]
+                case .report(let format): urls = [try ScanReport.gaussian(store.project, format: format)]
                 }
                 try store.event("export_prepared", ["kind": "\(kind)", "files": urls.map(\.lastPathComponent).joined(separator: ", ")])
                 try store.save()

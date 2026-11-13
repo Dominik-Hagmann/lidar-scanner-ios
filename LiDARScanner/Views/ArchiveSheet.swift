@@ -227,15 +227,13 @@ struct ArchiveSheet: View {
                 }
             }
             Section {
-                Button {
+                ReportExportMenu { format in
                     DispatchQueue.global(qos: .userInitiated).async {
                         do {
-                            let url = try ScanReport.pointCloud(scan)
+                            let url = try ScanReport.pointCloud(scan, format: format)
                             DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
                         } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
                     }
-                } label: {
-                    Label(L("Export Report"), systemImage: "doc.richtext")
                 }
             }
         } label: {

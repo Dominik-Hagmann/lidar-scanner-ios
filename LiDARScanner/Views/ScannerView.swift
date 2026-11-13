@@ -239,7 +239,7 @@ struct ScannerView: View {
                         Menu {
                             Section {
                                 Button {
-                                    model.saveCurrent(share: true, report: false)
+                                    model.saveCurrent(share: true)
                                 } label: {
                                     Label(L("Share Point Cloud"), systemImage: "cube.transparent")
                                 }
@@ -248,7 +248,7 @@ struct ScannerView: View {
                                     ForEach(ExportFormat.allCases) { format in
                                         Button {
                                             model.exportFormat = format
-                                            model.saveCurrent(share: true, report: false)
+                                            model.saveCurrent(share: true)
                                         } label: {
                                             if format == model.exportFormat {
                                                 Label(format.title, systemImage: "checkmark")
@@ -269,7 +269,7 @@ struct ScannerView: View {
 
                                 if model.hasMesh {
                                     Button {
-                                        model.saveCurrent(share: false, report: false, shareMesh: true)
+                                        model.saveCurrent(share: false, shareMesh: true)
                                     } label: {
                                         Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
                                     }
@@ -294,10 +294,8 @@ struct ScannerView: View {
                             }
 
                             Section {
-                                Button {
-                                    model.exportReport()
-                                } label: {
-                                    Label(L("Export Report"), systemImage: "doc.richtext")
+                                ReportExportMenu { format in
+                                    model.exportReport(format: format)
                                 }
                             }
                         } label: {
@@ -355,8 +353,8 @@ struct PointCloudDetailsView: View {
                     }
                 }
                 Section {
-                    Button(L("Export Report"), systemImage: "doc.richtext") {
-                        model.exportReport()
+                    ReportExportMenu { format in
+                        model.exportReport(format: format)
                     }
                 }.disabled(model.isBusy || model.isRecording || model.pointCount == 0)
                 Section(L("Technical Details")) {

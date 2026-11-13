@@ -394,3 +394,5 @@
 "Recording" = "Aufnahme läuft";
 "Surface Mesh (OBJ)" = "Oberflächennetz (OBJ)";
 "The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters." = "Der Bericht beschreibt die Aufnahme in ganzen Sätzen. Exportierte Scans enthalten metadata.json mit den vollständigen Parametern.";
+"PDF Report" = "PDF-Bericht";
+"Word Document (.docx)" = "Word-Dokument (.docx)";

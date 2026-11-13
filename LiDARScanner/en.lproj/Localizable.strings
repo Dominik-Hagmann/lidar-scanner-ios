@@ -394,3 +394,5 @@
 "Recording" = "Recording";
 "Surface Mesh (OBJ)" = "Surface Mesh (OBJ)";
 "The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters." = "The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters.";
+"PDF Report" = "PDF Report";
+"Word Document (.docx)" = "Word Document (.docx)";

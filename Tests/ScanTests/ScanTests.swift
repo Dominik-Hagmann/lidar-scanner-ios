@@ -102,7 +102,7 @@ final class ScanTests: XCTestCase {
         p.iteration = 100; p.checkpointIteration = 100; p.decisions = ["saved": 1, "interval": 20]
         let paragraphs = ScanReport.gaussianParagraphs(p)
         let body = paragraphs.joined(separator: "\n")
-        XCTAssertTrue(body.contains(p.id.uuidString)); XCTAssertTrue(body.contains("100")); XCTAssertTrue(body.contains("paused"))
+        XCTAssertTrue(body.contains(p.id.uuidString)); XCTAssertTrue(body.contains("100")); XCTAssertTrue(body.contains(p.phase.title))
         let url = try ScanReport.pdf(paragraphs: paragraphs + ["FINAL-RECORD-TEST"], name: "Test")
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let document = try XCTUnwrap(PDFDocument(url: url))
@@ -682,5 +682,92 @@ final class ScanTests: XCTestCase {
         let gPdfText = gDoc.string ?? ""
         XCTAssertTrue(gPdfText.contains("Coin Find"))
         XCTAssertTrue(gPdfText.contains("LiDAR Scanner App for iPhone and iPad"))
+    }
+
+    func testReportPDFAndDOCXFormattingImagesAndLanguage() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Save a small real PLY so preview images are rendered inside both PDF and DOCX
+        let ply = """
+        ply
+        format ascii 1.0
+        element vertex 4
+        property float x
+        property float y
+        property float z
+        property uchar red
+        property uchar green
+        property uchar blue
+        end_header
+        0.0 0.0 0.0 255 80 60
+        1.0 0.0 0.2 80 255 80
+        1.0 1.0 0.5 60 120 255
+        0.0 1.0 0.1 240 220 40
+        """
+        try ply.write(to: dir.appendingPathComponent("points.ply"), atomically: true, encoding: .utf8)
+
+        let ann = CloudAnnotation(
+            title: "Fundstelle ÄÖÜ",
+            type: .point,
+            vertices: [AnnotationPoint3D(x: 0.5, y: 0.5, z: 0.2)],
+            tags: ["Keramik"],
+            color: .lime,
+            note: "Randscherbe"
+        )
+        let meta = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(), title: "Schnitt 1 · Östliche Mauer",
+            startedAt: Date(), savedAt: Date(), pointCount: 4, acceptedSamples: 4, processedFrames: 2,
+            activeSeconds: 3.4, settings: ScanSettings(), deviceModel: "iPad16,6", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local right-handed Cartesian; Z up",
+            arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0/1/2",
+            pointSelection: "voxel", colorSource: "RGB", sessionNote: "Pause",
+            groundControlPoints: [GroundControlPoint(label: "GCP-1", localX: 0, localY: 0, localZ: 0)],
+            annotations: [ann]
+        )
+        try GaussianStore.encoder.encode(meta).write(to: dir.appendingPathComponent("metadata.json"))
+        let scan = SavedScan(directory: dir, metadata: meta)
+
+        let previousLang = LanguageManager.shared.selection
+        defer { LanguageManager.shared.selection = previousLang }
+
+        // Test German report (PDF + DOCX)
+        LanguageManager.shared.selection = .german
+        let pdfURL = try ScanReport.pointCloud(scan, format: .pdf)
+        defer { try? FileManager.default.removeItem(at: pdfURL.deletingLastPathComponent()) }
+        let pdfDoc = try XCTUnwrap(PDFDocument(url: pdfURL))
+        XCTAssertGreaterThanOrEqual(pdfDoc.pageCount, 1)
+        let pdfText = pdfDoc.string ?? ""
+        XCTAssertTrue(pdfText.contains("Fundstelle ÄÖÜ"))
+        XCTAssertTrue(pdfText.contains("Visuelle Ergebnisse"))
+        XCTAssertTrue(pdfText.contains("LiDAR Scanner App for iPhone and iPad"))
+
+        let docxURL = try ScanReport.pointCloud(scan, format: .docx)
+        defer { try? FileManager.default.removeItem(at: docxURL.deletingLastPathComponent()) }
+        XCTAssertEqual(docxURL.pathExtension, "docx")
+
+        let extractedDir = dir.appendingPathComponent("docx_unzipped", isDirectory: true)
+        try ZipArchive.extract(from: docxURL, to: extractedDir)
+        let docXML = try String(contentsOf: extractedDir.appendingPathComponent("word/document.xml"), encoding: .utf8)
+        XCTAssertTrue(docXML.contains("Fundstelle ÄÖÜ"))
+        XCTAssertTrue(docXML.contains("PUNKTWOLKE"))
+        XCTAssertTrue(docXML.contains("Visuelle Ergebnisse"))
+        XCTAssertTrue(docXML.contains("Schnitt 1 · Östliche Mauer"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractedDir.appendingPathComponent("word/styles.xml").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractedDir.appendingPathComponent("word/media/figure_1.png").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractedDir.appendingPathComponent("word/media/figure_2.png").path))
+
+        // Test English report (DOCX)
+        LanguageManager.shared.selection = .english
+        let enDocxURL = try ScanReport.pointCloud(scan, format: .docx)
+        defer { try? FileManager.default.removeItem(at: enDocxURL.deletingLastPathComponent()) }
+        let enExtractedDir = dir.appendingPathComponent("docx_en_unzipped", isDirectory: true)
+        try ZipArchive.extract(from: enDocxURL, to: enExtractedDir)
+        let enDocXML = try String(contentsOf: enExtractedDir.appendingPathComponent("word/document.xml"), encoding: .utf8)
+        XCTAssertTrue(enDocXML.contains("POINT CLOUD"))
+        XCTAssertTrue(enDocXML.contains("Visual Results"))
     }
 }

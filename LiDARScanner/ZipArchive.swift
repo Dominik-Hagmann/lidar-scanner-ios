@@ -261,6 +261,134 @@ enum ZipArchive {
         return output
     }
 
+    static func createArchive(entries: [(path: String, data: Data)], to destinationURL: URL) throws {
+        var archiveData = Data()
+        var centralDirectory = Data()
+        let (dosTime, dosDate) = currentDOSDateTime()
+        let utf8Flag: UInt16 = 0x0800
+
+        for entry in entries {
+            let nameData = Data(entry.path.utf8)
+            let rawData = entry.data
+            let crc = computeCRC32(rawData)
+            let deflated = compressRawDeflate(rawData)
+            let useDeflate = deflated != nil && (deflated?.count ?? Int.max) < rawData.count
+            let method: UInt16 = useDeflate ? 8 : 0
+            let payload = useDeflate ? (deflated ?? rawData) : rawData
+            let localHeaderOffset = UInt32(archiveData.count)
+
+            // Local file header
+            appendLE(&archiveData, localHeaderSignature)
+            appendLE(&archiveData, UInt16(20)) // version needed
+            appendLE(&archiveData, utf8Flag)
+            appendLE(&archiveData, method)
+            appendLE(&archiveData, dosTime)
+            appendLE(&archiveData, dosDate)
+            appendLE(&archiveData, crc)
+            appendLE(&archiveData, UInt32(payload.count))
+            appendLE(&archiveData, UInt32(rawData.count))
+            appendLE(&archiveData, UInt16(nameData.count))
+            appendLE(&archiveData, UInt16(0)) // extra length
+            archiveData.append(nameData)
+            archiveData.append(payload)
+
+            // Central directory header
+            appendLE(&centralDirectory, centralHeaderSignature)
+            appendLE(&centralDirectory, UInt16(20)) // version made by
+            appendLE(&centralDirectory, UInt16(20)) // version needed
+            appendLE(&centralDirectory, utf8Flag)
+            appendLE(&centralDirectory, method)
+            appendLE(&centralDirectory, dosTime)
+            appendLE(&centralDirectory, dosDate)
+            appendLE(&centralDirectory, crc)
+            appendLE(&centralDirectory, UInt32(payload.count))
+            appendLE(&centralDirectory, UInt32(rawData.count))
+            appendLE(&centralDirectory, UInt16(nameData.count))
+            appendLE(&centralDirectory, UInt16(0)) // extra length
+            appendLE(&centralDirectory, UInt16(0)) // comment length
+            appendLE(&centralDirectory, UInt16(0)) // disk number start
+            appendLE(&centralDirectory, UInt16(0)) // internal attrs
+            appendLE(&centralDirectory, UInt32(0)) // external attrs
+            appendLE(&centralDirectory, localHeaderOffset)
+            centralDirectory.append(nameData)
+        }
+
+        let cdOffset = UInt32(archiveData.count)
+        archiveData.append(centralDirectory)
+
+        // End of central directory record
+        appendLE(&archiveData, eocdSignature)
+        appendLE(&archiveData, UInt16(0))
+        appendLE(&archiveData, UInt16(0))
+        appendLE(&archiveData, UInt16(entries.count))
+        appendLE(&archiveData, UInt16(entries.count))
+        appendLE(&archiveData, UInt32(centralDirectory.count))
+        appendLE(&archiveData, cdOffset)
+        appendLE(&archiveData, UInt16(0))
+
+        try archiveData.write(to: destinationURL, options: .atomic)
+    }
+
+    private static func computeCRC32(_ data: Data) -> UInt32 {
+        data.withUnsafeBytes { raw in
+            guard let base = raw.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return 0 }
+            return UInt32(zlib.crc32(0, base, uInt(raw.count)))
+        }
+    }
+
+    private static func compressRawDeflate(_ input: Data) -> Data? {
+        guard !input.isEmpty else { return Data() }
+        var stream = z_stream()
+        let status = deflateInit2_(
+            &stream,
+            Z_DEFAULT_COMPRESSION,
+            Z_DEFLATED,
+            -MAX_WBITS,
+            8,
+            Z_DEFAULT_STRATEGY,
+            zlibVersion(),
+            Int32(MemoryLayout<z_stream>.size)
+        )
+        guard status == Z_OK else { return nil }
+        defer { deflateEnd(&stream) }
+
+        var output = Data(count: max(64, Int(deflateBound(&stream, uLong(input.count)))))
+        var finishStatus: Int32 = Z_OK
+        input.withUnsafeBytes { rawInput in
+            guard let inBase = rawInput.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return }
+            stream.next_in = UnsafeMutablePointer(mutating: inBase)
+            stream.avail_in = uInt(rawInput.count)
+            output.withUnsafeMutableBytes { rawOutput in
+                guard let outBase = rawOutput.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return }
+                stream.next_out = outBase
+                stream.avail_out = uInt(rawOutput.count)
+                finishStatus = zlib.deflate(&stream, Z_FINISH)
+            }
+        }
+        guard finishStatus == Z_STREAM_END else { return nil }
+        output.count = Int(stream.total_out)
+        return output
+    }
+
+    private static func currentDOSDateTime() -> (UInt16, UInt16) {
+        let cal = Calendar(identifier: .gregorian)
+        let c = cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: Date())
+        let year = max(1980, c.year ?? 2026) - 1980
+        let month = c.month ?? 1
+        let day = c.day ?? 1
+        let hour = c.hour ?? 0
+        let minute = c.minute ?? 0
+        let second = (c.second ?? 0) / 2
+        let dosTime = UInt16((hour << 11) | (minute << 5) | second)
+        let dosDate = UInt16((year << 9) | (month << 5) | day)
+        return (dosTime, dosDate)
+    }
+
+    private static func appendLE<T: FixedWidthInteger>(_ data: inout Data, _ value: T) {
+        var le = value.littleEndian
+        withUnsafeBytes(of: &le) { data.append(contentsOf: $0) }
+    }
+
     private static func readLE<T: FixedWidthInteger>(_ data: Data, at offset: Int) -> T {
         var value: T = 0
         data.withUnsafeBytes { raw in

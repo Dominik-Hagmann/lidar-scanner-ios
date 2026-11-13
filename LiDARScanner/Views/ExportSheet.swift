@@ -35,8 +35,10 @@ struct ExportSheet: View {
                             Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
                         }.disabled(model.isBusy || model.pointCount == 0)
                     }
-                    Button(L("Export Report"), systemImage: "doc.richtext") { model.saveCurrent(share: false, report: true) }
-                        .disabled(model.isBusy || model.pointCount == 0)
+                    ReportExportMenu { format in
+                        model.saveCurrent(share: false, reportFormat: format)
+                    }
+                    .disabled(model.isBusy || model.pointCount == 0)
                     Text(L("In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device."))
                         .font(.caption).foregroundStyle(.secondary)
                 }

@@ -410,11 +410,11 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    func exportReport() {
-        saveCurrent(share: false, report: true)
+    func exportReport(format: ReportFormat = .pdf) {
+        saveCurrent(share: false, reportFormat: format)
     }
 
-    func saveCurrent(share: Bool, report: Bool = false, shareMesh: Bool = false) {
+    func saveCurrent(share: Bool, reportFormat: ReportFormat? = nil, shareMesh: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false
         LocationService.shared.stopUpdating()
@@ -482,7 +482,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 var snapshot = [PCPoint](repeating: PCPoint(), count: min(40_000, Int(stats.pointCount)))
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
                 let archive = try ScanStorage.list()
-                let reportURL = report ? try ScanReport.pointCloud(saved) : nil
+                let reportURL = try reportFormat.map { try ScanReport.pointCloud(saved, format: $0) }
                 DispatchQueue.main.async {
                     self.pointCount = Int(stats.pointCount)
                     self.acceptedSamples = stats.acceptedSamples

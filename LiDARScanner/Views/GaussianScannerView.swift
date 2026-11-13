@@ -223,7 +223,9 @@ struct GaussianScannerView: View {
                             }
                         }
                         Section {
-                            Button(L("Export Report"), systemImage: "doc.richtext") { model.share(.report) }
+                            ReportExportMenu { format in
+                                model.share(.report(format))
+                            }
                             Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
                         }
                     } label: { Label(L("Share"), systemImage: "square.and.arrow.up") }
@@ -272,7 +274,9 @@ struct GaussianDetailsView: View {
                         }
                     }
                     Section {
-                        Button(L("Export Report"), systemImage: "doc.richtext") { model.share(.report) }
+                        ReportExportMenu { format in
+                            model.share(.report(format))
+                        }
                         Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
                     }.disabled(model.isBusy || model.isRecording)
                     Section(L("Technical Details")) {

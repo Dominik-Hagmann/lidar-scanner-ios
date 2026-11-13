@@ -382,6 +382,27 @@ struct AnnotationExportMenu: View {
     }
 }
 
+struct ReportExportMenu: View {
+    let onSelect: (ReportFormat) -> Void
+
+    var body: some View {
+        Menu {
+            Button {
+                onSelect(.pdf)
+            } label: {
+                Label(L("PDF Report"), systemImage: "doc.richtext")
+            }
+            Button {
+                onSelect(.docx)
+            } label: {
+                Label(L("Word Document (.docx)"), systemImage: "doc.text")
+            }
+        } label: {
+            Label(L("Export Report"), systemImage: "doc.richtext")
+        }
+    }
+}
+
 struct AnnotationEditorState: Identifiable {
     let id = UUID()
     let existing: CloudAnnotation?

@@ -42,7 +42,9 @@
 		BC5EB798F7C0FBD4D9CFF1EC /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD53F2CDB1FDC573401BA06 /* LocationService.swift */; };
 		BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */; };
 		C08E5E357470D7F2A06C37A0 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */; };
+		C1A93FCE0415CACB85267DBE /* DocxReportWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7248F086533C038DCE60FA /* DocxReportWriter.swift */; };
 		CE8C34B3D8E008DC82BA520C /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = D96B24678C6851D7E87FDD98 /* SplatIO */; };
+		D388BAD9CBC6020B3D017238 /* ReportPreviewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E56845E77BFC7E8074972A82 /* ReportPreviewRenderer.swift */; };
 		D3BE2D5EC374A519573AA5DB /* GaussianScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0EAC368DD3FA03E7CD5069 /* GaussianScannerView.swift */; };
 		DD3E20124AC416F5DCBF9875 /* AnnotationSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4AF829F41A0F6A3FF45A0F /* AnnotationSheets.swift */; };
 		E1A3F25CEEAEEE03E069C2F2 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EA963BDEEACA2C54A89F90F /* libz.tbd */; };
@@ -124,11 +126,13 @@
 		BC7A2F9FFAE5D96BD10E57C5 /* ScanModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModeView.swift; sourceTree = "<group>"; };
 		BD88BE26E4CAF5629042A93B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C54C110F98C051702389A5B5 /* GaussianStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianStore.swift; sourceTree = "<group>"; };
+		CF7248F086533C038DCE60FA /* DocxReportWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxReportWriter.swift; sourceTree = "<group>"; };
 		D3DF538AB4A0784E3215B7F8 /* PointCloudCore.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PointCloudCore.cpp; sourceTree = "<group>"; };
 		D5ADC29840B87F25D548CB1A /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		D7E1C70452383F1A34740120 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
 		DC8AB7058F8BA939FDF5C424 /* GaussianModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianModel.swift; sourceTree = "<group>"; };
+		E56845E77BFC7E8074972A82 /* ReportPreviewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportPreviewRenderer.swift; sourceTree = "<group>"; };
 		E64C155F1C6E33E160F8D5A4 /* ArchiveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSheet.swift; sourceTree = "<group>"; };
 		E82A095F022AEFDAAA906305 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EA280A898BB3F1593ACA2F93 /* E57Writer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = E57Writer.hpp; sourceTree = "<group>"; };
@@ -210,6 +214,8 @@
 		1F5F034AD6806556A8990641 /* Reports */ = {
 			isa = PBXGroup;
 			children = (
+				CF7248F086533C038DCE60FA /* DocxReportWriter.swift */,
+				E56845E77BFC7E8074972A82 /* ReportPreviewRenderer.swift */,
 				667722F4881FB4376538BEF7 /* ScanReport.swift */,
 			);
 			path = Reports;
@@ -449,6 +455,7 @@
 				F09C250FD94004C84A11952C /* ArchiveSheet.swift in Sources */,
 				1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */,
 				A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */,
+				C1A93FCE0415CACB85267DBE /* DocxReportWriter.swift in Sources */,
 				2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */,
 				6FA705E93F11BB164DB2828D /* GaussianCapture.swift in Sources */,
 				F920F6ABA564A4EB6619FF20 /* GaussianModel.swift in Sources */,
@@ -463,6 +470,7 @@
 				387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */,
 				E9E0878D75E8A1CFAAF51A19 /* PointCloudCore.cpp in Sources */,
 				02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */,
+				D388BAD9CBC6020B3D017238 /* ReportPreviewRenderer.swift in Sources */,
 				57F63DC10200183E83B25234 /* ScanImporter.swift in Sources */,
 				E60B4B046724916013523E68 /* ScanModeView.swift in Sources */,
 				89CF6962EF46B1F4224C27D5 /* ScanModel.swift in Sources */,
