@@ -211,7 +211,7 @@ One observation is initially retained per grid cell; a later observation replace
 
 - Capture requires LiDAR hardware and iOS/iPadOS 18 or later. iPad device testing is not yet documented.
 - The app does not assert survey accuracy or complete coverage. Validate results against control geometry on the actual device.
-- No import from other scanning apps; no LAS, LAZ or E57 export. The open point formats provide a basis for conversion.
+- Archive import supports `.ply`, `.xyz`, `.zip` archives, and scan folders; LAS, LAZ, E57, OBJ, and proprietary formats from other scanning apps cannot be imported directly.
 
 **Point Cloud**
 
