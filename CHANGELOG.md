@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added point-to-point distance measurement tool (`Measure` mode) in the 3D point cloud preview (`OrbitCloudView` / `CloudPreviewSheet`).
+- Added Ground Control Points (GCPs / Passpunkte): 3D point picking, reference coordinate/CRS/notes editor, live 3D markers, `metadata.json` persistence, `gcps.csv` export, and GCP table in PDF reports.
+- Added GNSS georeferencing metadata (`LocationService`, WGS84 coordinates, altitude, horizontal/vertical accuracy, heading) with offline recording toggle in Settings and output in `metadata.json` and PDF reports.
+- Added point-cloud export and import support for **CSV** (`points.csv`) plus binary **ASPRS LAS** (`points.las`), compressed **LAZ** (`points.laz`, LASzip v2), and **ASTM E57** (`points.e57`).
+- Added ARKit `ARMeshAnchor` surface reconstruction capture and Wavefront **OBJ** (`mesh.obj`) export and sharing.
+
 ## 1.2.0 (Build 4) – 2026-09-26
 
 - Added a separate Gaussian mode with local Metal training, saved capture data, progress, checkpoints and native viewing.

@@ -4,13 +4,13 @@ enum GaussianPhase: String, Codable {
     case captured, preparing, training, paused, completed, failed, capturing
     var title: String {
         switch self {
-        case .captured: return String(localized: "Capture saved")
-        case .preparing: return String(localized: "Preparing 3D scene…")
-        case .training: return String(localized: "Creating 3D scene…")
-        case .paused: return String(localized: "Processing paused")
-        case .completed: return String(localized: "3D scene ready")
-        case .failed: return String(localized: "Processing needs attention")
-        case .capturing: return String(localized: "Capturing views…")
+        case .captured: return LanguageManager.string("Capture saved")
+        case .preparing: return LanguageManager.string("Preparing 3D scene…")
+        case .training: return LanguageManager.string("Creating 3D scene…")
+        case .paused: return LanguageManager.string("Processing paused")
+        case .completed: return LanguageManager.string("3D scene ready")
+        case .failed: return LanguageManager.string("Processing needs attention")
+        case .capturing: return LanguageManager.string("Capturing views…")
         }
     }
 }
@@ -99,6 +99,7 @@ struct GaussianProject: Codable, Identifiable {
     var enginePatch = "scanner-io-audit-5"
     var viewerRevision = GaussianProject.pinnedViewerRevision
     var coordinateSystem = "ARKit world; right-handed; metres; Y up; camera-to-world OpenGL (-Z forward, +Y up); no CRS/EPSG or north alignment"
+    var location: GeoLocation?
     var capturePolicy: [String: String] = [
         "minimumIntervalSeconds": "0.5", "minimumTranslationMetres": "0.025",
         "minimumRotationDegrees": "3", "trackingRequired": "normal",
@@ -120,15 +121,15 @@ struct GaussianProject: Codable, Identifiable {
     var issueDescription: String? {
         guard let lastIssue else { return nil }
         switch lastIssue {
-        case "user_paused": return String(localized: "Processing was paused at your request.")
+        case "user_paused": return LanguageManager.string("Processing was paused at your request.")
         case "app_inactive", "app_background", "background_time_expired":
-            return String(localized: "The app was no longer active. Saved progress is available to continue.")
+            return LanguageManager.string("The app was no longer active. Saved progress is available to continue.")
         case "memory_warning", "memory_reserve", "capture_memory_reserve":
-            return String(localized: "The app paused because free memory was running low. Your saved capture is available.")
-        case "thermal_critical": return String(localized: "Processing paused to let the iPhone cool down.")
-        case "tracking_relocalization": return String(localized: "Camera tracking was interrupted. The saved views are available to process.")
+            return LanguageManager.string("The app paused because free memory was running low. Your saved capture is available.")
+        case "thermal_critical": return LanguageManager.string("Processing paused to let the iPhone cool down.")
+        case "tracking_relocalization": return LanguageManager.string("Camera tracking was interrupted. The saved views are available to process.")
         case "camera_interrupted", "camera_failed", "capture_error":
-            return String(localized: "Recording was interrupted. The saved views remain available.")
+            return LanguageManager.string("Recording was interrupted. The saved views remain available.")
         default: return lastIssue
         }
     }

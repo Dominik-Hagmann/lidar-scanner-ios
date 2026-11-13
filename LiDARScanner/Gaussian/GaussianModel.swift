@@ -16,7 +16,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var cameraReady = false
     @Published private(set) var trackingNormal = false
     @Published private(set) var cameraDenied = false
-    @Published private(set) var status = String(localized: "Move slowly around your subject.")
+    @Published private(set) var status = LanguageManager.string("Move slowly around your subject.")
     @Published var errorMessage: String?
     @Published var sharing: SharedFiles?
     let supported = ARWorldTrackingConfiguration.isSupported && ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth)
@@ -32,6 +32,9 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     private var foreground = true
     private var memoryObserver: NSObjectProtocol?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var statusPhrase = L10nPhrase("Move slowly around your subject.")
+    private var statusFromProject = false
+    private var cancellables: Set<AnyCancellable> = []
 
     override init() {
         super.init()
@@ -42,7 +45,29 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 if self.isRecording { self.finish(reason: "memory_warning", process: false) }
                 else if self.isBusy { self.stop.set("memory_warning") }
             }
+        LanguageManager.shared.$selection
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshLocalizedText()
+            }
+            .store(in: &cancellables)
         refreshArchive()
+    }
+
+    private func setStatus(_ key: String) {
+        statusFromProject = false
+        statusPhrase = L10nPhrase(key)
+        status = statusPhrase.localized
+    }
+
+    private func refreshLocalizedText() {
+        if statusFromProject, let project = current {
+            status = [.paused, .captured].contains(project.phase) ? (project.issueDescription ?? project.phase.title) : project.phase.title
+        } else {
+            status = statusPhrase.localized
+        }
+        objectWillChange.send()
     }
     deinit {
         if let memoryObserver { NotificationCenter.default.removeObserver(memoryObserver) }
@@ -54,7 +79,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     func prepare() {
         guard foreground, current == nil, !cameraReady else { return }
         guard supported else {
-            status = String(localized: "Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
+            setStatus("Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
             return
         }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -62,10 +87,10 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] allowed in
                 DispatchQueue.main.async {
-                    if allowed { self?.startCamera() } else { self?.cameraDenied = true; self?.status = String(localized: "Please allow camera access in the device settings.") }
+                    if allowed { self?.startCamera() } else { self?.cameraDenied = true; self?.setStatus("Please allow camera access in the device settings.") }
                 }
             }
-        default: cameraDenied = true; status = String(localized: "Please allow camera access in the device settings.")
+        default: cameraDenied = true; setStatus("Please allow camera access in the device settings.")
         }
     }
     private func startCamera() {
@@ -75,17 +100,17 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         configuration.isLightEstimationEnabled = false
         session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
         cameraReady = true; cameraDenied = false
-        status = String(localized: "Detecting surroundings…")
+        setStatus("Detecting surroundings…")
     }
 
     func begin() {
         guard !isBusy, !isRecording, current == nil else { return }
         guard supported else {
-            errorMessage = String(localized: "Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
+            errorMessage = LanguageManager.string("Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
             return
         }
         guard !cameraDenied else {
-            status = String(localized: "Please allow camera access in the device settings.")
+            setStatus("Please allow camera access in the device settings.")
             return
         }
         guard cameraReady else {
@@ -93,26 +118,28 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             return
         }
         guard trackingNormal else {
-            status = String(localized: "Detecting surroundings…")
+            setStatus("Detecting surroundings…")
             return
         }
-        isBusy = true; status = String(localized: "Starting capture…"); lastPose = nil; lastTime = -Double.infinity
+        isBusy = true; setStatus("Starting capture…"); lastPose = nil; lastTime = -Double.infinity
+        LocationService.shared.startUpdating()
         let now = Date()
-        let project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
+        var project = GaussianProject(id: UUID(), startedAt: now, updatedAt: now,
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
             appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
             device: Self.deviceIdentifier(), operatingSystem: UIDevice.current.systemVersion)
+        project.location = LocationService.shared.currentLocation
         worker.async {
             do {
                 if let seed = self.seed { pc_destroy(seed) }
                 self.seed = pc_create(GaussianCapture.seedConfiguration())
-                guard self.seed != nil else { throw GaussianError.message(String(localized: "Could not allocate point-cloud memory.")) }
+                guard self.seed != nil else { throw GaussianError.message(LanguageManager.string("Could not allocate point-cloud memory.")) }
                 self.store = try GaussianStore(project: project)
                 DispatchQueue.main.async {
                     self.current = project; self.isBusy = false
                     if self.foreground {
                         self.isRecording = true; UIApplication.shared.isIdleTimerDisabled = true
-                        self.status = String(localized: "Move slowly around your subject. Tap Finish when you have covered it.")
+                        self.setStatus("Move slowly around your subject. Tap Finish when you have covered it.")
                     } else {
                         self.finish(reason: "app_background", process: false)
                     }
@@ -124,8 +151,8 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if case .normal = frame.camera.trackingState { trackingNormal = true } else { trackingNormal = false }
         if current == nil && !isBusy {
-            let message = trackingNormal ? String(localized: "Tracking stable") : String(localized: "Detecting surroundings…")
-            if status != message { status = message }
+            let key = trackingNormal ? "Tracking stable" : "Detecting surroundings…"
+            if statusPhrase.key != key || statusFromProject { setStatus(key) }
         }
         guard isRecording else { return }
         if case .limited(.relocalizing) = frame.camera.trackingState {
@@ -143,7 +170,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 do { try self.store?.decision(reason, timestamp: timestamp) }
                 catch { self.fail(error) }
             }
-            if !trackingNormal { status = String(localized: "Move more slowly and aim at a well-lit, textured surface.") }
+            if !trackingNormal { setStatus("Move more slowly and aim at a well-lit, textured surface.") }
             return
         }
         guard os_proc_available_memory() >= 256 * 1024 * 1024 else {
@@ -155,13 +182,13 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 guard let store = self.store, let seed = self.seed else { return }
                 let volume = try store.directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
                 guard (volume.volumeAvailableCapacityForImportantUsage ?? 0) > 512 * 1024 * 1024 else {
-                    throw GaussianError.message(String(localized: "Storage is nearly full. The captured images have been saved."))
+                    throw GaussianError.message(LanguageManager.string("Storage is nearly full. The captured images have been saved."))
                 }
                 try autoreleasepool { try GaussianCapture.write(frame, store: store, context: self.context, cloud: seed) }
                 let snapshot = store.project
                 DispatchQueue.main.async {
                     self.frameInFlight = false; self.current = snapshot
-                    if self.isRecording { self.status = String(localized: "Move slowly around your subject. Tap Finish when you have covered it.") }
+                    if self.isRecording { self.setStatus("Move slowly around your subject. Tap Finish when you have covered it.") }
                 }
             } catch {
                 do {
@@ -180,14 +207,16 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     func finish(reason: String = "user_finished", process: Bool = true) {
         guard isRecording || (!isBusy && current?.phase == .capturing) else { return }
         if process && (current?.frames.count ?? 0) < 12 {
-            status = String(localized: "Capture a few more views before finishing. Move around the subject.")
+            setStatus("Capture a few more views before finishing. Move around the subject.")
             return
         }
         TorchService.shared.turnOff()
         isRecording = false; isBusy = true; processingActive = process; cameraReady = false; session.pause()
-        status = String(localized: "Saving your capture…")
+        LocationService.shared.stopUpdating()
+        setStatus("Saving your capture…")
         stop.reset()
         if !process { stop.set(reason) }
+        let finalLocation = LocationService.shared.currentLocation
         worker.async {
             do {
                 guard let store = self.store else {
@@ -198,6 +227,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                     return
                 }
                 store.project.phase = .captured
+                if store.project.location == nil { store.project.location = finalLocation }
                 if reason != "user_finished" { store.project.lastIssue = reason }
                 try store.event("capture_finished", ["reason": reason, "savedViews": "\(store.project.frames.count)"])
                 try store.saveDataset()
@@ -232,13 +262,13 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func pause() {
         stop.set("user_paused")
-        status = String(localized: "Saving progress…")
+        setStatus("Saving progress…")
     }
     func newCapture() {
         guard !isBusy, !isRecording else { return }
         current = nil; trackingNormal = false; cameraReady = false
         worker.async { self.store = nil }
-        status = String(localized: "Move slowly around your subject.")
+        setStatus("Move slowly around your subject.")
         prepare()
     }
     func leaveMode() {
@@ -290,7 +320,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func open(_ project: GaussianProject) {
         guard !isBusy, !isRecording else { return }
-        isBusy = true; status = String(localized: "Opening saved scan…"); session.pause(); cameraReady = false
+        isBusy = true; setStatus("Opening saved scan…"); session.pause(); cameraReady = false
         worker.async {
             do {
                 self.store = try GaussianStore(project: project, opening: true)
@@ -300,7 +330,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func delete(_ project: GaussianProject) {
         guard !isBusy, !isRecording else { return }
-        isBusy = true; status = String(localized: "Deleting scan…")
+        isBusy = true; setStatus("Deleting scan…")
         worker.async {
             do {
                 if self.store?.project.id == project.id { self.store = nil }
@@ -316,7 +346,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
     enum ShareKind: Equatable { case scene, capture, report, log }
     func share(_ kind: ShareKind) {
         guard !isBusy, !isRecording, current != nil else { return }
-        isBusy = true; status = kind == .report ? String(localized: "Writing your report…") : String(localized: "Preparing export…")
+        isBusy = true; setStatus(kind == .report ? "Writing your report…" : "Preparing export…")
         worker.async {
             do {
                 guard let store = self.store else {
@@ -328,7 +358,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 let urls: [URL]
                 switch kind {
                 case .scene:
-                    guard store.project.hasResult else { throw GaussianError.message(String(localized: "The 3D scene is not ready yet.")) }
+                    guard store.project.hasResult else { throw GaussianError.message(LanguageManager.string("The 3D scene is not ready yet.")) }
                     urls = [store.project.resultURL, store.directory.appendingPathComponent("scan.json")]
                 case .capture: urls = [try store.exportInputs()]
                 case .log: urls = [store.directory.appendingPathComponent("scan.json"), store.directory.appendingPathComponent("events.jsonl")]
@@ -337,17 +367,18 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                 try store.event("export_prepared", ["kind": "\(kind)", "files": urls.map(\.lastPathComponent).joined(separator: ", ")])
                 try store.save()
                 let snapshot = store.project
-                DispatchQueue.main.async { self.current = snapshot; self.isBusy = false; self.status = snapshot.phase.title; self.sharing = SharedFiles(urls: urls) }
+                DispatchQueue.main.async { self.current = snapshot; self.isBusy = false; self.statusFromProject = true; self.status = snapshot.phase.title; self.sharing = SharedFiles(urls: urls) }
             } catch { self.fail(error) }
         }
     }
     private func publish(_ project: GaussianProject) {
-        DispatchQueue.main.async { self.current = project; self.status = project.phase.title }
+        DispatchQueue.main.async { self.current = project; self.statusFromProject = true; self.status = project.phase.title }
     }
     private func finished(_ project: GaussianProject) {
         let scans = (try? GaussianStore.list()) ?? []
         DispatchQueue.main.async {
             self.current = project; self.archive = scans; self.isBusy = false; self.processingActive = false
+            self.statusFromProject = true
             self.status = [.paused, .captured].contains(project.phase) ? (project.issueDescription ?? project.phase.title) : project.phase.title
             UIApplication.shared.isIdleTimerDisabled = false
             self.endBackgroundTask()
@@ -358,14 +389,19 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         if let store, [.capturing, .preparing, .training].contains(store.project.phase) {
             store.project.phase = .failed; store.project.lastIssue = error.localizedDescription
             do { try store.event("failure", ["error": error.localizedDescription]); try store.save() }
-            catch { DispatchQueue.main.async { self.status = String(localized: "The scan log could not be saved. Check available storage.") } }
+            catch { DispatchQueue.main.async { self.setStatus("The scan log could not be saved. Check available storage.") } }
         }
         let snapshot = store?.project
         DispatchQueue.main.async {
             self.current = snapshot; self.isBusy = false; self.isRecording = false; self.processingActive = false
-            self.status = snapshot?.phase.title ?? String(localized: "Move slowly around your subject.")
+            if let snapshot {
+                self.statusFromProject = true
+                self.status = snapshot.phase.title
+            } else {
+                self.setStatus("Move slowly around your subject.")
+            }
             self.errorMessage = snapshot?.phase == .failed
-                ? String(localized: "Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error.")
+                ? LanguageManager.string("Could not complete processing. Your saved capture is available in the archive. See Details for the recorded error.")
                 : error.localizedDescription
             UIApplication.shared.isIdleTimerDisabled = false; self.endBackgroundTask()
         }

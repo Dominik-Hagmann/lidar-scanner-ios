@@ -8,12 +8,13 @@
 import SwiftUI
 
 struct CreditsView: View {
+    @ObservedObject private var language = LanguageManager.shared
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
     private var appVersionString: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4"
-        return String.localizedStringWithFormat(NSLocalizedString("Version %@ (Build %@)", comment: ""), version, build)
+        return LanguageManager.format("Version %@ (Build %@)", version, build)
     }
 
     var body: some View {
@@ -26,14 +27,14 @@ struct CreditsView: View {
                         .foregroundStyle(mint)
                         .padding(.top, 8)
 
-                    Text("LiDAR-Scanner")
+                    Text(L("LiDAR-Scanner"))
                         .font(.title2.bold())
 
                     Text(appVersionString)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    Text("Native on-device 3D LiDAR & Gaussian Splatting for field archaeology and surveying.")
+                    Text(L("Native on-device 3D LiDAR & Gaussian Splatting for field archaeology and surveying."))
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
@@ -44,7 +45,7 @@ struct CreditsView: View {
             }
 
             // Research Project: RIM
-            Section("Research Project") {
+            Section(L("Research Project")) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 14) {
                         Image("LogoRIM")
@@ -55,9 +56,9 @@ struct CreditsView: View {
                             .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("RIM Project")
+                            Text(L("RIM Project"))
                                 .font(.headline)
-                            Text("Roman Infrastructure Mapping")
+                            Text(L("Roman Infrastructure Mapping"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             Text("IP-2025-02-1060 · 2025–2028")
@@ -66,12 +67,12 @@ struct CreditsView: View {
                         }
                     }
 
-                    Text("Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping.")
+                    Text(L("Tracing the Empire’s Territorial Remnants and Infrastructural Systems in Pannonia: Roman Infrastructure Mapping."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Link(destination: URL(string: "https://rim.iarh.hr/index.php/en")!) {
-                        Label("Visit Project Website (rim.iarh.hr)", systemImage: "arrow.up.right.square")
+                        Label(L("Visit Project Website (rim.iarh.hr)"), systemImage: "arrow.up.right.square")
                             .font(.caption.weight(.medium))
                     }
                 }
@@ -79,7 +80,7 @@ struct CreditsView: View {
             }
 
             // Institutional Host & Funding
-            Section("Host Institution & Funding") {
+            Section(L("Host Institution & Funding")) {
                 HStack(alignment: .center, spacing: 14) {
                     Image("LogoIARH")
                         .resizable()
@@ -89,9 +90,9 @@ struct CreditsView: View {
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Institut za arheologiju (IARH)")
+                        Text(L("Institut za arheologiju (IARH)"))
                             .font(.subheadline.weight(.semibold))
-                        Text("Institute of Archaeology, Zagreb")
+                        Text(L("Institute of Archaeology, Zagreb"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Link(destination: URL(string: "https://www.iarh.hr/en/home/")!) {
@@ -110,9 +111,9 @@ struct CreditsView: View {
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 8))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Hrvatska zaklada za znanost (HRZZ)")
+                        Text(L("Hrvatska zaklada za znanost (HRZZ)"))
                             .font(.subheadline.weight(.semibold))
-                        Text("Croatian Science Foundation")
+                        Text(L("Croatian Science Foundation"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Link(destination: URL(string: "https://hrzz.hr/en/")!) {
@@ -124,56 +125,56 @@ struct CreditsView: View {
             }
 
             // Authors & Scientific Direction
-            Section("Author & Scientific Direction") {
+            Section(L("Author & Scientific Direction")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Dominik Hagmann")
                         .font(.headline)
-                    Text("University of Vienna / Institute of Archaeology (IARH), Zagreb")
+                    Text(L("University of Vienna / Institute of Archaeology (IARH), Zagreb"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
 
                 Link(destination: URL(string: "https://github.com/Dominik-Hagmann/lidar-scanner-ios")!) {
-                    Label("Source Code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label(L("Source Code on GitHub"), systemImage: "chevron.left.forwardslash.chevron.right")
                 }
             }
 
             // Open Source Technologies
-            Section("Open Source & Architecture") {
+            Section(L("Open Source & Architecture")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("MetalSplatter & SplatIO")
                         .font(.subheadline.weight(.medium))
-                    Text("Metal-accelerated 3D Gaussian splat rendering by scier.")
+                    Text(L("Metal-accelerated 3D Gaussian splat rendering by scier."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("msplat-ios")
                         .font(.subheadline.weight(.medium))
-                    Text("On-device 3D Gaussian Splatting engine by frs0n.")
+                    Text(L("On-device 3D Gaussian Splatting engine by frs0n."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Apple ARKit & Metal")
+                    Text(L("Apple ARKit & Metal"))
                         .font(.subheadline.weight(.medium))
-                    Text("Hardware-accelerated LiDAR scene depth capture and high-performance GPU compute.")
+                    Text(L("Hardware-accelerated LiDAR scene depth capture and high-performance GPU compute."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
             // AI Collaboration
-            Section("AI-Assisted Development") {
-                Text("This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT.")
+            Section(L("AI-Assisted Development")) {
+                Text(L("This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             // License
             Section {
-                Text("Released under the MIT License.\nFree and open-source software.")
+                Text(L("Released under the MIT License.\nFree and open-source software."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -181,12 +182,13 @@ struct CreditsView: View {
                     .listRowBackground(Color.clear)
             }
         }
-        .navigationTitle("About & Credits")
+        .navigationTitle(L("About & Credits"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 struct CreditsSheet: View {
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -194,7 +196,7 @@ struct CreditsSheet: View {
             CreditsView()
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
+                        Button(L("Done")) { dismiss() }
                     }
                 }
         }

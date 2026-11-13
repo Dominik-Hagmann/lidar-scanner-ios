@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScanModeView: View {
     @ObservedObject var pointCloud: ScanModel
+    @ObservedObject private var language = LanguageManager.shared
     @StateObject private var gaussian = GaussianModel()
     @State private var mode = 0
     var body: some View {
@@ -12,9 +13,9 @@ struct ScanModeView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             let isLocked = pointCloud.isRecording || pointCloud.isBusy || gaussian.isRecording || gaussian.isBusy
             ZStack {
-                Picker("Scan Mode", selection: $mode) {
-                    Text("Point Cloud").tag(0)
-                    Text("Gaussian Splatting").tag(1)
+                Picker(L("Scan Mode"), selection: $mode) {
+                    Text(L("Point Cloud")).tag(0)
+                    Text(L("Gaussian Splatting")).tag(1)
                 }
                 .pickerStyle(.segmented)
                 .controlSize(.large)

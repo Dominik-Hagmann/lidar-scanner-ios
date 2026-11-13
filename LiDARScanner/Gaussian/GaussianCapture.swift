@@ -25,7 +25,7 @@ enum GaussianCapture {
         let image = CIImage(cvPixelBuffer: frame.capturedImage)
         guard let bytes = context.jpegRepresentation(of: image, colorSpace: CGColorSpaceCreateDeviceRGB(),
             options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.95]) else {
-            throw GaussianError.message(String(localized: "Could not save the camera image."))
+            throw GaussianError.message(LanguageManager.string("Could not save the camera image."))
         }
         let relative = String(format: "images/frame_%06d.jpg", store.project.frames.count)
         try bytes.write(to: store.directory.appendingPathComponent(relative), options: .atomic)

@@ -1,4 +1,6 @@
 #include "PointCloudCore.h"
+#include "E57Writer.hpp"
+#include "LasLazWriter.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -167,36 +169,53 @@ size_t pc_copy_preview(const PCCloud *c, PCPoint *out, size_t capacity) {
 }
 
 int32_t pc_export(const PCCloud *c, const char *path, int32_t format, char *error, size_t capacity) {
-    if (!c || c->points.empty() || !path || !*path || format < 0 || format > 2) {
+    if (!c || c->points.empty() || !path || !*path || format < 0 || format > 6) {
         errorText(error, capacity, "No points or invalid export destination."); return 0;
     }
     std::string temporary;
     try {
         temporary = std::string(path) + ".partial";
-        std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+        const bool needsReadWrite = (format == 4 || format == 6);
+        std::fstream out(temporary, std::ios::binary | std::ios::out | std::ios::trunc |
+                                    (needsReadWrite ? std::ios::in : std::ios::openmode(0)));
         if (!out) { errorText(error, capacity, "Could not create the export file."); return 0; }
         out.imbue(std::locale::classic());
         out.precision(9); /* round-trippable float32, independent of device locale */
-        if (format != 2) {
-            out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
-                << "comment LiDAR-Scanner Build 4; units metres; local right-handed Z-up\n"
-                << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
-                << "element vertex " << c->points.size() << "\n"
-                << "property float x\nproperty float y\nproperty float z\n"
-                << "property uchar red\nproperty uchar green\nproperty uchar blue\n"
-                << "property uchar confidence\nend_header\n";
-        }
-        for (const auto &p : c->points) {
-            if (format == 0) {
-                putFloatLE(out, p.x); putFloatLE(out, -p.z); putFloatLE(out, p.y);
-                const char rgba[]{char(p.r), char(p.g), char(p.b), char(p.confidence)};
-                out.write(rgba, 4);
-            } else {
-                out << p.x << ' ' << -p.z << ' ' << p.y;
-                if (format == 1) out << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
-                out << '\n';
+        if (format == 3) {
+            pc_las::exportLAS(c->points, out);
+        } else if (format == 4) {
+            pc_las::exportLAZ(c->points, out);
+        } else if (format == 6) {
+            pc_e57::exportE57(c->points, out);
+        } else if (format == 5) {
+            out << "x,y,z,red,green,blue,confidence\n";
+            for (const auto &p : c->points) {
+                out << p.x << ',' << -p.z << ',' << p.y << ','
+                    << int(p.r) << ',' << int(p.g) << ',' << int(p.b) << ',' << int(p.confidence) << '\n';
+                if (!out) break;
             }
-            if (!out) break;
+        } else {
+            if (format != 2) {
+                out << "ply\nformat " << (format == 0 ? "binary_little_endian" : "ascii") << " 1.0\n"
+                    << "comment LiDAR-Scanner Build 4; units metres; local right-handed Z-up\n"
+                    << "comment export XYZ = ARKit (X, -Z, Y); no geographic CRS\n"
+                    << "element vertex " << c->points.size() << "\n"
+                    << "property float x\nproperty float y\nproperty float z\n"
+                    << "property uchar red\nproperty uchar green\nproperty uchar blue\n"
+                    << "property uchar confidence\nend_header\n";
+            }
+            for (const auto &p : c->points) {
+                if (format == 0) {
+                    putFloatLE(out, p.x); putFloatLE(out, -p.z); putFloatLE(out, p.y);
+                    const char rgba[]{char(p.r), char(p.g), char(p.b), char(p.confidence)};
+                    out.write(rgba, 4);
+                } else {
+                    out << p.x << ' ' << -p.z << ' ' << p.y;
+                    if (format == 1) out << ' ' << int(p.r) << ' ' << int(p.g) << ' ' << int(p.b) << ' ' << int(p.confidence);
+                    out << '\n';
+                }
+                if (!out) break;
+            }
         }
         out.flush();
         bool good = bool(out);

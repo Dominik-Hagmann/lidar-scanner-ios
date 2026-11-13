@@ -12,17 +12,17 @@ enum ZipArchiveError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidArchive:
-            return String(localized: "The ZIP archive is invalid or damaged.")
+            return LanguageManager.string("The ZIP archive is invalid or damaged.")
         case .encryptedArchive:
-            return String(localized: "Encrypted ZIP archives are not supported.")
+            return LanguageManager.string("Encrypted ZIP archives are not supported.")
         case .unsupportedCompression(let method):
-            return String(format: String(localized: "Unsupported ZIP compression method (%d)."), Int(method))
+            return LanguageManager.format("Unsupported ZIP compression method (%d).", Int(method))
         case .unsafePath(let path):
-            return String(format: String(localized: "ZIP archive contains an unsafe path: %@"), path)
+            return LanguageManager.format("ZIP archive contains an unsafe path: %@", path)
         case .corruptedEntry(let name):
-            return String(format: String(localized: "ZIP entry could not be extracted: %@"), name)
+            return LanguageManager.format("ZIP entry could not be extracted: %@", name)
         case .sizeLimitExceeded:
-            return String(localized: "ZIP archive exceeds the allowed extraction limit.")
+            return LanguageManager.string("ZIP archive exceeds the allowed extraction limit.")
         }
     }
 }

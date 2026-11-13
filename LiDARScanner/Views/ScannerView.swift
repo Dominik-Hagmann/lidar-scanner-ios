@@ -3,6 +3,7 @@ import SwiftUI
 struct ScannerView: View {
     @ObservedObject var model: ScanModel
     @ObservedObject private var torch = TorchService.shared
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPoints = true
     @State private var showSettings = false
@@ -23,11 +24,11 @@ struct ScannerView: View {
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "viewfinder").font(.system(size: 64, weight: .ultraLight)).foregroundStyle(mint)
-                    Text(LocalizedStringKey(model.cameraDenied ? "Allow Camera Access" : "LiDAR Sensor Required"))
+                    Text(L(model.cameraDenied ? "Allow Camera Access" : "LiDAR Sensor Required"))
                         .font(.title2.bold())
                     Text(model.notice).multilineTextAlignment(.center).foregroundStyle(.secondary)
                     if model.cameraDenied {
-                        Button("Open Settings") {
+                        Button(L("Open Settings")) {
                             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                         }.buttonStyle(.borderedProminent)
                     }
@@ -41,7 +42,7 @@ struct ScannerView: View {
                     Spacer()
                     if model.isRecording {
                         Circle().fill(.red).frame(width: 7, height: 7)
-                        Text("REC").font(.caption.bold()).monospaced()
+                        Text(L("REC")).font(.caption.bold()).monospaced()
                     }
                 }.padding(12).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 Spacer()
@@ -56,13 +57,13 @@ struct ScannerView: View {
                                         .foregroundStyle(torch.isOn ? .yellow : .white)
                                         .frame(width: 48, height: 48)
                                         .background(.ultraThinMaterial, in: Circle())
-                                }.accessibilityLabel(LocalizedStringKey(torch.isOn ? "Turn Off Torch" : "Turn On Torch"))
+                                }.accessibilityLabel(L(torch.isOn ? "Turn Off Torch" : "Turn On Torch"))
                             }
                             Button { showPoints.toggle() } label: {
                                 Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
                                     .font(.title3).frame(width: 48, height: 48)
                                     .background(.ultraThinMaterial, in: Circle())
-                            }.accessibilityLabel(LocalizedStringKey(showPoints ? "Hide Points" : "Show Points"))
+                            }.accessibilityLabel(L(showPoints ? "Hide Points" : "Show Points"))
                         }
                     }
                 }
@@ -85,8 +86,9 @@ struct ScannerView: View {
             CloudPreviewSheet(
                 points: model.preview,
                 total: model.pointCount,
+                groundControlPoints: model.activeGroundControlPoints,
+                onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 isFullScreen: $previewFullScreen,
-                exportFullGaussians: { try await model.makeGaussianExportURL() },
                 onClose: { showPreview = false; previewFullScreen = false }
             )
         }
@@ -94,30 +96,31 @@ struct ScannerView: View {
             CloudPreviewSheet(
                 points: model.preview,
                 total: model.pointCount,
+                groundControlPoints: model.activeGroundControlPoints,
+                onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 isFullScreen: $previewFullScreen,
-                exportFullGaussians: { try await model.makeGaussianExportURL() },
                 onClose: { showPreview = false; previewFullScreen = false }
             )
         }
         .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
-        .alert("Start a New Scan?", isPresented: $confirmReset) {
-            Button("Cancel", role: .cancel) {}
-            Button("New Scan", role: .destructive) { model.newScan() }
+        .alert(L("Start a New Scan?"), isPresented: $confirmReset) {
+            Button(L("Cancel"), role: .cancel) {}
+            Button(L("New Scan"), role: .destructive) { model.newScan() }
         } message: {
-            Text("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first.")
+            Text(L("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first."))
         }
-        .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
+        .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
-            Button("OK") { model.errorMessage = nil }
+            Button(L("OK")) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("LiDAR-Scanner").font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(L("LiDAR-Scanner")).font(.system(size: 20, weight: .bold, design: .rounded))
                     .lineLimit(1).minimumScaleFactor(0.75)
-                Text("LiDAR · Scene to Point Cloud").font(.caption).foregroundStyle(.secondary)
+                Text(L("LiDAR · Scene to Point Cloud")).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Button {
@@ -131,7 +134,7 @@ struct ScannerView: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .contentShape(Circle())
             }
-            .accessibilityLabel("Saved Scans")
+            .accessibilityLabel(L("Saved Scans"))
             .disabled(model.isBusy || model.isRecording)
 
             Button {
@@ -144,7 +147,7 @@ struct ScannerView: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .contentShape(Circle())
             }
-            .accessibilityLabel("Scan Settings")
+            .accessibilityLabel(L("Scan Settings"))
             .disabled(model.isBusy || model.isRecording)
         }.foregroundStyle(.white)
     }
@@ -163,7 +166,7 @@ struct ScannerView: View {
                 Button {
                     model.toggleRecording()
                 } label: {
-                    Label("Start Scan", systemImage: "record.circle")
+                    Label(L("Start Scan"), systemImage: "record.circle")
                         .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 46)
                 }
@@ -176,13 +179,13 @@ struct ScannerView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(model.pointCount.formatted()).font(.system(size: 32, weight: .semibold, design: .rounded))
                             .monospacedDigit().contentTransition(.numericText())
-                        Text("POINTS").font(.caption2.weight(.semibold)).tracking(1.5).foregroundStyle(.secondary)
+                        Text(L("POINTS")).font(.caption2.weight(.semibold)).tracking(1.5).foregroundStyle(.secondary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 3) {
                         Text(String(format: "%02d:%02d", Int(model.activeSeconds)/60, Int(model.activeSeconds)%60))
                             .font(.title3.monospacedDigit())
-                        Text("CAPTURE TIME").font(.caption2).foregroundStyle(.secondary)
+                        Text(L("CAPTURE TIME")).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 Text(model.notice).font(.caption).foregroundStyle(.secondary)
@@ -190,7 +193,7 @@ struct ScannerView: View {
 
                 if model.isRecording {
                     Button { model.toggleRecording() } label: {
-                        Label("Pause", systemImage: "pause.fill")
+                        Label(L("Pause"), systemImage: "pause.fill")
                             .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                     }
                     .buttonStyle(.borderedProminent).tint(.orange)
@@ -198,7 +201,7 @@ struct ScannerView: View {
                 } else {
                     HStack(spacing: 12) {
                         Button { model.toggleRecording() } label: {
-                            Label("Resume", systemImage: "record.circle")
+                            Label(L("Resume"), systemImage: "record.circle")
                                 .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                         }
                         .buttonStyle(.borderedProminent)
@@ -207,15 +210,15 @@ struct ScannerView: View {
                         .disabled(!canCapture)
 
                         Button { showPreview = true } label: {
-                            Label("3D View", systemImage: "cube.transparent")
+                            Label(L("3D View"), systemImage: "cube.transparent")
                                 .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                         }
                         .buttonStyle(.bordered)
                         .disabled(model.preview.isEmpty || model.isBusy)
-                        .accessibilityLabel("View Point Cloud in 3D")
+                        .accessibilityLabel(L("View Point Cloud in 3D"))
                     }
                     HStack {
-                        Button("New Scan", systemImage: "plus") {
+                        Button(L("New Scan"), systemImage: "plus") {
                             confirmReset = true
                         }
                         .disabled(model.isBusy || !model.supported || model.cameraDenied)
@@ -226,19 +229,13 @@ struct ScannerView: View {
                             Button {
                                 showExport = true
                             } label: {
-                                Label("Export Point Cloud", systemImage: "doc.badge.gearshape")
+                                Label(L("Export Point Cloud"), systemImage: "doc.badge.gearshape")
                             }
 
                             Button {
                                 model.saveCurrent(share: true, report: false)
                             } label: {
-                                Label("Share Point Cloud", systemImage: "cube.transparent")
-                            }
-
-                            Button {
-                                model.exportGaussians()
-                            } label: {
-                                Label("Export 3D Gaussian Splats", systemImage: "aqi.medium")
+                                Label(L("Share Point Cloud"), systemImage: "cube.transparent")
                             }
 
                             Menu {
@@ -249,17 +246,25 @@ struct ScannerView: View {
                                     }
                                 }
                             } label: {
-                                Label("Export Formats", systemImage: "arrow.triangle.branch")
+                                Label(L("Export Formats"), systemImage: "arrow.triangle.branch")
+                            }
+
+                            if model.hasMesh {
+                                Button {
+                                    model.saveCurrent(share: false, report: false, shareMesh: true)
+                                } label: {
+                                    Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
+                                }
                             }
 
                             Button {
                                 model.exportReport()
                             } label: {
-                                Label("Export Report", systemImage: "doc.richtext")
+                                Label(L("Export Report"), systemImage: "doc.richtext")
                             }
                         } label: {
                             if model.isBusy { ProgressView().padding(.trailing, 4) }
-                            Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Share"), systemImage: "square.and.arrow.up")
+                            Label(L(model.isBusy ? "Saving…" : "Share"), systemImage: "square.and.arrow.up")
                         }
                         .disabled(model.isBusy)
                     }.font(.subheadline.weight(.medium))

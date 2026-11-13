@@ -8,6 +8,7 @@ struct GaussianPreviewSheet: View {
     let url: URL
     @Binding var isFullScreen: Bool
     let onClose: (() -> Void)?
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var loading = true
@@ -23,16 +24,16 @@ struct GaussianPreviewSheet: View {
             GaussianMetalView(url: url, loading: $loading, error: $error)
                 .ignoresSafeArea(edges: .bottom)
                 .overlay {
-                    if loading { ProgressView("Loading 3D scene…").padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16)) }
+                    if loading { ProgressView(L("Loading 3D scene…")).padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16)) }
                     if let error { Text(error).padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16)) }
                 }
                 .overlay(alignment: .bottom) {
                     if !isFullScreen {
-                        Text("Drag to Rotate · Pinch to Zoom").font(.caption).padding(10)
+                        Text(L("Drag to Rotate · Pinch to Zoom")).font(.caption).padding(10)
                             .background(.ultraThinMaterial, in: Capsule()).padding(.bottom, 20)
                     }
                 }
-                .navigationTitle("3D Scene").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(L("3D Scene")).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
@@ -42,10 +43,10 @@ struct GaussianPreviewSheet: View {
                         } label: {
                             Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         }
-                        .accessibilityLabel(LocalizedStringKey(isFullScreen ? "Minimize" : "Maximize"))
+                        .accessibilityLabel(L(isFullScreen ? "Minimize" : "Maximize"))
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
+                        Button(L("Done")) {
                             isFullScreen = false
                             if let onClose {
                                 onClose()
@@ -60,27 +61,10 @@ struct GaussianPreviewSheet: View {
     }
 }
 
-enum GaussianSource {
-    case url(URL)
-    case points([PCPoint])
-}
-
 struct GaussianMetalView: UIViewRepresentable {
-    let source: GaussianSource
+    let url: URL
     @Binding var loading: Bool
     @Binding var error: String?
-
-    init(url: URL, loading: Binding<Bool>, error: Binding<String?>) {
-        self.source = .url(url)
-        self._loading = loading
-        self._error = error
-    }
-
-    init(source: GaussianSource, loading: Binding<Bool>, error: Binding<String?>) {
-        self.source = source
-        self._loading = loading
-        self._error = error
-    }
 
     func makeCoordinator() -> Renderer { Renderer() }
     func makeUIView(context: Context) -> MTKView {
@@ -93,7 +77,7 @@ struct GaussianMetalView: UIViewRepresentable {
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: renderer, action: #selector(Renderer.pinch(_:))))
         renderer.onFailure = { error = $0; loading = false }
         renderer.task = Task { @MainActor in
-            do { try await renderer.load(source); if !Task.isCancelled { loading = false } }
+            do { try await renderer.load(url); if !Task.isCancelled { loading = false } }
             catch { if !Task.isCancelled { renderer.onFailure?(error.localizedDescription) } }
         }
         return view
@@ -114,31 +98,25 @@ struct GaussianMetalView: UIViewRepresentable {
         var yaw: Float = 0, pitch: Float = 0.15, zoom: Float = 1
         let semaphore = DispatchSemaphore(value: 2)
 
-        func load(_ source: GaussianSource) async throws {
+        func load(_ url: URL) async throws {
             #if arch(x86_64)
-            throw GaussianError.message(String(localized: "The 3D viewer requires an Apple Silicon device."))
+            throw GaussianError.message(LanguageManager.string("The 3D viewer requires an Apple Silicon device."))
             #else
             guard let view, let device = view.device, let queue = device.makeCommandQueue() else {
-                throw GaussianError.message(String(localized: "Metal graphics are unavailable."))
+                throw GaussianError.message(LanguageManager.string("Metal graphics are unavailable."))
             }
             self.queue = queue
-            let points: [SplatPoint]
-            switch source {
-            case .url(let url):
-                let reader = try AutodetectSceneReader(url)
-                points = try await reader.readAll()
-            case .points(let pcPoints):
-                points = PCPoint.toSplatPoints(pcPoints)
-            }
+            let reader = try AutodetectSceneReader(url)
+            let points = try await reader.readAll()
             try Task.checkCancellation()
-            guard !points.isEmpty else { throw GaussianError.message(String(localized: "The scene contains no Gaussians.")) }
+            guard !points.isEmpty else { throw GaussianError.message(LanguageManager.string("The scene contains no Gaussians.")) }
             var low = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
             var high = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
             for point in points where point.position.x.isFinite && point.position.y.isFinite && point.position.z.isFinite {
                 low = simd_min(low, point.position); high = simd_max(high, point.position)
             }
             center = (low + high) / 2; radius = max(0.1, simd_length(high - low) / 2)
-            guard radius.isFinite else { throw GaussianError.message(String(localized: "The scene contains invalid coordinates.")) }
+            guard radius.isFinite else { throw GaussianError.message(LanguageManager.string("The scene contains invalid coordinates.")) }
             let renderer = try SplatRenderer(device: device, colorFormat: view.colorPixelFormat,
                 depthFormat: .invalid, sampleCount: 1, maxViewCount: 1, maxSimultaneousRenders: 2, highQualityDepth: false,
                 clearColor: MTLClearColor(red: 0.035, green: 0.055, blue: 0.07, alpha: 1))

@@ -52,7 +52,7 @@ final class GaussianStore {
                 let record = try Self.decoder.decode(Record.self, from: Data(line))
                 guard record.event.sequence == sequence + 1, record.event.previousHash == head,
                       Self.hash(try Self.encoder.encode(record.event)) == record.sha256 else {
-                    throw GaussianError.message(String(localized: "The scan log failed its integrity check."))
+                    throw GaussianError.message(LanguageManager.string("The scan log failed its integrity check."))
                 }
                 sequence = record.event.sequence; head = record.sha256
                 validBytes += line.count + 1
@@ -138,12 +138,12 @@ final class GaussianStore {
     func validateInputs() throws {
         for frame in project.frames {
             guard try Self.hashFile(directory.appendingPathComponent(frame.file_path)) == frame.sha256 else {
-                throw GaussianError.message(String(localized: "A saved image is missing or has changed. The original capture is required."))
+                throw GaussianError.message(LanguageManager.string("A saved image is missing or has changed. The original capture is required."))
             }
         }
         if let seedHash = project.seedHash, let seedFile = project.seedFile {
             guard try Self.hashFile(directory.appendingPathComponent(seedFile)) == seedHash else {
-                throw GaussianError.message(String(localized: "The saved depth seed has changed."))
+                throw GaussianError.message(LanguageManager.string("The saved depth seed has changed."))
             }
         }
         try saveDataset()

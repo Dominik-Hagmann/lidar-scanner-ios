@@ -30,8 +30,9 @@
 ## Features
 
 - **Two capture modes**
-  - **Point Cloud** – accumulates coloured LiDAR depth points; exports binary PLY, ASCII PLY and XYZ with JSON metadata.
+  - **Point Cloud** – accumulates coloured LiDAR depth points and optional ARKit surface meshes; exports binary PLY, ASCII PLY, XYZ, CSV, ASPRS LAS, compressed LAZ, ASTM E57, and Wavefront OBJ (`mesh.obj`) with JSON metadata, GNSS tags, and Ground Control Points (`gcps.csv`).
   - **Gaussian Splatting** – captures distinct views automatically and optimizes a 3D Gaussian scene directly on the device.
+- **On-device 3D analysis & field georeferencing** – interactive 3D preview with point-to-point distance measurement, 3D Ground Control Point (GCP) tagging/editing, and optional offline GNSS coordinates, altitude, and compass heading.
 - **Fully on-device** – no API keys, servers or in-app accounts. Scans are processed offline; the share sheet passes only the selected files to the destination chosen by the user.
 - **Traceable records** – optional narrative PDF report and a processing log with recorded settings, decisions, processing steps and SHA-256 file hashes.
 - **Robust saving** – automatic saves on pause, memory monitoring, processing checkpoints and recovery after interruption.
@@ -265,10 +266,11 @@ The Gaussian mode uses msplat-ios and MetalSplatter; see [third-party notices](T
 
 ## Roadmap
 
-Prospective additions, not features of version 1.2.0 (Build 4):
+Implemented since 1.2.0 (Build 4) on `main`:
 
-1. CSV export as an additional open text format.
-2. GNSS metadata accompanying scans.
+- CSV, ASPRS LAS, compressed LAZ, and ASTM E57 point-cloud exports plus Wavefront OBJ surface mesh reconstruction.
+- Offline GNSS georeferencing metadata (`metadata.json` and PDF reports) with Settings opt-out toggle.
+- Interactive 3D point-to-point distance measurement and Ground Control Point (GCP) tagging with `gcps.csv` export.
 
 ## Research Context & Project Affiliation (RIM Project)
 

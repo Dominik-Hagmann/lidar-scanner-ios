@@ -10,13 +10,13 @@ enum ScanImportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedFormat:
-            return String(localized: "Unsupported file format. Please select a .ply, .xyz, .zip file or scan folder.")
+            return LanguageManager.string("Unsupported file format. Please select a .ply, .xyz, .zip file or scan folder.")
         case .invalidFile:
-            return String(localized: "The selected file could not be read or does not exist.")
+            return LanguageManager.string("The selected file could not be read or does not exist.")
         case .readingFailed(let reason):
-            return String(format: String(localized: "Import failed: %@"), reason)
+            return LanguageManager.format("Import failed: %@", reason)
         case .emptyPointCloud:
-            return String(localized: "The point cloud file contains no valid points.")
+            return LanguageManager.string("The point cloud file contains no valid points.")
         }
     }
 }
@@ -249,6 +249,7 @@ enum ScanImporter {
     static let supportedContentTypes: [UTType] = [
         UTType(filenameExtension: "ply") ?? .data,
         UTType(filenameExtension: "xyz") ?? .plainText,
+        .commaSeparatedText,
         .zip,
         .folder,
         .item
@@ -260,16 +261,19 @@ enum ScanImporter {
         return (vertexCount: header.vertexCount, isBinary: header.isBinary, hasColor: header.hasColor)
     }
 
-    /// Reads up to `maxPoints` evenly sampled points from a PLY or XYZ file for 3D preview.
+    /// Reads up to `maxPoints` evenly sampled points from a PLY, XYZ, or CSV file for 3D preview.
     static func readPreviewPoints(from url: URL, maxPoints: Int = 40_000) -> [PCPoint] {
         readPoints(from: url, formatHint: nil, maxPoints: maxPoints)
     }
 
-    /// Reads points from a PLY or XYZ file. Pass `nil` for `maxPoints` to load every point.
+    /// Reads points from a PLY, XYZ, or CSV file. Pass `nil` for `maxPoints` to load every point.
     static func readPoints(from url: URL, formatHint: ExportFormat? = nil, maxPoints: Int? = 40_000) -> [PCPoint] {
-        let isXYZ = formatHint == .xyz || (formatHint == nil && url.pathExtension.lowercased() == "xyz")
-        if isXYZ {
-            return readXYZPoints(from: url, maxPoints: maxPoints)
+        let ext = url.pathExtension.lowercased()
+        if formatHint == .csv || (formatHint == nil && ext == "csv") {
+            return readTextPoints(from: url, maxPoints: maxPoints, parser: parseCSVLine)
+        }
+        if formatHint == .xyz || (formatHint == nil && ext == "xyz") {
+            return readTextPoints(from: url, maxPoints: maxPoints, parser: parseXYZLine)
         }
         return readPLYPoints(from: url, maxPoints: maxPoints)
     }
@@ -383,7 +387,7 @@ enum ScanImporter {
         return points
     }
 
-    private static func readXYZPoints(from url: URL, maxPoints: Int?) -> [PCPoint] {
+    private static func readTextPoints(from url: URL, maxPoints: Int?, parser: @escaping (String) -> PCPoint?) -> [PCPoint] {
         if let maxPoints, maxPoints <= 0 { return [] }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let content = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
@@ -393,7 +397,7 @@ enum ScanImporter {
         var points: [PCPoint] = []
         guard let maxPoints else {
             content.enumerateLines { line, _ in
-                if let point = parseXYZLine(line) {
+                if let point = parser(line) {
                     points.append(point)
                 }
             }
@@ -402,7 +406,7 @@ enum ScanImporter {
 
         var validLines = 0
         content.enumerateLines { line, _ in
-            if parseXYZLine(line) != nil { validLines += 1 }
+            if parser(line) != nil { validLines += 1 }
         }
         guard validLines > 0 else { return [] }
 
@@ -413,7 +417,7 @@ enum ScanImporter {
         var nextSampleIndex = 0
 
         content.enumerateLines { line, stop in
-            guard let point = parseXYZLine(line) else { return }
+            guard let point = parser(line) else { return }
             if validIndex == nextSampleIndex {
                 points.append(point)
                 sampled += 1
@@ -431,7 +435,19 @@ enum ScanImporter {
     private static func parseXYZLine(_ line: String) -> PCPoint? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), !trimmed.hasPrefix("//") else { return nil }
-        let parts = trimmed.split(whereSeparator: \.isWhitespace)
+        return buildTextPoint(from: trimmed.split(whereSeparator: \.isWhitespace))
+    }
+
+    private static func parseCSVLine(_ line: String) -> PCPoint? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), !trimmed.hasPrefix("//") else { return nil }
+        let separator: Character = trimmed.contains(";") ? ";" : ","
+        let rawParts = trimmed.split(separator: separator, omittingEmptySubsequences: false)
+            .map { Substring($0.trimmingCharacters(in: .whitespaces)) }
+        return buildTextPoint(from: rawParts)
+    }
+
+    private static func buildTextPoint(from parts: [Substring]) -> PCPoint? {
         guard parts.count >= 3,
               let x = Float(parts[0]),
               let y = Float(parts[1]),
@@ -445,7 +461,11 @@ enum ScanImporter {
            let blue = parseASCIIColor(parts[5]) {
             r = red; g = green; b = blue
         }
-        return PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: 2)
+        var confidence: UInt8 = 2
+        if parts.count >= 7, let c = UInt8(parts[6]) {
+            confidence = c
+        }
+        return PCPoint(x: x, y: z, z: -y, r: r, g: g, b: b, confidence: confidence)
     }
 
     private static func parseASCIIColor(_ token: Substring) -> UInt8? {
@@ -477,7 +497,9 @@ enum ScanImporter {
         case "ply":
             return try importPLYFile(sourceURL)
         case "xyz":
-            return try importXYZFile(sourceURL)
+            return try importDelimitedTextFile(sourceURL, format: .xyz, formatNote: "XYZ text coordinates", parser: parseXYZLine)
+        case "csv":
+            return try importDelimitedTextFile(sourceURL, format: .csv, formatNote: "CSV table coordinates", parser: parseCSVLine)
         case "zip":
             return try importZIPArchive(sourceURL)
         default:
@@ -497,7 +519,8 @@ enum ScanImporter {
         return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: format)
     }
 
-    private static func importXYZFile(_ fileURL: URL) throws -> SavedScan {
+    private static func importDelimitedTextFile(_ fileURL: URL, format: ExportFormat,
+                                                formatNote: String, parser: @escaping (String) -> PCPoint?) throws -> SavedScan {
         guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe),
               let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw ScanImportError.invalidFile
@@ -505,13 +528,13 @@ enum ScanImporter {
 
         var pointCount = 0
         text.enumerateLines { line, _ in
-            if parseXYZLine(line) != nil { pointCount += 1 }
+            if parser(line) != nil { pointCount += 1 }
         }
         guard pointCount > 0 else { throw ScanImportError.emptyPointCloud }
 
         let baseTitle = fileURL.deletingPathExtension().lastPathComponent
-        let metadata = makeMetadata(title: baseTitle, pointCount: pointCount, formatNote: "XYZ text coordinates")
-        return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: .xyz)
+        let metadata = makeMetadata(title: baseTitle, pointCount: pointCount, formatNote: formatNote)
+        return try ScanStorage.saveImported(sourceURL: fileURL, metadata: metadata, format: format)
     }
 
     private static func importDirectory(_ dirURL: URL, depth: Int) throws -> SavedScan {
@@ -529,7 +552,10 @@ enum ScanImporter {
             return try importPLYFile(plyFile)
         }
         if let xyzFile = children.first(where: { $0.pathExtension.lowercased() == "xyz" }) {
-            return try importXYZFile(xyzFile)
+            return try importDelimitedTextFile(xyzFile, format: .xyz, formatNote: "XYZ text coordinates", parser: parseXYZLine)
+        }
+        if let csvFile = children.first(where: { $0.pathExtension.lowercased() == "csv" && $0.lastPathComponent.lowercased() != "gcps.csv" }) {
+            return try importDelimitedTextFile(csvFile, format: .csv, formatNote: "CSV table coordinates", parser: parseCSVLine)
         }
 
         if depth < 2 {

@@ -1,6 +1,5 @@
 import XCTest
 import PDFKit
-import SplatIO
 import simd
 @testable import LiDARScanner
 
@@ -428,45 +427,6 @@ final class ScanTests: XCTestCase {
         XCTAssertTrue(doc.string?.contains("Test Scan") == true)
     }
 
-    func testPCPointToSplatPointsConversion() {
-        let p1 = PCPoint(x: 1.0, y: 2.0, z: 3.0, r: 255, g: 128, b: 64, confidence: 2)
-        let p2 = PCPoint(x: 1.1, y: 2.1, z: 3.1, r: 0, g: 255, b: 128, confidence: 1)
-        let splats = PCPoint.toSplatPoints([p1, p2])
-        XCTAssertEqual(splats.count, 2)
-        XCTAssertEqual(splats[0].position.x, 1.0, accuracy: 0.001)
-        XCTAssertEqual(splats[0].position.y, 2.0, accuracy: 0.001)
-        XCTAssertEqual(splats[0].position.z, 3.0, accuracy: 0.001)
-        XCTAssertEqual(splats[0].color.asSRGBUInt8.x, 255)
-        XCTAssertEqual(splats[0].color.asSRGBUInt8.y, 128)
-        XCTAssertEqual(splats[0].color.asSRGBUInt8.z, 64)
-        XCTAssertGreaterThan(splats[0].scale.asLinearFloat.x, 0.005)
-        XCTAssertLessThan(splats[0].scale.asLinearFloat.x, 0.05)
-    }
-
-    func testGaussianPLYExportAndReadBack() async throws {
-        let points = [
-            PCPoint(x: 0.0, y: 0.0, z: 1.0, r: 255, g: 0, b: 0, confidence: 2),
-            PCPoint(x: 0.1, y: 0.2, z: 1.1, r: 0, g: 255, b: 0, confidence: 2),
-            PCPoint(x: -0.1, y: 0.1, z: 1.2, r: 0, g: 0, b: 255, confidence: 2)
-        ]
-        let splats = PCPoint.toSplatPoints(points)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ply")
-        defer { try? FileManager.default.removeItem(at: url) }
-
-        let writer = try SplatPLYSceneWriter(to: .file(url))
-        try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splats.count)
-        try await writer.write(splats)
-        try await writer.close()
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
-        let reader = try AutodetectSceneReader(url)
-        let readPoints = try await reader.readAll()
-        XCTAssertEqual(readPoints.count, 3)
-        XCTAssertEqual(readPoints[0].position.x, 0.0, accuracy: 0.001)
-        XCTAssertEqual(readPoints[0].position.y, 0.0, accuracy: 0.001)
-        XCTAssertEqual(readPoints[0].position.z, 1.0, accuracy: 0.001)
-    }
-
     func testEnglishAndGermanLocalizationsAreCompleteAndLoadable() throws {
         let bundle = Bundle.main
         XCTAssertTrue(bundle.localizations.contains("en"), "Missing en localization in app bundle")
@@ -481,10 +441,116 @@ final class ScanTests: XCTestCase {
         XCTAssertEqual(Set(enDict.keys), Set(deDict.keys))
 
         XCTAssertEqual(deDict["%@ / %@ points"], "%@ / %@ Punkte")
-        XCTAssertEqual(deDict["Mode"], "Modus")
-        XCTAssertEqual(deDict["Export Options"], "Exportoptionen")
         XCTAssertEqual(deDict["Rotate with One Finger · Pinch to Zoom"], "Drehen mit einem Finger · Aufziehen zum Zoomen")
         XCTAssertEqual(deDict["Preview points: %@ of %@. The export contains all points."], "Punkte in der Vorschau: %@ von %@. Export enthält alle Punkte.")
         XCTAssertEqual(deDict["About & Credits"], "Über & Danksagung")
+        XCTAssertEqual(deDict["Language"], "Sprache")
+    }
+
+    func testLanguageManagerSwitchesBetweenGermanAndEnglish() {
+        let manager = LanguageManager.shared
+        let previous = manager.selection
+        defer { manager.selection = previous }
+
+        manager.selection = .german
+        XCTAssertEqual(LanguageManager.string("Settings"), "Einstellungen")
+        XCTAssertEqual(LanguageManager.string("Language"), "Sprache")
+        XCTAssertEqual(L10nPhrase("Imported scan: %@", ["Test"]).localized, "Scan importiert: Test")
+
+        manager.selection = .english
+        XCTAssertEqual(LanguageManager.string("Settings"), "Settings")
+        XCTAssertEqual(LanguageManager.string("Language"), "Language")
+        XCTAssertEqual(L10nPhrase("Imported scan: %@", ["Test"]).localized, "Imported scan: Test")
+    }
+
+    func testScanSettingsBackwardCompatibleDecoding() throws {
+        let legacyJSON = #"{"voxelCentimeters":2,"maxDepth":3,"minConfidence":2,"pixelStep":4,"maxPoints":500000}"#
+        let decoded = try JSONDecoder().decode(ScanSettings.self, from: Data(legacyJSON.utf8))
+        XCTAssertEqual(decoded.voxelCentimeters, 2)
+        XCTAssertEqual(decoded.maxDepth, 3)
+        XCTAssertEqual(decoded.minConfidence, 2)
+        XCTAssertEqual(decoded.pixelStep, 4)
+        XCTAssertEqual(decoded.maxPoints, 500_000)
+        XCTAssertTrue(decoded.recordLocation)
+
+        var custom = ScanSettings()
+        custom.recordLocation = false
+        let roundtrip = try JSONDecoder().decode(ScanSettings.self, from: JSONEncoder().encode(custom))
+        XCTAssertFalse(roundtrip.recordLocation)
+    }
+
+    func testAllExportFormatsHaveDistinctIDsAndFileNames() {
+        XCTAssertEqual(ExportFormat.allCases.count, 7)
+        XCTAssertEqual(Set(ExportFormat.allCases.map(\.rawValue)).count, 7)
+        XCTAssertEqual(Set(ExportFormat.allCases.map(\.fileName)).count, 7)
+        XCTAssertEqual(ExportFormat.csv.fileName, "points.csv")
+        XCTAssertEqual(ExportFormat.las.fileName, "points.las")
+        XCTAssertEqual(ExportFormat.laz.fileName, "points.laz")
+        XCTAssertEqual(ExportFormat.e57.fileName, "points.e57")
+    }
+
+    func testCSVReadAndGroundControlPointsPersistenceAndReport() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let csvURL = tempDir.appendingPathComponent("points.csv")
+        let csvContent = "x,y,z,red,green,blue,confidence\n1.500,-2.000,0.750,255,128,64,2\n-0.250,3.000,1.250,10,20,30,1\n"
+        try csvContent.write(to: csvURL, atomically: true, encoding: .utf8)
+
+        let points = ScanImporter.readPoints(from: csvURL, formatHint: .csv, maxPoints: nil)
+        XCTAssertEqual(points.count, 2)
+        XCTAssertEqual(points[0].x, 1.5, accuracy: 0.001)
+        XCTAssertEqual(points[0].y, 0.75, accuracy: 0.001)
+        XCTAssertEqual(points[0].z, 2.0, accuracy: 0.001)
+        XCTAssertEqual(points[0].r, 255)
+        XCTAssertEqual(points[0].confidence, 2)
+
+        let gcp = GroundControlPoint.fromARKit(
+            SIMD3<Float>(points[0].x, points[0].y, points[0].z),
+            label: "GCP-1",
+            targetX: 602_500.125,
+            targetY: 5_340_120.5,
+            targetZ: 172.4,
+            coordinateSystem: "EPSG:31256",
+            note: "Trench NW"
+        )
+        XCTAssertEqual(gcp.localX, 1.5, accuracy: 0.001)
+        XCTAssertEqual(gcp.localY, -2.0, accuracy: 0.001)
+        XCTAssertEqual(gcp.localZ, 0.75, accuracy: 0.001)
+        XCTAssertEqual(gcp.arkitPosition.x, points[0].x, accuracy: 0.001)
+        XCTAssertEqual(gcp.arkitPosition.y, points[0].y, accuracy: 0.001)
+        XCTAssertEqual(gcp.arkitPosition.z, points[0].z, accuracy: 0.001)
+
+        let loc = GeoLocation(latitude: 48.210033, longitude: 16.363449, altitude: 171.2,
+                              horizontalAccuracy: 3.5, verticalAccuracy: 4.0, heading: 92.5,
+                              timestamp: Date(timeIntervalSince1970: 1_790_000_000))
+        XCTAssertTrue(loc.formattedCoordinates.contains("48.210033"))
+
+        let meta = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.2.0", appBuild: "4", scanID: UUID(),
+            title: "Trench A", startedAt: Date(), savedAt: Date(), pointCount: 2,
+            acceptedSamples: 2, processedFrames: 1, activeSeconds: 1.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: "Field test",
+            location: loc
+        )
+        let saved = SavedScan(directory: tempDir, metadata: meta)
+        let updated = try ScanStorage.updateGroundControlPoints(for: saved, points: [gcp])
+        XCTAssertTrue(updated.hasGCPs)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updated.gcpCSVURL.path))
+        let gcpCSVText = try String(contentsOf: updated.gcpCSVURL, encoding: .utf8)
+        XCTAssertTrue(gcpCSVText.contains("GCP-1,1.500000,-2.000000,0.750000"))
+        XCTAssertTrue(gcpCSVText.contains("EPSG:31256"))
+
+        let reportURL = try ScanReport.pointCloud(updated)
+        defer { try? FileManager.default.removeItem(at: reportURL.deletingLastPathComponent()) }
+        let doc = try XCTUnwrap(PDFDocument(url: reportURL))
+        let pdfText = doc.string ?? ""
+        XCTAssertTrue(pdfText.contains("48.210033"))
+        XCTAssertTrue(pdfText.contains("GCP-1"))
     }
 }

@@ -63,8 +63,9 @@ int main(int argc, char **argv) {
     near(sample[2].x,p[5].x); near(sample[2].y,p[5].y);
 
     char error[512]{};
-    for (int format=0;format<3;++format) {
-        const auto path=(output/(format==0?"test.ply":format==1?"test-ascii.ply":"test.xyz")).string();
+    const char *names[] = {"test.ply", "test-ascii.ply", "test.xyz", "test.las", "test.laz", "test.csv", "test.e57"};
+    for (int format=0;format<7;++format) {
+        const auto path=(output/names[format]).string();
         assert(pc_export(c,path.c_str(),format,error,sizeof(error))==1);
         assert(!fs::exists(path+".partial"));
     }

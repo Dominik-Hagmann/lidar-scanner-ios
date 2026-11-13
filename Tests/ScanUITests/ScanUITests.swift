@@ -4,7 +4,7 @@ final class ScanUITests: XCTestCase {
     func testModeSwitchingAndGaussianArchive() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", "system"]
         app.launch()
         let gaussian = app.segmentedControls.buttons["Gaussian Splatting"]
         XCTAssertTrue(gaussian.waitForExistence(timeout: 10))
@@ -24,7 +24,7 @@ final class ScanUITests: XCTestCase {
     func testGermanLocalizationSettingsAndCredits() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE", "-appLanguage", "system"]
         app.launch()
 
         let gaussian = app.segmentedControls.buttons["Gaussian Splatting"]
@@ -50,5 +50,27 @@ final class ScanUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["RIM-Projekt"].waitForExistence(timeout: 5))
         let germanCredits = XCTAttachment(screenshot: app.screenshot())
         germanCredits.name = "German-Credits-iPhone"; germanCredits.lifetime = .keepAlways; add(germanCredits)
+    }
+
+    func testLiveLanguageSwitchingInSettings() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", "system"]
+        app.launch()
+
+        let settingsButton = app.buttons["Scan Settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
+        settingsButton.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+
+        app.segmentedControls.buttons["Deutsch"].tap()
+        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 5))
+        app.buttons["Fertig"].tap()
+        XCTAssertTrue(app.staticTexts["LiDAR · Szene als Punktwolke"].waitForExistence(timeout: 5))
+
+        app.buttons["Scan-Einstellungen"].tap()
+        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 5))
+        app.segmentedControls.buttons["System"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
 }

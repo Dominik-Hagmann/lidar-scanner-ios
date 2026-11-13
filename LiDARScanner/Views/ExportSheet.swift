@@ -2,43 +2,52 @@ import SwiftUI
 
 struct ExportSheet: View {
     @ObservedObject var model: ScanModel
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             Form {
-                Section("Scan") {
-                    TextField("Title, e.g. Context 104", text: $model.scanTitle)
+                Section(L("Scan")) {
+                    TextField(L("Title, e.g. Context 104"), text: $model.scanTitle)
                         .textInputAutocapitalization(.sentences).disabled(model.isBusy)
-                    LabeledContent("Points", value: model.pointCount.formatted())
-                    LabeledContent("Coordinates", value: String(localized: "Local · Meters · Z Up"))
+                    LabeledContent(L("Points"), value: model.pointCount.formatted())
+                    if !model.activeGroundControlPoints.isEmpty {
+                        LabeledContent(L("Ground Control Points"), value: model.activeGroundControlPoints.count.formatted())
+                    }
+                    LabeledContent(L("Coordinates"), value: L("Local · Meters · Z Up"))
                 }
-                Section("File Format") {
-                    Picker("Format", selection: $model.exportFormat) {
+                Section(L("File Format")) {
+                    Picker(L("Format"), selection: $model.exportFormat) {
                         ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
                     }.pickerStyle(.inline).labelsHidden().disabled(model.isBusy)
-                    Text("PLY preserves colors and confidence. The XYZ file contains only X, Y, and Z. Metadata is shared as an additional JSON file with either format.")
+                    Text(L("PLY, CSV, LAS, LAZ, and ASTM E57 preserve colors and confidence; XYZ contains only X, Y, and Z. Metadata JSON (and GCPs when set) are shared alongside."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
                     Button { model.saveCurrent(share: true) } label: {
                         HStack {
                             if model.isBusy { ProgressView() }
-                            Label(LocalizedStringKey(model.isBusy ? "Saving…" : "Save and Share"), systemImage: "square.and.arrow.up")
+                            Label(L(model.isBusy ? "Saving…" : "Save and Share"), systemImage: "square.and.arrow.up")
                         }
                     }.disabled(model.isBusy || model.pointCount == 0)
-                    Button("Export Report", systemImage: "doc.richtext") { model.saveCurrent(share: false, report: true) }
+                    if model.hasMesh {
+                        Button { model.saveCurrent(share: false, shareMesh: true) } label: {
+                            Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
+                        }.disabled(model.isBusy || model.pointCount == 0)
+                    }
+                    Button(L("Export Report"), systemImage: "doc.richtext") { model.saveCurrent(share: false, report: true) }
                         .disabled(model.isBusy || model.pointCount == 0)
-                    Text("In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device.")
+                    Text(L("In the next step, choose “Save to Files” or AirDrop. A binary PLY copy remains in the scan archive on this device."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Export Point Cloud").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(model.isBusy) } }
+            .navigationTitle(L("Export Point Cloud")).navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L("Done")) { dismiss() }.disabled(model.isBusy) } }
             .interactiveDismissDisabled(model.isBusy)
             .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
-            .alert("Export Failed", isPresented: Binding(get: { model.errorMessage != nil },
+            .alert(L("Export Failed"), isPresented: Binding(get: { model.errorMessage != nil },
                 set: { if !$0 { model.errorMessage = nil } })) {
-                    Button("OK") { model.errorMessage = nil }
+                    Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }
     }

@@ -15,7 +15,9 @@
 		2A015C6DFCD19393CB57CF82 /* GaussianPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA4EB61C2992A068537F66 /* GaussianPreviewView.swift */; };
 		2A7CABA154D824EA1430320D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B52991869259B387973DF071 /* MetalKit.framework */; };
 		2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00745DD212891C12D2C7D923 /* ExportSheet.swift */; };
+		3417F99D42A34890C8C860DB /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9D4D1A0BA53D5C4F2098C6E /* CoreLocation.framework */; };
 		351CCAB228E2DF1FA9F0117B /* LiDARScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */; };
+		387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DE3BBF4A33738A02461DDD /* MeshExporter.swift */; };
 		49E6752BD21827E7933D1621 /* ScanTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591AE06B83745D2184C647E8 /* ScanTypes.swift */; };
 		513023056F015575CFAD535C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 654E310C9A032255F34E8CED /* Localizable.strings */; };
 		54701E4CB715E3E0E35B2594 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */; };
@@ -33,8 +35,10 @@
 		9C6C194F3BAD392B54CBD491 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7E1C70452383F1A34740120 /* CoreGraphics.framework */; };
 		9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33170E03775E44A0FE0F08 /* TorchService.swift */; };
 		A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */; };
+		A54D62C29333829708CB4616 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AEEBC62781B6D37155F93AE /* AppLanguage.swift */; };
 		ADA408CC506FA2612DD3B192 /* GaussianNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */; };
 		B8D51BFAE1AFF59C1F35A6AB /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ADC29840B87F25D548CB1A /* ZipArchive.swift */; };
+		BC5EB798F7C0FBD4D9CFF1EC /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD53F2CDB1FDC573401BA06 /* LocationService.swift */; };
 		BE8AC35CF0C51E7BC86FC45E /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */; };
 		C08E5E357470D7F2A06C37A0 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */; };
 		CE8C34B3D8E008DC82BA520C /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = D96B24678C6851D7E87FDD98 /* SplatIO */; };
@@ -72,6 +76,7 @@
 /* Begin PBXFileReference section */
 		00745DD212891C12D2C7D923 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		07FED1364E851B2D80DD0FB7 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0AEEBC62781B6D37155F93AE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
 		1CC334CD113DD47F335824C0 /* MsplatCore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MsplatCore.xcframework; path = Dependencies/msplat/MsplatCore.xcframework; sourceTree = "<group>"; };
 		1F91C089D6A14A51E08AC502 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthProcessor.swift; sourceTree = "<group>"; };
@@ -86,6 +91,7 @@
 		4A8998633ABD7A09D8577682 /* ScanTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E33170E03775E44A0FE0F08 /* TorchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchService.swift; sourceTree = "<group>"; };
 		52E7560BA5CDA6710DD79AEB /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		57DE3BBF4A33738A02461DDD /* MeshExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshExporter.swift; sourceTree = "<group>"; };
 		591AE06B83745D2184C647E8 /* ScanTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypes.swift; sourceTree = "<group>"; };
 		618F90E24DA56B4F20ACFCCD /* GaussianTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianTypes.swift; sourceTree = "<group>"; };
 		667722F4881FB4376538BEF7 /* ScanReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReport.swift; sourceTree = "<group>"; };
@@ -96,6 +102,7 @@
 		710CDA8C0EDC88B327170324 /* PointCloudView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointCloudView.swift; sourceTree = "<group>"; };
 		736FF58692C13F2293C3543F /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
 		73E359BFBB649A10550563B9 /* GaussianNative.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GaussianNative.h; sourceTree = "<group>"; };
+		77623C84F7D2023D75BE5674 /* LasLazWriter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = LasLazWriter.hpp; sourceTree = "<group>"; };
 		8253534D1C578F78D7F40266 /* PointCloudCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PointCloudCore.h; sourceTree = "<group>"; };
 		83D58AE35D2E5E3DFD3CCB6A /* ScanUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanUITests.swift; sourceTree = "<group>"; };
 		8505CA84408215458BB7A544 /* default-iossimulator.metallib */ = {isa = PBXFileReference; lastKnownFileType = "archive.metal-library"; path = "default-iossimulator.metallib"; sourceTree = "<group>"; };
@@ -104,7 +111,9 @@
 		9FC4178D29ECDA5B4D22C44C /* GaussianCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianCapture.swift; sourceTree = "<group>"; };
 		A24F6B44F66907CE86357497 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
 		A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A9D4D1A0BA53D5C4F2098C6E /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		AFA9395A1016AB2766F23C70 /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
+		AFD53F2CDB1FDC573401BA06 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		B0B91C5E60FD184B07896C41 /* ScanUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GaussianNative.mm; sourceTree = "<group>"; };
 		B52991869259B387973DF071 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
@@ -118,6 +127,7 @@
 		DC8AB7058F8BA939FDF5C424 /* GaussianModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianModel.swift; sourceTree = "<group>"; };
 		E64C155F1C6E33E160F8D5A4 /* ArchiveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSheet.swift; sourceTree = "<group>"; };
 		E82A095F022AEFDAAA906305 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		EA280A898BB3F1593ACA2F93 /* E57Writer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = E57Writer.hpp; sourceTree = "<group>"; };
 		F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F9EF4C10ACBE4CEB2AC1FAAA /* GaussianProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianProcessor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -135,6 +145,7 @@
 				C08E5E357470D7F2A06C37A0 /* MetalPerformanceShaders.framework in Frameworks */,
 				E627B84D324EFE75D91586CB /* ImageIO.framework in Frameworks */,
 				9C6C194F3BAD392B54CBD491 /* CoreGraphics.framework in Frameworks */,
+				3417F99D42A34890C8C860DB /* CoreLocation.framework in Frameworks */,
 				E1A3F25CEEAEEE03E069C2F2 /* libz.tbd in Frameworks */,
 				88ADB3A310D6ED4FCC7D1F3D /* libc++.tbd in Frameworks */,
 			);
@@ -155,6 +166,8 @@
 		086BBBF6C8B03AEC8A2A8E5F /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				EA280A898BB3F1593ACA2F93 /* E57Writer.hpp */,
+				77623C84F7D2023D75BE5674 /* LasLazWriter.hpp */,
 				D3DF538AB4A0784E3215B7F8 /* PointCloudCore.cpp */,
 				8253534D1C578F78D7F40266 /* PointCloudCore.h */,
 			);
@@ -164,11 +177,14 @@
 		0ED440648C21F4EEA15C68BD /* LiDARScanner */ = {
 			isa = PBXGroup;
 			children = (
+				0AEEBC62781B6D37155F93AE /* AppLanguage.swift */,
 				F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */,
 				240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */,
 				BD88BE26E4CAF5629042A93B /* Info.plist */,
 				3EA2DF3528684D17BD3F0544 /* LiDARScanner-Bridging-Header.h */,
 				8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */,
+				AFD53F2CDB1FDC573401BA06 /* LocationService.swift */,
+				57DE3BBF4A33738A02461DDD /* MeshExporter.swift */,
 				A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */,
 				423AC76627BE2A75ED569653 /* ScanImporter.swift */,
 				3031CC885A856F3E3A031916 /* ScanModel.swift */,
@@ -198,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				D7E1C70452383F1A34740120 /* CoreGraphics.framework */,
+				A9D4D1A0BA53D5C4F2098C6E /* CoreLocation.framework */,
 				A24F6B44F66907CE86357497 /* ImageIO.framework */,
 				736FF58692C13F2293C3543F /* libc++.tbd */,
 				6EA963BDEEACA2C54A89F90F /* libz.tbd */,
@@ -420,6 +437,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A54D62C29333829708CB4616 /* AppLanguage.swift in Sources */,
 				F09C250FD94004C84A11952C /* ArchiveSheet.swift in Sources */,
 				1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */,
 				A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */,
@@ -433,6 +451,8 @@
 				FB22C03C779ECC4B0DBC43C0 /* GaussianStore.swift in Sources */,
 				751CF40427CCB778FD1391A7 /* GaussianTypes.swift in Sources */,
 				351CCAB228E2DF1FA9F0117B /* LiDARScannerApp.swift in Sources */,
+				BC5EB798F7C0FBD4D9CFF1EC /* LocationService.swift in Sources */,
+				387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */,
 				E9E0878D75E8A1CFAAF51A19 /* PointCloudCore.cpp in Sources */,
 				02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */,
 				57F63DC10200183E83B25234 /* ScanImporter.swift in Sources */,

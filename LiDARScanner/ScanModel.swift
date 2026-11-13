@@ -1,7 +1,6 @@
 import ARKit
 import AVFoundation
 import Combine
-import SplatIO
 import SwiftUI
 import simd
 
@@ -10,7 +9,9 @@ import simd
 /// The single-flight gate retains at most one ARFrame for processing.
 final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     let session = ARSession()
-    @Published var settings = ScanSettings()
+    @Published var settings = ScanSettings() {
+        didSet { LocationService.shared.isEnabled = settings.recordLocation }
+    }
     @Published var scanTitle = ""
     @Published var exportFormat: ExportFormat = .binaryPLY
     @Published private(set) var pointCount = 0
@@ -20,8 +21,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var ready = false
     @Published private(set) var trackingNormal = false
     @Published private(set) var sessionClosed = false
-    @Published private(set) var trackingText = String(localized: "Preparing camera…")
-    @Published private(set) var notice = String(localized: "Move slowly and capture surfaces from multiple angles.")
+    @Published private(set) var trackingText = LanguageManager.string("Preparing camera…")
+    @Published private(set) var notice = LanguageManager.string("Move slowly and capture surfaces from multiple angles.")
     @Published private(set) var preview: [PCPoint] = []
     @Published private(set) var previewVersion = 0
     @Published private(set) var savedScans: [SavedScan] = []
@@ -49,6 +50,13 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     // Keep the original reason in metadata; localize only the displayed notice.
     private var closedReason: String?
     private var localizedClosedReason: String?
+    private var trackingPhrase = L10nPhrase("Preparing camera…")
+    private var noticePhrase = L10nPhrase("Move slowly and capture surfaces from multiple angles.")
+    private var closedReasonPhrase: L10nPhrase?
+    private var cancellables: Set<AnyCancellable> = []
+    private var meshAnchors: [UUID: ARMeshAnchor] = [:]
+    var hasMesh: Bool { !meshAnchors.isEmpty }
+    @Published var activeGroundControlPoints: [GroundControlPoint] = []
     // Worker queue only:
     private var workerFrames = 0
     private var workerSeconds: Double = 0
@@ -69,7 +77,38 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         ) { [weak self] _ in
             self?.closeSession(reason: "Die Erfassung wurde wegen einer Speicherwarnung beendet. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
         })
+        LanguageManager.shared.$selection
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshLocalizedText()
+            }
+            .store(in: &cancellables)
         refreshArchive()
+    }
+
+    private func setTracking(_ key: String) {
+        trackingPhrase = L10nPhrase(key)
+        trackingText = trackingPhrase.localized
+    }
+
+    private func setNotice(_ key: String, _ args: String...) {
+        noticePhrase = L10nPhrase(key, args)
+        notice = noticePhrase.localized
+    }
+
+    private func refreshLocalizedText() {
+        trackingText = trackingPhrase.localized
+        if let closedReasonPhrase {
+            localizedClosedReason = closedReasonPhrase.localized
+            if noticePhrase.key == "Scan saved on this device. %@" {
+                noticePhrase = L10nPhrase("Scan saved on this device. %@", [closedReasonPhrase.localized])
+            } else {
+                noticePhrase = closedReasonPhrase
+            }
+        }
+        notice = noticePhrase.localized
+        objectWillChange.send()
     }
 
     deinit {
@@ -81,10 +120,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func prepare() {
         guard !sessionStarted else { return }
-        guard cloud != nil else { errorMessage = String(localized: "Could not allocate point-cloud memory."); return }
+        guard cloud != nil else { errorMessage = LanguageManager.string("Could not allocate point-cloud memory."); return }
         guard supported else {
-            trackingText = String(localized: "LiDAR required")
-            notice = String(localized: "Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
+            setTracking("LiDAR required")
+            setNotice("Scanning requires an iPhone or iPad with a LiDAR sensor. The Simulator cannot capture a scene.")
             return
         }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -102,14 +141,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func denyCamera() {
         cameraDenied = true
-        trackingText = String(localized: "Camera access required")
-        notice = String(localized: "Please allow camera access in the device settings.")
+        setTracking("Camera access required")
+        setNotice("Please allow camera access in the device settings.")
     }
 
     private func startSession(reset: Bool) {
         guard foreground, supported, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
+        if reset { meshAnchors.removeAll() }
         let configuration = ARWorldTrackingConfiguration()
         configuration.frameSemantics = [.sceneDepth]
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            configuration.sceneReconstruction = .mesh
+        }
         configuration.worldAlignment = .gravity
         configuration.isLightEstimationEnabled = false
         session.run(configuration, options: reset ? [.resetTracking, .removeExistingAnchors] : [])
@@ -117,18 +160,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         cameraDenied = false
         ready = true
         trackingNormal = false
-        trackingText = String(localized: "Detecting surroundings…")
+        setTracking("Detecting surroundings…")
     }
 
     func toggleRecording() {
         if isRecording { pauseAndSave(); return }
         guard ready, trackingNormal, !sessionClosed, !isBusy, let cloud else { return }
         if activeSettings.maxPoints > 0 && pointCount >= activeSettings.maxPoints && pointCount > 0 {
-            notice = String(localized: "Point limit reached. Please export or start a new scan.")
+            setNotice("Point limit reached. Please export or start a new scan.")
             return
         }
         guard os_proc_available_memory() >= Self.captureMemoryReserve else {
-            notice = String(localized: "Not enough free memory for additional points. Please export the current scan.")
+            setNotice("Not enough free memory for additional points. Please export the current scan.")
             return
         }
         if pointCount == 0 {
@@ -136,18 +179,25 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             let configuration = activeSettings.core
             worker.async { pc_reset(cloud, configuration) }
             startedAt = Date()
+            if activeSettings.recordLocation {
+                LocationService.shared.isEnabled = true
+                LocationService.shared.startUpdating()
+            } else {
+                LocationService.shared.isEnabled = false
+            }
         }
         worker.async { self.workerLastTimestamp = nil }
         lastScheduledTime = -1
         isRecording = true
         UIApplication.shared.isIdleTimerDisabled = true
-        notice = String(localized: "Scanning. Move the camera slowly and steadily.")
+        setNotice("Scanning. Move the camera slowly and steadily.")
     }
 
     func pauseAndSave() {
         isRecording = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
-        notice = String(localized: "Paused. Camera tracking remains active.")
+        setNotice("Paused. Camera tracking remains active.")
         saveCurrent(share: false)
     }
 
@@ -155,6 +205,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         guard !isBusy, let cloud else { return }
         TorchService.shared.turnOff()
         isRecording = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
         generation += 1
@@ -166,16 +217,19 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             self.workerWidth = 0; self.workerHeight = 0
             self.cachedScan = nil; self.savedSamples = 0; self.savedTitle = ""
             DispatchQueue.main.async {
+                self.meshAnchors.removeAll()
+                self.activeGroundControlPoints = []
                 self.pointCount = 0; self.activeSeconds = 0
                 self.preview = []; self.previewVersion += 1
                 self.scanTitle = ""; self.sessionClosed = !self.foreground
                 self.closedReason = nil
                 self.localizedClosedReason = nil
+                self.closedReasonPhrase = nil
                 self.ready = false
                 if !self.foreground { self.sessionStarted = false }
                 self.lastScheduledTime = -1; self.lastPreviewTime = -1
                 self.isBusy = false
-                self.notice = String(localized: "New scan. Wait for stable tracking, then start capture.")
+                self.setNotice("New scan. Wait for stable tracking, then start capture.")
                 self.startSession(reset: true)
                 self.endBackgroundTask()
             }
@@ -189,20 +243,24 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         } else if phase == .active {
             foreground = true
             if cameraDenied || !sessionStarted { prepare() }
-            else if sessionClosed { notice = String(localized: "Scan complete. Export or start a new scan.") }
+            else if sessionClosed { setNotice("Scan complete. Export or start a new scan.") }
         }
     }
 
-    private func closeSession(reason: String, localizedReason: String? = nil) {
+    private func closeSession(reason: String, reasonPhrase: L10nPhrase? = nil) {
         guard !sessionClosed else { return }
         TorchService.shared.turnOff()
         isRecording = false; sessionClosed = true; trackingNormal = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         session.pause()
-        trackingText = String(localized: "Scan complete")
+        setTracking("Scan complete")
         closedReason = reason
-        let message = localizedReason ?? NSLocalizedString(reason, comment: "Capture session closure notice")
+        let phrase = reasonPhrase ?? L10nPhrase(reason)
+        closedReasonPhrase = phrase
+        let message = phrase.localized
         localizedClosedReason = message
+        noticePhrase = phrase
         notice = message
         beginBackgroundTask()
         if !isBusy { saveCurrent(share: false) }
@@ -243,14 +301,14 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         self.closeSession(reason: "Die Erfassung wurde wegen knappen Arbeitsspeichers beendet. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
                     } else if result.stats.atCapacity != 0 && self.isRecording {
                         self.pauseAndSave()
-                        self.notice = String(localized: "Point limit reached. Saving the scan; all captured points are retained.")
+                        self.setNotice("Point limit reached. Saving the scan; all captured points are retained.")
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.processingFrame = false
                     guard thisGeneration == self.generation else { return }
-                    self.notice = error.localizedDescription
+                    self.setNotice(error.localizedDescription)
                     if frame.sceneDepth != nil {
                         self.isRecording = false
                         UIApplication.shared.isIdleTimerDisabled = false
@@ -264,18 +322,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private func updateTracking(_ state: ARCamera.TrackingState) {
         guard !sessionClosed else { return }
         switch state {
-        case .normal: trackingNormal = true; trackingText = String(localized: "Tracking stable")
-        case .notAvailable: trackingNormal = false; trackingText = String(localized: "Tracking unavailable")
+        case .normal: trackingNormal = true; setTracking("Tracking stable")
+        case .notAvailable: trackingNormal = false; setTracking("Tracking unavailable")
         case .limited(let reason):
             trackingNormal = false
             switch reason {
-            case .initializing: trackingText = String(localized: "Detecting surroundings…")
-            case .excessiveMotion: trackingText = String(localized: "Please move more slowly")
-            case .insufficientFeatures: trackingText = String(localized: "More texture or light required")
+            case .initializing: setTracking("Detecting surroundings…")
+            case .excessiveMotion: setTracking("Please move more slowly")
+            case .insufficientFeatures: setTracking("More texture or light required")
             case .relocalizing:
                 // Previously accumulated points cannot be retrospectively corrected.
                 closeSession(reason: "Tracking musste neu lokalisiert werden. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
-            @unknown default: trackingText = String(localized: "Tracking limited")
+            @unknown default: setTracking("Tracking limited")
             }
         }
     }
@@ -285,9 +343,27 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     func session(_ session: ARSession, didFailWithError error: Error) {
         closeSession(reason: "Kamera beendet: " + error.localizedDescription,
-                     localizedReason: String(localized: "Camera stopped: \(error.localizedDescription)"))
+                     reasonPhrase: L10nPhrase("Camera stopped: %@", [error.localizedDescription]))
     }
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
+
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        for anchor in anchors {
+            if let mesh = anchor as? ARMeshAnchor { meshAnchors[mesh.identifier] = mesh }
+        }
+    }
+
+    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        for anchor in anchors {
+            if let mesh = anchor as? ARMeshAnchor { meshAnchors[mesh.identifier] = mesh }
+        }
+    }
+
+    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        for anchor in anchors {
+            if let mesh = anchor as? ARMeshAnchor { meshAnchors.removeValue(forKey: mesh.identifier) }
+        }
+    }
 
     func leaveMode() {
         guard !isBusy, !isRecording else { return }
@@ -308,11 +384,11 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         } else if pointCount == 0 {
             sessionClosed = false
             startSession(reset: true)
-            notice = String(localized: "Move slowly and capture surfaces from multiple angles.")
+            setNotice("Move slowly and capture surfaces from multiple angles.")
         } else if !sessionClosed {
             startSession(reset: false)
         } else {
-            notice = String(localized: "Scan complete. Export or start a new scan.")
+            setNotice("Scan complete. Export or start a new scan.")
         }
     }
 
@@ -320,73 +396,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         saveCurrent(share: false, report: true)
     }
 
-    func exportGaussians() {
+    func saveCurrent(share: Bool, report: Bool = false, shareMesh: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false
-        UIApplication.shared.isIdleTimerDisabled = false
-        isBusy = true
-        Task {
-            do {
-                let plyURL = try await makeGaussianExportURL(cloud: cloud)
-                await MainActor.run {
-                    self.isBusy = false
-                    self.sharedFiles = SharedFiles(urls: [plyURL])
-                    self.notice = String(localized: "3D Gaussian Splats exported successfully.")
-                }
-            } catch {
-                await MainActor.run {
-                    self.isBusy = false
-                    self.errorMessage = String(localized: "Exporting Gaussians failed: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    func makeGaussianExportURL() async throws -> URL {
-        guard let cloud else { throw ScanImportError.emptyPointCloud }
-        return try await makeGaussianExportURL(cloud: cloud)
-    }
-
-    private func makeGaussianExportURL(cloud: OpaquePointer) async throws -> URL {
-        let cleanTitle = await MainActor.run { scanTitle.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let title = cleanTitle.isEmpty ? "LiDAR-Scan" : cleanTitle
-        let points: [PCPoint] = try await withCheckedThrowingContinuation { continuation in
-            worker.async {
-                let stats = pc_stats(cloud)
-                guard stats.pointCount > 0 else {
-                    continuation.resume(throwing: ScanImportError.emptyPointCloud)
-                    return
-                }
-                let count = Int(stats.pointCount)
-                var copied = [PCPoint](repeating: PCPoint(), count: count)
-                let written = copied.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
-                if written < count { copied.removeLast(count - written) }
-                continuation.resume(returning: copied)
-            }
-        }
-        return try await Self.writeGaussians(from: points, title: title)
-    }
-
-    static func writeGaussians(from points: [PCPoint], title: String) async throws -> URL {
-        guard !points.isEmpty else { throw ScanImportError.emptyPointCloud }
-        let safeTitle = title
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "/", with: "-")
-        let fileStem = safeTitle.isEmpty ? "LiDAR-Scan" : safeTitle
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        let plyURL = tempDir.appendingPathComponent("\(fileStem)-gaussians.ply")
-        let splatPoints = PCPoint.toSplatPoints(points)
-        let writer = try SplatPLYSceneWriter(to: .file(plyURL))
-        try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
-        try await writer.write(splatPoints)
-        try await writer.close()
-        return plyURL
-    }
-
-    func saveCurrent(share: Bool, report: Bool = false) {
-        guard !isBusy, let cloud else { return }
-        isRecording = false
+        LocationService.shared.stopUpdating()
         UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
         let cleanTitle = scanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -399,6 +412,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             ? "Capture session closed; not resumable. " + (closedReason ?? "")
             : "Capture paused; ARSession remained active."
         let format = share ? exportFormat : .binaryPLY
+        let recordedLocation = config.recordLocation ? LocationService.shared.currentLocation : nil
+        let currentMeshAnchors = Array(meshAnchors.values)
+        let currentGCPs = activeGroundControlPoints
         worker.async {
             do {
                 let stats = pc_stats(cloud)
@@ -406,12 +422,17 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     DispatchQueue.main.async { self.isBusy = false; self.endBackgroundTask() }
                     return
                 }
-                let saved: SavedScan
+                let previousSavedSamples = self.savedSamples
+                var saved: SavedScan
                 if let cached = self.cachedScan, self.savedSamples == stats.acceptedSamples,
                    self.savedTitle == title, cached.metadata.sessionNote == note, FileManager.default.fileExists(atPath: cached.directory.path) {
                     saved = cached
                     if !FileManager.default.fileExists(atPath: saved.url(for: format).path) {
                         try ScanStorage.writeCloud(cloud, to: saved.url(for: format), format: format)
+                    }
+                    if (saved.metadata.groundControlPoints ?? []) != currentGCPs {
+                        saved = try ScanStorage.updateGroundControlPoints(for: saved, points: currentGCPs)
+                        self.cachedScan = saved
                     }
                 } else {
                     let metadata = ScanMetadata(schemaVersion: 1, appVersion: appVersion, appBuild: appBuild,
@@ -425,9 +446,14 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         confidenceMeaning: "ARConfidenceLevel: 0 low, 1 medium, 2 high; categorical, not metric uncertainty",
                         pointSelection: "One observation per world voxel; first sample retained unless higher confidence arrives; no averaging or surface reconstruction",
                         colorSource: "ARFrame.capturedImage; YCbCr to RGB; 601/709 attachment, 601 fallback; full/video range; not radiometrically calibrated",
-                        sessionNote: note)
-                    saved = try ScanStorage.save(cloud, metadata: metadata, format: format)
+                        sessionNote: note,
+                        location: recordedLocation,
+                        groundControlPoints: currentGCPs.isEmpty ? nil : currentGCPs)
+                    saved = try ScanStorage.save(cloud, metadata: metadata, format: format, meshAnchors: currentMeshAnchors)
                     self.cachedScan = saved; self.savedSamples = stats.acceptedSamples; self.savedTitle = title
+                }
+                if !currentMeshAnchors.isEmpty && (!FileManager.default.fileExists(atPath: saved.meshURL.path) || previousSavedSamples != stats.acceptedSamples) {
+                    try? MeshExporter.writeOBJ(anchors: currentMeshAnchors, to: saved.meshURL)
                 }
                 var snapshot = [PCPoint](repeating: PCPoint(), count: min(40_000, Int(stats.pointCount)))
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
@@ -437,20 +463,73 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     self.pointCount = Int(stats.pointCount)
                     self.preview = snapshot; self.previewVersion += 1
                     self.savedScans = archive; self.isBusy = false
-                    self.notice = self.sessionClosed
-                        ? String(localized: "Scan saved on this device. \(self.localizedClosedReason ?? "")")
-                        : String(localized: "Scan saved on this device.")
-                    if share { self.sharedFiles = SharedFiles(urls: [saved.url(for: format), saved.metadataURL]) }
+                    if self.sessionClosed {
+                        self.setNotice("Scan saved on this device. %@", self.localizedClosedReason ?? "")
+                    } else {
+                        self.setNotice("Scan saved on this device.")
+                    }
+                    if share {
+                        var urls = [saved.url(for: format), saved.metadataURL]
+                        if FileManager.default.fileExists(atPath: saved.gcpCSVURL.path) {
+                            urls.append(saved.gcpCSVURL)
+                        }
+                        self.sharedFiles = SharedFiles(urls: urls)
+                    }
                     if let reportURL { self.sharedFiles = SharedFiles(urls: [reportURL]) }
+                    if shareMesh && FileManager.default.fileExists(atPath: saved.meshURL.path) {
+                        self.sharedFiles = SharedFiles(urls: [saved.meshURL])
+                    }
                     self.endBackgroundTask()
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.isBusy = false
-                    self.errorMessage = String(localized: "Saving failed: \(error.localizedDescription)")
-                    self.notice = String(localized: "The points remain in memory. Please try saving again.")
+                    self.errorMessage = LanguageManager.format("Saving failed: %@", error.localizedDescription)
+                    self.setNotice("The points remain in memory. Please try saving again.")
                     self.endBackgroundTask()
                 }
+            }
+        }
+    }
+
+    func shareMesh(_ scan: SavedScan) {
+        guard scan.hasMesh else { return }
+        sharedFiles = SharedFiles(urls: [scan.meshURL])
+    }
+
+    func shareGCPs(_ scan: SavedScan) {
+        guard let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty else { return }
+        do {
+            if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                try ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
+            }
+            sharedFiles = SharedFiles(urls: [scan.gcpCSVURL])
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func updateGroundControlPoints(for scan: SavedScan?, points: [GroundControlPoint]) {
+        if scan == nil {
+            activeGroundControlPoints = points
+        }
+        worker.async {
+            let targetScan = scan ?? self.cachedScan
+            guard let targetScan else { return }
+            do {
+                let updated = try ScanStorage.updateGroundControlPoints(for: targetScan, points: points)
+                if self.cachedScan?.id == updated.id {
+                    self.cachedScan = updated
+                }
+                let scans = try ScanStorage.list()
+                DispatchQueue.main.async {
+                    self.savedScans = scans
+                    if self.cachedScan?.id == updated.id || scan == nil {
+                        self.activeGroundControlPoints = points
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
             }
         }
     }
@@ -484,7 +563,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func notifyImported(_ scan: SavedScan) {
-        notice = String(format: String(localized: "Imported scan: %@"), scan.metadata.title)
+        setNotice("Imported scan: %@", scan.metadata.title)
     }
 
     func loadPreview(for scan: SavedScan) async -> [PCPoint] {

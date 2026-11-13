@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ArchiveSheet: View {
     @ObservedObject var model: ScanModel
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var toDelete: SavedScan?
     @State private var sharing: SharedFiles?
@@ -13,16 +14,40 @@ struct ArchiveSheet: View {
         NavigationStack {
             List {
                 if model.savedScans.isEmpty {
-                    ContentUnavailableView("No Scans Yet", systemImage: "square.stack.3d.up",
-                        description: Text("Scans appear here when you pause capture or export."))
+                    ContentUnavailableView(L("No Scans Yet"), systemImage: "square.stack.3d.up",
+                        description: Text(L("Scans appear here when you pause capture or export.")))
                 }
                 ForEach(model.savedScans) { scan in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(scan.metadata.title).font(.headline)
-                        Text(scan.metadata.savedAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption).foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text(scan.metadata.savedAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption).foregroundStyle(.secondary)
+                            if let loc = scan.metadata.location {
+                                Label(loc.formattedCoordinates, systemImage: "location.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
                         HStack {
-                            Text("Points: \(scan.metadata.pointCount.formatted()) · m · Z↑").font(.subheadline)
+                            HStack(spacing: 6) {
+                                Text(L("Points: %@ · m · Z↑", scan.metadata.pointCount.formatted())).font(.subheadline)
+                                if let gcpCount = scan.metadata.groundControlPoints?.count, gcpCount > 0 {
+                                    Text("GCP \(gcpCount)")
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(.orange.opacity(0.2), in: Capsule())
+                                        .foregroundStyle(.orange)
+                                }
+                                if scan.hasMesh {
+                                    Text("OBJ")
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(.teal.opacity(0.2), in: Capsule())
+                                        .foregroundStyle(.teal)
+                                }
+                            }
                             Spacer()
                             Button {
                                 Task {
@@ -35,27 +60,32 @@ struct ArchiveSheet: View {
                             } label: {
                                 Image(systemName: "cube.transparent").frame(width: 44, height: 36)
                             }
-                            .accessibilityLabel("View in 3D")
+                            .accessibilityLabel(L("View in 3D"))
 
                             Menu {
                                 ForEach(scan.existingFormats) { format in
                                     Button(format.title) {
-                                        sharing = SharedFiles(urls: [scan.url(for: format), scan.metadataURL])
-                                    }
-                                }
-                                Button {
-                                    Task {
-                                        do {
-                                            let plyURL = try await Self.exportAllGaussians(for: scan)
-                                            await MainActor.run { sharing = SharedFiles(urls: [plyURL]) }
-                                        } catch {
-                                            await MainActor.run { model.errorMessage = error.localizedDescription }
+                                        var urls = [scan.url(for: format), scan.metadataURL]
+                                        if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                                            urls.append(scan.gcpCSVURL)
                                         }
+                                        sharing = SharedFiles(urls: urls)
                                     }
-                                } label: {
-                                    Label("Export 3D Gaussian Splats", systemImage: "aqi.medium")
                                 }
-                                Button("Export Report") {
+                                if scan.hasMesh {
+                                    Button(L("Mesh · Wavefront OBJ")) {
+                                        sharing = SharedFiles(urls: [scan.meshURL])
+                                    }
+                                }
+                                if let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty {
+                                    Button(L("Ground Control Points (CSV)")) {
+                                        if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                                            try? ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
+                                        }
+                                        sharing = SharedFiles(urls: [scan.gcpCSVURL])
+                                    }
+                                }
+                                Button(L("Export Report")) {
                                     DispatchQueue.global(qos: .userInitiated).async {
                                         do {
                                             let url = try ScanReport.pointCloud(scan)
@@ -64,24 +94,24 @@ struct ArchiveSheet: View {
                                     }
                                 }
                             } label: { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 36) }
-                            .accessibilityLabel("Share Scan")
+                            .accessibilityLabel(L("Share Scan"))
                         }
                     }.padding(.vertical, 6)
-                        .swipeActions { Button("Delete", role: .destructive) { toDelete = scan } }
+                        .swipeActions { Button(L("Delete"), role: .destructive) { toDelete = scan } }
                 }
             }
-            .navigationTitle("My Scans")
+            .navigationTitle(L("My Scans"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showImporter = true
                     } label: {
-                        Label("Import", systemImage: "square.and.arrow.down")
+                        Label(L("Import"), systemImage: "square.and.arrow.down")
                     }
-                    .accessibilityLabel("Import Scan")
+                    .accessibilityLabel(L("Import Scan"))
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L("Done")) { dismiss() }
                 }
             }
             .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
@@ -92,8 +122,9 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    groundControlPoints: scan.metadata.groundControlPoints ?? [],
+                    onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
                     isFullScreen: $previewFullScreen,
-                    exportFullGaussians: { try await Self.exportAllGaussians(for: scan) },
                     onClose: { previewScan = nil; previewFullScreen = false }
                 )
             }
@@ -104,8 +135,9 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    groundControlPoints: scan.metadata.groundControlPoints ?? [],
+                    onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
                     isFullScreen: $previewFullScreen,
-                    exportFullGaussians: { try await Self.exportAllGaussians(for: scan) },
                     onClose: { previewScan = nil; previewFullScreen = false }
                 )
             }
@@ -129,21 +161,14 @@ struct ArchiveSheet: View {
                     model.errorMessage = error.localizedDescription
                 }
             }
-            .alert("Delete Scan?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
-                Button("Cancel", role: .cancel) { toDelete = nil }
-                Button("Delete", role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
-            } message: { Text("The saved scan and its export files will be removed from this device.") }
-            .alert("LiDAR-Scanner", isPresented: Binding(get: { model.errorMessage != nil && toDelete == nil },
+            .alert(L("Delete Scan?"), isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
+                Button(L("Cancel"), role: .cancel) { toDelete = nil }
+                Button(L("Delete"), role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
+            } message: { Text(L("The saved scan and its export files will be removed from this device.")) }
+            .alert(L("LiDAR-Scanner"), isPresented: Binding(get: { model.errorMessage != nil && toDelete == nil },
                 set: { if !$0 { model.errorMessage = nil } })) {
-                    Button("OK") { model.errorMessage = nil }
+                    Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }
-    }
-
-    private static func exportAllGaussians(for scan: SavedScan) async throws -> URL {
-        let points = await Task.detached(priority: .userInitiated) {
-            ScanStorage.readAllPoints(for: scan)
-        }.value
-        return try await ScanModel.writeGaussians(from: points, title: scan.metadata.title)
     }
 }

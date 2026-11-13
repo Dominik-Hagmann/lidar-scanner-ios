@@ -26,10 +26,10 @@ enum GaussianProcessor {
 
     static func run(store: GaussianStore, stop: GaussianStopSignal, publish: (GaussianProject) -> Void) throws {
         guard store.project.frames.count >= 12 else {
-            throw GaussianError.message(String(localized: "At least 12 saved views are needed. Capture the subject from more angles."))
+            throw GaussianError.message(LanguageManager.string("At least 12 saved views are needed. Capture the subject from more angles."))
         }
         guard store.project.seedCount > 0 else {
-            throw GaussianError.message(String(localized: "No usable LiDAR depth was saved. The images remain available for export."))
+            throw GaussianError.message(LanguageManager.string("No usable LiDAR depth was saved. The images remain available for export."))
         }
         try store.validateInputs()
         if store.project.profile == nil { store.project.profile = .automatic(frames: store.project.frames) }
@@ -45,10 +45,10 @@ enum GaussianProcessor {
         let shaderName = "default-ios"
         #endif
         guard let shader = Bundle.main.path(forResource: shaderName, ofType: "metallib") else {
-            throw GaussianError.message(String(localized: "The processing engine is missing from this app build."))
+            throw GaussianError.message(LanguageManager.string("The processing engine is missing from this app build."))
         }
         guard os_proc_available_memory() > 512 * 1024 * 1024 else {
-            throw GaussianError.message(String(localized: "Processing needs more free memory. Your capture is saved; try again later."))
+            throw GaussianError.message(LanguageManager.string("Processing needs more free memory. Your capture is saved; try again later."))
         }
         // Set the engine's documented image-cache budget once, on its serial worker.
         setenv("MSPLAT_IMAGE_CACHE_MB", "\(profile.imageCacheMB)", 1)
@@ -61,7 +61,7 @@ enum GaussianProcessor {
         let previousSeconds = store.project.processingSeconds
         if store.project.checkpointIteration > 0 {
             guard try GaussianStore.hashFile(store.checkpoint) == store.project.checkpointHash else {
-                throw GaussianError.message(String(localized: "The processing checkpoint is incomplete or has changed."))
+                throw GaussianError.message(LanguageManager.string("The processing checkpoint is incomplete or has changed."))
             }
             var restored: Int32 = 0
             try check(gs_restore(engine, store.checkpoint.path, &restored, &message, message.count), message)
@@ -86,7 +86,7 @@ enum GaussianProcessor {
                 var stats = MsplatStats()
                 try check(gs_step(engine, &stats, &message, message.count), message)
                 guard stats.iteration > store.project.iteration, stats.splatCount > 0, stats.cameraIndex >= 0, Int(stats.cameraIndex) < store.project.frames.count else {
-                    throw GaussianError.message(String(localized: "Processing stopped without producing a valid scene."))
+                    throw GaussianError.message(LanguageManager.string("Processing stopped without producing a valid scene."))
                 }
                 store.project.iteration = Int(stats.iteration); store.project.splatCount = Int(stats.splatCount)
                 store.project.processingSeconds = previousSeconds + Date().timeIntervalSince(start)
@@ -143,12 +143,12 @@ enum GaussianProcessor {
         guard let range = data.range(of: marker), let header = String(data: data[..<range.lowerBound], encoding: .utf8),
               header.hasPrefix("ply\nformat binary_little_endian 1.0\n"),
               header.contains("element vertex \(expected)\n"), expected > 0 else {
-            throw GaussianError.message(String(localized: "The scene export could not be verified."))
+            throw GaussianError.message(LanguageManager.string("The scene export could not be verified."))
         }
         let properties = header.components(separatedBy: "\n").filter { $0.hasPrefix("property float ") }.count
         let size = try file.seekToEnd()
         guard size == UInt64(range.upperBound + expected * properties * 4) else {
-            throw GaussianError.message(String(localized: "The scene export is incomplete. Your capture is still saved."))
+            throw GaussianError.message(LanguageManager.string("The scene export is incomplete. Your capture is still saved."))
         }
     }
 }
