@@ -192,4 +192,41 @@ final class ScanTests: XCTestCase {
         XCTAssertEqual(saved.metadata.pointCount, 2)
         XCTAssertEqual(saved.metadata.title, "imported_cloud")
     }
+
+    func testScanModelModeSwitchingPreservesSessionWhenNoPoints() {
+        let model = ScanModel()
+        XCTAssertFalse(model.sessionClosed)
+        XCTAssertEqual(model.pointCount, 0)
+        model.leaveMode()
+        XCTAssertFalse(model.sessionClosed)
+        model.enterMode()
+        XCTAssertFalse(model.sessionClosed)
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(model.isRecording)
+    }
+
+    func testGaussianModelResilienceWhenStoreNil() {
+        let model = GaussianModel()
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(model.processingActive)
+        model.resume()
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(model.processingActive)
+        model.share(.scene)
+        XCTAssertFalse(model.isBusy)
+        model.leaveMode()
+        XCTAssertFalse(model.cameraReady)
+        model.enterMode()
+        XCTAssertFalse(model.isBusy)
+    }
+
+    func testSettingsRemainConfigurable() {
+        let model = ScanModel()
+        model.settings.voxelCentimeters = 2.0
+        XCTAssertEqual(model.settings.voxelCentimeters, 2.0)
+        model.exportFormat = .asciiPLY
+        XCTAssertEqual(model.exportFormat, .asciiPLY)
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(model.isRecording)
+    }
 }

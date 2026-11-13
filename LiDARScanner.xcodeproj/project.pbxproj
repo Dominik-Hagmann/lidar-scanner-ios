@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710CDA8C0EDC88B327170324 /* PointCloudView.swift */; };
 		0D3198EB1A47172D1593C06A /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2946B1B0E26120AAE5AD9A60 /* ScannerView.swift */; };
+		1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA9395A1016AB2766F23C70 /* CreditsView.swift */; };
 		23C605CB505A9B32CAB6FD3D /* ThirdPartyLicenses.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6FD3D088CBFAC3C78C218D2E /* ThirdPartyLicenses.txt */; };
 		29DD257DF2A3D5ADAA96E530 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52E7560BA5CDA6710DD79AEB /* Metal.framework */; };
 		2A015C6DFCD19393CB57CF82 /* GaussianPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA4EB61C2992A068537F66 /* GaussianPreviewView.swift */; };
@@ -102,6 +103,7 @@
 		9FC4178D29ECDA5B4D22C44C /* GaussianCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianCapture.swift; sourceTree = "<group>"; };
 		A24F6B44F66907CE86357497 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
 		A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AFA9395A1016AB2766F23C70 /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
 		B0B91C5E60FD184B07896C41 /* ScanUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GaussianNative.mm; sourceTree = "<group>"; };
 		B52991869259B387973DF071 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
@@ -241,6 +243,7 @@
 			isa = PBXGroup;
 			children = (
 				E64C155F1C6E33E160F8D5A4 /* ArchiveSheet.swift */,
+				AFA9395A1016AB2766F23C70 /* CreditsView.swift */,
 				00745DD212891C12D2C7D923 /* ExportSheet.swift */,
 				2CFA4EB61C2992A068537F66 /* GaussianPreviewView.swift */,
 				6E0EAC368DD3FA03E7CD5069 /* GaussianScannerView.swift */,
@@ -415,6 +418,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F09C250FD94004C84A11952C /* ArchiveSheet.swift in Sources */,
+				1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */,
 				A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */,
 				2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */,
 				6FA705E93F11BB164DB2828D /* GaussianCapture.swift in Sources */,

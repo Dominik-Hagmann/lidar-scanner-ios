@@ -98,12 +98,32 @@ struct ScannerView: View {
                 Text("LiDAR · Scene to Point Cloud").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button { model.refreshArchive(); showArchive = true } label: {
-                Image(systemName: "folder").frame(width: 44, height: 44)
-            }.accessibilityLabel("Saved Scans").disabled(model.isBusy || model.isRecording)
-            Button { showSettings = true } label: {
-                Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
-            }.accessibilityLabel("Scan Settings").disabled(model.isBusy || model.isRecording)
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                model.refreshArchive()
+                showArchive = true
+            } label: {
+                Image(systemName: "folder")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel("Saved Scans")
+            .disabled(model.isBusy || model.isRecording)
+
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showSettings = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel("Scan Settings")
+            .disabled(model.isBusy || model.isRecording)
         }.foregroundStyle(.white)
     }
 

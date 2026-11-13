@@ -8,6 +8,7 @@ struct GaussianScannerView: View {
     @State private var details = false
     @State private var archive = false
     @State private var preview = false
+    @State private var showCredits = false
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
     var body: some View {
@@ -25,9 +26,32 @@ struct GaussianScannerView: View {
                         Text("Capture · Create · Share").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button { model.refreshArchive(); archive = true } label: {
-                        Image(systemName: "folder").frame(width: 44, height: 44)
-                    }.accessibilityLabel("Saved Scans").disabled(model.isBusy || model.isRecording)
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        model.refreshArchive()
+                        archive = true
+                    } label: {
+                        Image(systemName: "folder")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 44, height: 44)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Saved Scans")
+                    .disabled(model.isBusy || model.isRecording)
+
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showCredits = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 44, height: 44)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Project & Credits")
+                    .disabled(model.isBusy || model.isRecording)
                 }
                 HStack {
                     Image(systemName: model.isRecording ? "record.circle" : "iphone")
@@ -77,6 +101,7 @@ struct GaussianScannerView: View {
         .onDisappear { torch.turnOff() }
         .sheet(isPresented: $archive) { GaussianArchiveView(model: model) }
         .sheet(isPresented: $details) { GaussianDetailsView(model: model) }
+        .sheet(isPresented: $showCredits) { CreditsSheet() }
         .sheet(isPresented: $preview) {
             if let p = model.current { GaussianPreviewSheet(url: p.resultURL) }
         }
