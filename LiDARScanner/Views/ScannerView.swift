@@ -8,6 +8,7 @@ struct ScannerView: View {
     @State private var showPoints = true
     @State private var showSettings = false
     @State private var showArchive = false
+    @State private var showDetails = false
     @State private var showExport = false
     @State private var showPreview = false
     @State private var previewFullScreen = false
@@ -78,6 +79,7 @@ struct ScannerView: View {
         .onDisappear { torch.turnOff() }
         .sheet(isPresented: $showSettings) { SettingsSheet(model: model) }
         .sheet(isPresented: $showArchive) { ArchiveSheet(model: model) }
+        .sheet(isPresented: $showDetails) { PointCloudDetailsView(model: model) }
         .sheet(isPresented: $showExport) { ExportSheet(model: model) }
         .sheet(isPresented: Binding(
             get: { showPreview && !previewFullScreen },
@@ -113,7 +115,7 @@ struct ScannerView: View {
         } message: {
             Text(L("The current point cloud will be cleared from memory. Previously saved scans will be kept. If saving failed, export the scan again first."))
         }
-        .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport },
+        .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil && !showArchive && !showExport && !showDetails },
                                                   set: { if !$0 { model.errorMessage = nil } })) {
             Button(L("OK")) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
@@ -192,8 +194,13 @@ struct ScannerView: View {
                         Text(L("CAPTURE TIME")).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                Text(model.notice).font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(model.notice).font(.caption).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                    Button(L("Details"), systemImage: "info.circle") { showDetails = true }
+                        .font(.subheadline.weight(.medium))
+                        .fixedSize()
+                }
 
                 if model.isRecording {
                     Button { model.toggleRecording() } label: {
@@ -230,41 +237,68 @@ struct ScannerView: View {
                         Spacer()
 
                         Menu {
-                            Button {
-                                showExport = true
-                            } label: {
-                                Label(L("Export Point Cloud"), systemImage: "doc.badge.gearshape")
-                            }
+                            Section {
+                                Button {
+                                    model.saveCurrent(share: true, report: false)
+                                } label: {
+                                    Label(L("Share Point Cloud"), systemImage: "cube.transparent")
+                                }
 
-                            Button {
-                                model.saveCurrent(share: true, report: false)
-                            } label: {
-                                Label(L("Share Point Cloud"), systemImage: "cube.transparent")
-                            }
+                                Menu {
+                                    ForEach(ExportFormat.allCases) { format in
+                                        Button {
+                                            model.exportFormat = format
+                                            model.saveCurrent(share: true, report: false)
+                                        } label: {
+                                            if format == model.exportFormat {
+                                                Label(format.title, systemImage: "checkmark")
+                                            } else {
+                                                Text(format.title)
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    Label(L("Export Formats"), systemImage: "arrow.triangle.branch")
+                                }
 
-                            Menu {
-                                ForEach(ExportFormat.allCases) { format in
-                                    Button(format.title) {
-                                        model.exportFormat = format
-                                        model.saveCurrent(share: true, report: false)
+                                Button {
+                                    showExport = true
+                                } label: {
+                                    Label(L("Export Point Cloud…"), systemImage: "doc.badge.gearshape")
+                                }
+
+                                if model.hasMesh {
+                                    Button {
+                                        model.saveCurrent(share: false, report: false, shareMesh: true)
+                                    } label: {
+                                        Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
                                     }
                                 }
-                            } label: {
-                                Label(L("Export Formats"), systemImage: "arrow.triangle.branch")
                             }
 
-                            if model.hasMesh {
-                                Button {
-                                    model.saveCurrent(share: false, report: false, shareMesh: true)
-                                } label: {
-                                    Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
+                            if !model.activeGroundControlPoints.isEmpty || !model.activeAnnotations.isEmpty {
+                                Section {
+                                    if !model.activeGroundControlPoints.isEmpty {
+                                        Button {
+                                            model.shareActiveGCPs()
+                                        } label: {
+                                            Label(L("Export Ground Control Points (CSV)"), systemImage: "scope")
+                                        }
+                                    }
+                                    if !model.activeAnnotations.isEmpty {
+                                        AnnotationExportMenu { kind in
+                                            model.shareActiveAnnotations(kind)
+                                        }
+                                    }
                                 }
                             }
 
-                            Button {
-                                model.exportReport()
-                            } label: {
-                                Label(L("Export Report"), systemImage: "doc.richtext")
+                            Section {
+                                Button {
+                                    model.exportReport()
+                                } label: {
+                                    Label(L("Export Report"), systemImage: "doc.richtext")
+                                }
                             }
                         } label: {
                             if model.isBusy { ProgressView().padding(.trailing, 4) }
@@ -277,5 +311,82 @@ struct ScannerView: View {
         }
         .padding(20).frame(maxWidth: 680).frame(maxWidth: .infinity)
         .background(.ultraThinMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
+    }
+}
+
+struct PointCloudDetailsView: View {
+    @ObservedObject var model: ScanModel
+    @ObservedObject private var language = LanguageManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let cfg = model.effectiveSettings
+        NavigationStack {
+            List {
+                Section(L("Current State")) {
+                    LabeledContent(L("Status"), value: model.detailStatusTitle)
+                    LabeledContent(L("Points"), value: model.pointCount.formatted())
+                    LabeledContent(
+                        L("Capture Time"),
+                        value: String(format: "%02d:%02d", Int(model.activeSeconds) / 60, Int(model.activeSeconds) % 60)
+                    )
+                    LabeledContent(L("Processed Frames"), value: model.processedFrames.formatted())
+                    LabeledContent(L("Accepted Samples"), value: model.acceptedSamples.formatted())
+                    if model.depthWidth > 0 && model.depthHeight > 0 {
+                        LabeledContent(L("Depth Resolution"), value: "\(model.depthWidth) × \(model.depthHeight)")
+                    }
+                    if model.hasMesh {
+                        LabeledContent(L("Surface Mesh (OBJ)"), value: L("Captured"))
+                    }
+                    if !model.activeGroundControlPoints.isEmpty {
+                        LabeledContent(L("Ground Control Points"), value: model.activeGroundControlPoints.count.formatted())
+                    }
+                    if !model.activeAnnotations.isEmpty {
+                        LabeledContent(L("3D Annotations"), value: model.activeAnnotations.count.formatted())
+                    }
+                }
+                Section(L("What Happened")) {
+                    Text(L("Depth points from ARKit sceneDepth and camera colors are accumulated on this device into a local voxel grid without averaging or server uploads."))
+                    if let reason = model.currentClosedReasonText {
+                        Text(reason).textSelection(.enabled)
+                    }
+                    if let loc = model.currentLocationSnapshot {
+                        LabeledContent(L("GNSS Location"), value: loc.formattedCoordinates)
+                    }
+                }
+                Section {
+                    Button(L("Export Report"), systemImage: "doc.richtext") {
+                        model.exportReport()
+                    }
+                }.disabled(model.isBusy || model.isRecording || model.pointCount == 0)
+                Section(L("Technical Details")) {
+                    Text(L("Local right-handed Cartesian; Z up; no CRS/EPSG; no north alignment"))
+                        .font(.caption).textSelection(.enabled)
+                    LabeledContent(L("Voxel Size"), value: "\(cfg.voxelCentimeters) cm")
+                    LabeledContent(L("Max Depth"), value: String(format: "%.1f m", cfg.maxDepth))
+                    LabeledContent(L("Pixel Step"), value: "\(cfg.pixelStep)")
+                    LabeledContent(L("Min Confidence"), value: "\(cfg.minConfidence)")
+                    LabeledContent(L("Point Limit"), value: cfg.maxPoints == 0 ? L("Automatic") : cfg.maxPoints.formatted())
+                    if let saved = model.savedScanDetail,
+                       let data = try? GaussianStore.encoder.encode(saved.metadata),
+                       let json = String(data: data, encoding: .utf8) {
+                        Text(json).font(.caption.monospaced()).textSelection(.enabled)
+                    }
+                    Text(L("The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle(L("Scan Details"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Done")) { dismiss() }
+                }
+            }
+            .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
+            .alert(L("LiDAR Scanner"), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                Button(L("OK")) { model.errorMessage = nil }
+            } message: { Text(model.errorMessage ?? "") }
+        }
     }
 }

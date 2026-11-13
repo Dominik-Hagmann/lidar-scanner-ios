@@ -345,6 +345,43 @@ enum AnnotationExportKind {
     }
 }
 
+struct AnnotationExportMenu: View {
+    var titleKey: String = "Export Annotations"
+    var systemImage: String = "mappin.and.ellipse"
+    var includeJSON: Bool = false
+    let onSelect: (AnnotationExportKind) -> Void
+
+    var body: some View {
+        Menu {
+            Button {
+                onSelect(.geojson)
+            } label: {
+                Label(L("GeoJSON (3D · QGIS / GIS)"), systemImage: "globe")
+            }
+            Button {
+                onSelect(.csv)
+            } label: {
+                Label(L("CSV + WKT (Excel / QGIS)"), systemImage: "tablecells")
+            }
+            Button {
+                onSelect(.dxf)
+            } label: {
+                Label(L("DXF (CAD · Layers by Tag)"), systemImage: "square.on.square.dashed")
+            }
+            if includeJSON {
+                Divider()
+                Button {
+                    onSelect(.json)
+                } label: {
+                    Label(L("JSON (Native)"), systemImage: "curlybraces")
+                }
+            }
+        } label: {
+            Label(L(titleKey), systemImage: systemImage)
+        }
+    }
+}
+
 struct AnnotationEditorState: Identifiable {
     let id = UUID()
     let existing: CloudAnnotation?
@@ -488,30 +525,12 @@ struct AnnotationListSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if !filteredAnnotations.isEmpty {
-                        Menu {
-                            Button {
-                                export(.geojson)
-                            } label: {
-                                Label(L("GeoJSON (3D · QGIS / GIS)"), systemImage: "globe")
-                            }
-                            Button {
-                                export(.csv)
-                            } label: {
-                                Label(L("CSV + WKT (Excel / QGIS)"), systemImage: "tablecells")
-                            }
-                            Button {
-                                export(.dxf)
-                            } label: {
-                                Label(L("DXF (CAD · Layers by Tag)"), systemImage: "square.on.square.dashed")
-                            }
-                            Button {
-                                export(.json)
-                            } label: {
-                                Label(L("JSON (Native)"), systemImage: "curlybraces")
-                            }
-                        } label: {
-                            Label(L("Export"), systemImage: "square.and.arrow.up")
-                        }
+                        AnnotationExportMenu(
+                            titleKey: "Export",
+                            systemImage: "square.and.arrow.up",
+                            includeJSON: true,
+                            onSelect: export
+                        )
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {

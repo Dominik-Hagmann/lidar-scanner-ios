@@ -167,56 +167,75 @@ struct ArchiveSheet: View {
     @ViewBuilder
     private func shareMenu(for scan: SavedScan) -> some View {
         Menu {
-            ForEach(scan.existingFormats) { format in
-                Button(format.title) {
-                    var urls = [scan.url(for: format), scan.metadataURL]
-                    if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                        urls.append(scan.gcpCSVURL)
-                    }
-                    if FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path) {
-                        urls.append(scan.annotationsGeoJSONURL)
-                    }
-                    sharing = SharedFiles(urls: urls)
-                }
-            }
-            if scan.hasMesh {
-                Button(L("Mesh · Wavefront OBJ")) {
-                    sharing = SharedFiles(urls: [scan.meshURL])
-                }
-            }
-            if let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty {
-                Button(L("Ground Control Points (CSV)")) {
-                    if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                        try? ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
-                    }
-                    sharing = SharedFiles(urls: [scan.gcpCSVURL])
-                }
-            }
-            if let annotations = scan.metadata.annotations, !annotations.isEmpty {
-                Menu(L("Export Annotations")) {
-                    Button(L("GeoJSON (3D · QGIS / GIS)")) {
-                        if !FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path),
-                           let data = try? AnnotationExporter.geoJSONData(for: annotations, metadata: scan.metadata) {
-                            try? data.write(to: scan.annotationsGeoJSONURL, options: .atomic)
+            Section {
+                ForEach(scan.existingFormats) { format in
+                    Button {
+                        var urls = [scan.url(for: format), scan.metadataURL]
+                        if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                            urls.append(scan.gcpCSVURL)
                         }
-                        sharing = SharedFiles(urls: [scan.annotationsGeoJSONURL])
+                        if FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path) {
+                            urls.append(scan.annotationsGeoJSONURL)
+                        }
+                        sharing = SharedFiles(urls: urls)
+                    } label: {
+                        Label(format.title, systemImage: "cube.transparent")
                     }
-                    Button(L("CSV + WKT (Excel / QGIS)")) {
-                        try? AnnotationExporter.csvData(for: annotations).write(to: scan.annotationsCSVURL, options: .atomic)
-                        sharing = SharedFiles(urls: [scan.annotationsCSVURL])
-                    }
-                    Button(L("DXF (CAD · Layers by Tag)")) {
-                        try? AnnotationExporter.dxfData(for: annotations).write(to: scan.annotationsDXFURL, options: .atomic)
-                        sharing = SharedFiles(urls: [scan.annotationsDXFURL])
+                }
+                if scan.hasMesh {
+                    Button {
+                        sharing = SharedFiles(urls: [scan.meshURL])
+                    } label: {
+                        Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
                     }
                 }
             }
-            Button(L("Export Report")) {
-                DispatchQueue.global(qos: .userInitiated).async {
-                    do {
-                        let url = try ScanReport.pointCloud(scan)
-                        DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
-                    } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
+            let hasGCPs = !(scan.metadata.groundControlPoints?.isEmpty ?? true)
+            let hasAnnotations = !(scan.metadata.annotations?.isEmpty ?? true)
+            if hasGCPs || hasAnnotations {
+                Section {
+                    if let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty {
+                        Button {
+                            if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                                try? ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
+                            }
+                            sharing = SharedFiles(urls: [scan.gcpCSVURL])
+                        } label: {
+                            Label(L("Export Ground Control Points (CSV)"), systemImage: "scope")
+                        }
+                    }
+                    if let annotations = scan.metadata.annotations, !annotations.isEmpty {
+                        AnnotationExportMenu { kind in
+                            switch kind {
+                            case .geojson:
+                                if !FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path),
+                                   let data = try? AnnotationExporter.geoJSONData(for: annotations, metadata: scan.metadata) {
+                                    try? data.write(to: scan.annotationsGeoJSONURL, options: .atomic)
+                                }
+                                sharing = SharedFiles(urls: [scan.annotationsGeoJSONURL])
+                            case .csv:
+                                try? AnnotationExporter.csvData(for: annotations).write(to: scan.annotationsCSVURL, options: .atomic)
+                                sharing = SharedFiles(urls: [scan.annotationsCSVURL])
+                            case .dxf:
+                                try? AnnotationExporter.dxfData(for: annotations).write(to: scan.annotationsDXFURL, options: .atomic)
+                                sharing = SharedFiles(urls: [scan.annotationsDXFURL])
+                            case .json:
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+            Section {
+                Button {
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        do {
+                            let url = try ScanReport.pointCloud(scan)
+                            DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
+                        } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
+                    }
+                } label: {
+                    Label(L("Export Report"), systemImage: "doc.richtext")
                 }
             }
         } label: {

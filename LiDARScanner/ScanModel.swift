@@ -16,6 +16,11 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var exportFormat: ExportFormat = .binaryPLY
     @Published private(set) var pointCount = 0
     @Published private(set) var activeSeconds: Double = 0
+    @Published private(set) var processedFrames = 0
+    @Published private(set) var acceptedSamples: UInt64 = 0
+    @Published private(set) var depthWidth = 0
+    @Published private(set) var depthHeight = 0
+    @Published private(set) var savedScanDetail: SavedScan?
     @Published private(set) var isRecording = false
     @Published private(set) var isBusy = false
     @Published private(set) var ready = false
@@ -222,6 +227,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 self.activeGroundControlPoints = []
                 self.activeAnnotations = []
                 self.pointCount = 0; self.activeSeconds = 0
+                self.processedFrames = 0; self.acceptedSamples = 0
+                self.depthWidth = 0; self.depthHeight = 0
+                self.savedScanDetail = nil
                 self.preview = []; self.previewVersion += 1
                 self.scanTitle = ""; self.sessionClosed = !self.foreground
                 self.closedReason = nil
@@ -293,11 +301,19 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 self.workerLastTimestamp = frame.timestamp
                 self.workerWidth = result.width; self.workerHeight = result.height
                 let seconds = self.workerSeconds
+                let frames = self.workerFrames
+                let samples = result.stats.acceptedSamples
+                let width = result.width
+                let height = result.height
                 DispatchQueue.main.async {
                     self.processingFrame = false
                     guard thisGeneration == self.generation else { return }
                     self.pointCount = Int(result.stats.pointCount)
                     self.activeSeconds = seconds
+                    self.processedFrames = frames
+                    self.acceptedSamples = samples
+                    self.depthWidth = width
+                    self.depthHeight = height
                     if let points = result.preview { self.preview = points; self.previewVersion += 1 }
                     if self.isRecording && os_proc_available_memory() < Self.captureMemoryReserve {
                         self.closeSession(reason: "Die Erfassung wurde wegen knappen Arbeitsspeichers beendet. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
@@ -469,6 +485,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 let reportURL = report ? try ScanReport.pointCloud(saved) : nil
                 DispatchQueue.main.async {
                     self.pointCount = Int(stats.pointCount)
+                    self.acceptedSamples = stats.acceptedSamples
+                    self.savedScanDetail = saved
                     self.preview = snapshot; self.previewVersion += 1
                     self.savedScans = archive; self.isBusy = false
                     if self.sessionClosed {
@@ -499,6 +517,83 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     self.setNotice("The points remain in memory. Please try saving again.")
                     self.endBackgroundTask()
                 }
+            }
+        }
+    }
+
+    var effectiveSettings: ScanSettings {
+        pointCount == 0 && !isRecording ? settings : activeSettings
+    }
+
+    var detailStatusTitle: String {
+        if isRecording { return LanguageManager.string("Recording") }
+        if sessionClosed { return LanguageManager.string("Completed") }
+        if savedScanDetail != nil { return LanguageManager.string("Saved") }
+        return LanguageManager.string("Paused")
+    }
+
+    var currentClosedReasonText: String? {
+        localizedClosedReason ?? closedReason
+    }
+
+    var currentLocationSnapshot: GeoLocation? {
+        savedScanDetail?.metadata.location ?? (effectiveSettings.recordLocation ? LocationService.shared.currentLocation : nil)
+    }
+
+    func shareActiveGCPs() {
+        let gcps = activeGroundControlPoints
+        guard !gcps.isEmpty else { return }
+        worker.async {
+            do {
+                let data = ScanStorage.gcpCSVData(for: gcps)
+                let url: URL
+                if let cached = self.cachedScan, FileManager.default.fileExists(atPath: cached.directory.path) {
+                    url = cached.gcpCSVURL
+                } else {
+                    url = FileManager.default.temporaryDirectory.appendingPathComponent("gcps.csv")
+                }
+                try data.write(to: url, options: .atomic)
+                DispatchQueue.main.async {
+                    self.sharedFiles = SharedFiles(urls: [url])
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
+            }
+        }
+    }
+
+    func shareActiveAnnotations(_ kind: AnnotationExportKind) {
+        let annotations = activeAnnotations
+        guard !annotations.isEmpty else { return }
+        worker.async {
+            do {
+                let cached = self.cachedScan.flatMap { FileManager.default.fileExists(atPath: $0.directory.path) ? $0 : nil }
+                let metadata = cached?.metadata
+                let data: Data
+                let url: URL
+                switch kind {
+                case .geojson:
+                    data = try AnnotationExporter.geoJSONData(for: annotations, metadata: metadata)
+                    url = cached?.annotationsGeoJSONURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
+                case .csv:
+                    data = AnnotationExporter.csvData(for: annotations)
+                    url = cached?.annotationsCSVURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
+                case .dxf:
+                    data = AnnotationExporter.dxfData(for: annotations)
+                    url = cached?.annotationsDXFURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
+                case .json:
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    encoder.dateEncodingStrategy = .iso8601
+                    data = try encoder.encode(annotations)
+                    url = FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
+                }
+                try data.write(to: url, options: .atomic)
+                DispatchQueue.main.async {
+                    self.sharedFiles = SharedFiles(urls: [url])
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
             }
         }
     }
@@ -558,6 +653,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 }
                 let scans = try ScanStorage.list()
                 DispatchQueue.main.async {
+                    if matchesCached {
+                        self.savedScanDetail = updated
+                    }
                     self.savedScans = scans
                     onMainUpdate(matchesCached || scan == nil)
                 }

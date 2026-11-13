@@ -196,29 +196,36 @@ struct GaussianScannerView: View {
                     Button(L("New Scan"), systemImage: "plus") { model.newCapture() }
                     Spacer()
                     Menu {
-                        Button(L("Share 3D Scene"), systemImage: "cube.transparent") { model.share(.scene) }.disabled(!p.hasResult)
-                        Button(L("Export Capture"), systemImage: "photo.stack") { model.share(.capture) }
+                        Section {
+                            Button(L("Share 3D Scene"), systemImage: "cube.transparent") { model.share(.scene) }.disabled(!p.hasResult)
+                            Button(L("Export Capture"), systemImage: "photo.stack") { model.share(.capture) }
+                        }
                         if let annotations = p.annotations, !annotations.isEmpty {
-                            Menu(L("Export Annotations")) {
-                                Button(L("GeoJSON (3D · QGIS / GIS)")) {
-                                    if !FileManager.default.fileExists(atPath: p.annotationsGeoJSONURL.path),
-                                       let data = try? AnnotationExporter.geoJSONData(for: annotations, exportMetadata: AnnotationExportMetadata(gaussian: p)) {
-                                        try? data.write(to: p.annotationsGeoJSONURL, options: .atomic)
+                            Section {
+                                AnnotationExportMenu { kind in
+                                    switch kind {
+                                    case .geojson:
+                                        if !FileManager.default.fileExists(atPath: p.annotationsGeoJSONURL.path),
+                                           let data = try? AnnotationExporter.geoJSONData(for: annotations, exportMetadata: AnnotationExportMetadata(gaussian: p)) {
+                                            try? data.write(to: p.annotationsGeoJSONURL, options: .atomic)
+                                        }
+                                        model.sharing = SharedFiles(urls: [p.annotationsGeoJSONURL])
+                                    case .csv:
+                                        try? AnnotationExporter.csvData(for: annotations).write(to: p.annotationsCSVURL, options: .atomic)
+                                        model.sharing = SharedFiles(urls: [p.annotationsCSVURL])
+                                    case .dxf:
+                                        try? AnnotationExporter.dxfData(for: annotations).write(to: p.annotationsDXFURL, options: .atomic)
+                                        model.sharing = SharedFiles(urls: [p.annotationsDXFURL])
+                                    case .json:
+                                        break
                                     }
-                                    model.sharing = SharedFiles(urls: [p.annotationsGeoJSONURL])
-                                }
-                                Button(L("CSV + WKT (Excel / QGIS)")) {
-                                    try? AnnotationExporter.csvData(for: annotations).write(to: p.annotationsCSVURL, options: .atomic)
-                                    model.sharing = SharedFiles(urls: [p.annotationsCSVURL])
-                                }
-                                Button(L("DXF (CAD · Layers by Tag)")) {
-                                    try? AnnotationExporter.dxfData(for: annotations).write(to: p.annotationsDXFURL, options: .atomic)
-                                    model.sharing = SharedFiles(urls: [p.annotationsDXFURL])
                                 }
                             }
                         }
-                        Button(L("Export Report"), systemImage: "doc.richtext") { model.share(.report) }
-                        Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
+                        Section {
+                            Button(L("Export Report"), systemImage: "doc.richtext") { model.share(.report) }
+                            Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
+                        }
                     } label: { Label(L("Share"), systemImage: "square.and.arrow.up") }
                 }
             }

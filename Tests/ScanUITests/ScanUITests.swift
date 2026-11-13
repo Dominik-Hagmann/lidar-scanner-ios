@@ -47,6 +47,9 @@ final class ScanUITests: XCTestCase {
         XCTAssertTrue(creditsButton.waitForExistence(timeout: 5))
         creditsButton.tap()
         XCTAssertTrue(app.navigationBars["Über & Danksagung"].waitForExistence(timeout: 5))
+        if !app.staticTexts["RIM-Projekt"].waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
         XCTAssertTrue(app.staticTexts["RIM-Projekt"].waitForExistence(timeout: 5))
         let germanCredits = XCTAttachment(screenshot: app.screenshot())
         germanCredits.name = "German-Credits-iPhone"; germanCredits.lifetime = .keepAlways; add(germanCredits)
