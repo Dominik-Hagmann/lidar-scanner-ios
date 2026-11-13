@@ -222,7 +222,7 @@ inline bool exportE57(const std::deque<PCPoint> &points, std::fstream &file) {
         << "  <guid type=\"String\"><![CDATA[{549B7A26-4E5B-4B94-9E75-2E92A4C0E571}]]></guid>\n"
         << "  <versionMajor type=\"Integer\">1</versionMajor>\n"
         << "  <versionMinor type=\"Integer\">0</versionMinor>\n"
-        << "  <e57LibraryVersion type=\"String\"><![CDATA[LiDAR-Scanner 1.2]]></e57LibraryVersion>\n"
+        << "  <e57LibraryVersion type=\"String\"><![CDATA[LiDAR-Scanner 1.3]]></e57LibraryVersion>\n"
         << "  <data3D type=\"Vector\" allowHeterogeneousChildren=\"1\">\n"
         << "    <vectorChild type=\"Structure\">\n"
         << "      <guid type=\"String\"><![CDATA[{7C389C8B-80E4-4A6A-B59D-89D4A5E6C901}]]></guid>\n"

@@ -18,86 +18,7 @@ struct ArchiveSheet: View {
                         description: Text(L("Scans appear here when you pause capture or export.")))
                 }
                 ForEach(model.savedScans) { scan in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(scan.metadata.title).font(.headline)
-                        HStack(spacing: 8) {
-                            Text(scan.metadata.savedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption).foregroundStyle(.secondary)
-                            if let loc = scan.metadata.location {
-                                Label(loc.formattedCoordinates, systemImage: "location.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        HStack {
-                            HStack(spacing: 6) {
-                                Text(L("Points: %@ · m · Z↑", scan.metadata.pointCount.formatted())).font(.subheadline)
-                                if let gcpCount = scan.metadata.groundControlPoints?.count, gcpCount > 0 {
-                                    Text("GCP \(gcpCount)")
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 6).padding(.vertical, 2)
-                                        .background(.orange.opacity(0.2), in: Capsule())
-                                        .foregroundStyle(.orange)
-                                }
-                                if scan.hasMesh {
-                                    Text("OBJ")
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 6).padding(.vertical, 2)
-                                        .background(.teal.opacity(0.2), in: Capsule())
-                                        .foregroundStyle(.teal)
-                                }
-                            }
-                            Spacer()
-                            Button {
-                                Task {
-                                    let pts = await model.loadPreview(for: scan)
-                                    await MainActor.run {
-                                        previewPoints = pts
-                                        previewScan = scan
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "cube.transparent").frame(width: 44, height: 36)
-                            }
-                            .accessibilityLabel(L("View in 3D"))
-
-                            Menu {
-                                ForEach(scan.existingFormats) { format in
-                                    Button(format.title) {
-                                        var urls = [scan.url(for: format), scan.metadataURL]
-                                        if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                                            urls.append(scan.gcpCSVURL)
-                                        }
-                                        sharing = SharedFiles(urls: urls)
-                                    }
-                                }
-                                if scan.hasMesh {
-                                    Button(L("Mesh · Wavefront OBJ")) {
-                                        sharing = SharedFiles(urls: [scan.meshURL])
-                                    }
-                                }
-                                if let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty {
-                                    Button(L("Ground Control Points (CSV)")) {
-                                        if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                                            try? ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
-                                        }
-                                        sharing = SharedFiles(urls: [scan.gcpCSVURL])
-                                    }
-                                }
-                                Button(L("Export Report")) {
-                                    DispatchQueue.global(qos: .userInitiated).async {
-                                        do {
-                                            let url = try ScanReport.pointCloud(scan)
-                                            DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
-                                        } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
-                                    }
-                                }
-                            } label: { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 36) }
-                            .accessibilityLabel(L("Share Scan"))
-                        }
-                    }.padding(.vertical, 6)
-                        .swipeActions { Button(L("Delete"), role: .destructive) { toDelete = scan } }
+                    scanRow(scan)
                 }
             }
             .navigationTitle(L("My Scans"))
@@ -122,8 +43,11 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    scanMetadata: scan.metadata,
                     groundControlPoints: scan.metadata.groundControlPoints ?? [],
                     onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
+                    annotations: scan.metadata.annotations ?? [],
+                    onSaveAnnotations: { model.updateAnnotations(for: scan, annotations: $0) },
                     isFullScreen: $previewFullScreen,
                     onClose: { previewScan = nil; previewFullScreen = false }
                 )
@@ -135,8 +59,11 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    scanMetadata: scan.metadata,
                     groundControlPoints: scan.metadata.groundControlPoints ?? [],
                     onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
+                    annotations: scan.metadata.annotations ?? [],
+                    onSaveAnnotations: { model.updateAnnotations(for: scan, annotations: $0) },
                     isFullScreen: $previewFullScreen,
                     onClose: { previewScan = nil; previewFullScreen = false }
                 )
@@ -170,5 +97,131 @@ struct ArchiveSheet: View {
                     Button(L("OK")) { model.errorMessage = nil }
                 } message: { Text(model.errorMessage ?? "") }
         }
+    }
+
+    @ViewBuilder
+    private func scanRow(_ scan: SavedScan) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(scan.metadata.title).font(.headline)
+            HStack(spacing: 8) {
+                Text(scan.metadata.savedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption).foregroundStyle(.secondary)
+                if let loc = scan.metadata.location {
+                    Label(loc.formattedCoordinates, systemImage: "location.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            HStack {
+                badgesRow(for: scan)
+                Spacer()
+                Button {
+                    Task {
+                        let pts = await model.loadPreview(for: scan)
+                        await MainActor.run {
+                            previewPoints = pts
+                            previewScan = scan
+                        }
+                    }
+                } label: {
+                    Image(systemName: "cube.transparent").frame(width: 44, height: 36)
+                }
+                .accessibilityLabel(L("View in 3D"))
+
+                shareMenu(for: scan)
+            }
+        }
+        .padding(.vertical, 6)
+        .swipeActions { Button(L("Delete"), role: .destructive) { toDelete = scan } }
+    }
+
+    @ViewBuilder
+    private func badgesRow(for scan: SavedScan) -> some View {
+        HStack(spacing: 6) {
+            Text(L("Points: %@ · m · Z↑", scan.metadata.pointCount.formatted())).font(.subheadline)
+            if let gcpCount = scan.metadata.groundControlPoints?.count, gcpCount > 0 {
+                Text("GCP \(gcpCount)")
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.orange.opacity(0.2), in: Capsule())
+                    .foregroundStyle(.orange)
+            }
+            if let annCount = scan.metadata.annotations?.count, annCount > 0 {
+                Text(L("Tags %@", annCount.formatted()))
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.cyan.opacity(0.2), in: Capsule())
+                    .foregroundStyle(.cyan)
+            }
+            if scan.hasMesh {
+                Text("OBJ")
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.teal.opacity(0.2), in: Capsule())
+                    .foregroundStyle(.teal)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func shareMenu(for scan: SavedScan) -> some View {
+        Menu {
+            ForEach(scan.existingFormats) { format in
+                Button(format.title) {
+                    var urls = [scan.url(for: format), scan.metadataURL]
+                    if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                        urls.append(scan.gcpCSVURL)
+                    }
+                    if FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path) {
+                        urls.append(scan.annotationsGeoJSONURL)
+                    }
+                    sharing = SharedFiles(urls: urls)
+                }
+            }
+            if scan.hasMesh {
+                Button(L("Mesh · Wavefront OBJ")) {
+                    sharing = SharedFiles(urls: [scan.meshURL])
+                }
+            }
+            if let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty {
+                Button(L("Ground Control Points (CSV)")) {
+                    if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                        try? ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
+                    }
+                    sharing = SharedFiles(urls: [scan.gcpCSVURL])
+                }
+            }
+            if let annotations = scan.metadata.annotations, !annotations.isEmpty {
+                Menu(L("Export Annotations")) {
+                    Button(L("GeoJSON (3D · QGIS / GIS)")) {
+                        if !FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path),
+                           let data = try? AnnotationExporter.geoJSONData(for: annotations, metadata: scan.metadata) {
+                            try? data.write(to: scan.annotationsGeoJSONURL, options: .atomic)
+                        }
+                        sharing = SharedFiles(urls: [scan.annotationsGeoJSONURL])
+                    }
+                    Button(L("CSV + WKT (Excel / QGIS)")) {
+                        try? AnnotationExporter.csvData(for: annotations).write(to: scan.annotationsCSVURL, options: .atomic)
+                        sharing = SharedFiles(urls: [scan.annotationsCSVURL])
+                    }
+                    Button(L("DXF (CAD · Layers by Tag)")) {
+                        try? AnnotationExporter.dxfData(for: annotations).write(to: scan.annotationsDXFURL, options: .atomic)
+                        sharing = SharedFiles(urls: [scan.annotationsDXFURL])
+                    }
+                }
+            }
+            Button(L("Export Report")) {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        let url = try ScanReport.pointCloud(scan)
+                        DispatchQueue.main.async { sharing = SharedFiles(urls: [url]) }
+                    } catch { DispatchQueue.main.async { model.errorMessage = error.localizedDescription } }
+                }
+            }
+        } label: {
+            Image(systemName: "square.and.arrow.up").frame(width: 44, height: 36)
+        }
+        .accessibilityLabel(L("Share Scan"))
     }
 }

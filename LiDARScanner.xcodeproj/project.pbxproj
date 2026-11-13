@@ -36,6 +36,7 @@
 		9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33170E03775E44A0FE0F08 /* TorchService.swift */; };
 		A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */; };
 		A54D62C29333829708CB4616 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AEEBC62781B6D37155F93AE /* AppLanguage.swift */; };
+		AC684229655E79AE00772028 /* AnnotationExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 124E643EF1FFC58AF450E4AA /* AnnotationExporter.swift */; };
 		ADA408CC506FA2612DD3B192 /* GaussianNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */; };
 		B8D51BFAE1AFF59C1F35A6AB /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ADC29840B87F25D548CB1A /* ZipArchive.swift */; };
 		BC5EB798F7C0FBD4D9CFF1EC /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD53F2CDB1FDC573401BA06 /* LocationService.swift */; };
@@ -43,6 +44,7 @@
 		C08E5E357470D7F2A06C37A0 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */; };
 		CE8C34B3D8E008DC82BA520C /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = D96B24678C6851D7E87FDD98 /* SplatIO */; };
 		D3BE2D5EC374A519573AA5DB /* GaussianScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0EAC368DD3FA03E7CD5069 /* GaussianScannerView.swift */; };
+		DD3E20124AC416F5DCBF9875 /* AnnotationSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4AF829F41A0F6A3FF45A0F /* AnnotationSheets.swift */; };
 		E1A3F25CEEAEEE03E069C2F2 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EA963BDEEACA2C54A89F90F /* libz.tbd */; };
 		E4A378A1E3E4A027701D6F49 /* MetalSplatter in Frameworks */ = {isa = PBXBuildFile; productRef = 14352F8A160262D8A5F13907 /* MetalSplatter */; };
 		E60B4B046724916013523E68 /* ScanModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC7A2F9FFAE5D96BD10E57C5 /* ScanModeView.swift */; };
@@ -77,6 +79,8 @@
 		00745DD212891C12D2C7D923 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		07FED1364E851B2D80DD0FB7 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		0AEEBC62781B6D37155F93AE /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		124E643EF1FFC58AF450E4AA /* AnnotationExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationExporter.swift; sourceTree = "<group>"; };
+		1A4AF829F41A0F6A3FF45A0F /* AnnotationSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationSheets.swift; sourceTree = "<group>"; };
 		1CC334CD113DD47F335824C0 /* MsplatCore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MsplatCore.xcframework; path = Dependencies/msplat/MsplatCore.xcframework; sourceTree = "<group>"; };
 		1F91C089D6A14A51E08AC502 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthProcessor.swift; sourceTree = "<group>"; };
@@ -177,6 +181,7 @@
 		0ED440648C21F4EEA15C68BD /* LiDARScanner */ = {
 			isa = PBXGroup;
 			children = (
+				124E643EF1FFC58AF450E4AA /* AnnotationExporter.swift */,
 				0AEEBC62781B6D37155F93AE /* AppLanguage.swift */,
 				F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */,
 				240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */,
@@ -262,6 +267,7 @@
 		DA5551ED7FFE575FB316B809 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				1A4AF829F41A0F6A3FF45A0F /* AnnotationSheets.swift */,
 				E64C155F1C6E33E160F8D5A4 /* ArchiveSheet.swift */,
 				AFA9395A1016AB2766F23C70 /* CreditsView.swift */,
 				00745DD212891C12D2C7D923 /* ExportSheet.swift */,
@@ -437,6 +443,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC684229655E79AE00772028 /* AnnotationExporter.swift in Sources */,
+				DD3E20124AC416F5DCBF9875 /* AnnotationSheets.swift in Sources */,
 				A54D62C29333829708CB4616 /* AppLanguage.swift in Sources */,
 				F09C250FD94004C84A11952C /* ArchiveSheet.swift in Sources */,
 				1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */,

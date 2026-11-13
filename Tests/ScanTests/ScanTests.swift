@@ -553,4 +553,107 @@ final class ScanTests: XCTestCase {
         XCTAssertTrue(pdfText.contains("48.210033"))
         XCTAssertTrue(pdfText.contains("GCP-1"))
     }
+
+    func testAnnotationsGeometryTagsExportPersistenceAndReport() throws {
+        // Horizontal 2-corner rectangle in ARKit X-Z plane (4 x 2 m -> perimeter 12 m, area 8 m²)
+        let flatCorners = AnnotationGeometryHelper.horizontalRectangleARKit(
+            from: SIMD3<Float>(0, 1.0, 0),
+            to: SIMD3<Float>(4.0, 1.5, -2.0)
+        )
+        XCTAssertEqual(flatCorners.count, 4)
+        let flatVerts = flatCorners.map { AnnotationPoint3D.fromARKit($0) }
+        XCTAssertEqual(AnnotationGeometryHelper.perimeter(flatVerts), 12.0, accuracy: 0.001)
+        XCTAssertEqual(AnnotationGeometryHelper.area(flatVerts), 8.0, accuracy: 0.001)
+
+        // Vertical / tilted 3-corner rectangle on a wall (3 x 2 m -> perimeter 10 m, area 6 m²)
+        let wallCorners = AnnotationGeometryHelper.orientedRectangleARKit(
+            p0: SIMD3<Float>(0, 0, 0),
+            p1: SIMD3<Float>(3.0, 0, 0),
+            p2: SIMD3<Float>(3.0, 2.0, 0)
+        )
+        XCTAssertEqual(wallCorners.count, 4)
+        let wallVerts = wallCorners.map { AnnotationPoint3D.fromARKit($0) }
+        XCTAssertEqual(AnnotationGeometryHelper.perimeter(wallVerts), 10.0, accuracy: 0.001)
+        XCTAssertEqual(AnnotationGeometryHelper.area(wallVerts), 6.0, accuracy: 0.001)
+
+        // Normalized tags deduplicate case-insensitively and trim hashes/whitespace
+        let cleanTags = CloudAnnotation.normalizedTags([" #Wall ", "wall", "Trench A", ""])
+        XCTAssertEqual(cleanTags, ["Wall", "Trench A"])
+
+        let pointAnn = CloudAnnotation(
+            title: "Coin Find",
+            type: .point,
+            vertices: [AnnotationPoint3D(x: 1.25, y: 2.5, z: -0.3)],
+            tags: ["Find", "Trench A"],
+            color: .gold,
+            note: "Bronze follis"
+        )
+        let polyAnn = CloudAnnotation(
+            title: "Pit 4",
+            type: .polygon,
+            vertices: [
+                AnnotationPoint3D(x: 0, y: 0, z: 0),
+                AnnotationPoint3D(x: 2, y: 0, z: 0),
+                AnnotationPoint3D(x: 2, y: 2, z: 0),
+                AnnotationPoint3D(x: 0, y: 2, z: 0)
+            ],
+            tags: ["Pit"],
+            color: .amber,
+            note: "Dark fill"
+        )
+        let rectAnn = CloudAnnotation(
+            title: "Wall Section",
+            type: .rectangle,
+            vertices: wallVerts,
+            tags: cleanTags,
+            color: .cyan
+        )
+
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ScanAnnotations-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let meta = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(),
+            title: "Annotation Test", startedAt: Date(), savedAt: Date(), pointCount: 100,
+            acceptedSamples: 100, processedFrames: 1, activeSeconds: 1.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: ""
+        )
+        let saved = SavedScan(directory: tempDir, metadata: meta)
+        let updated = try ScanStorage.updateAnnotations(for: saved, annotations: [pointAnn, polyAnn, rectAnn])
+        XCTAssertTrue(updated.hasAnnotations)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updated.annotationsGeoJSONURL.path))
+
+        // GeoJSON export contains 3D features and metadata tags
+        let geoText = try String(contentsOf: updated.annotationsGeoJSONURL, encoding: .utf8)
+        XCTAssertTrue(geoText.contains("\"FeatureCollection\""))
+        XCTAssertTrue(geoText.contains("\"Coin Find\""))
+        XCTAssertTrue(geoText.contains("\"Pit 4\""))
+        XCTAssertTrue(geoText.contains("\"Wall Section\""))
+
+        // CSV export contains 3D WKT POINT Z and POLYGON Z geometries
+        let csvText = String(decoding: AnnotationExporter.csvData(for: [pointAnn, polyAnn, rectAnn]), as: UTF8.self)
+        XCTAssertTrue(csvText.contains("POINT Z ("))
+        XCTAssertTrue(csvText.contains("POLYGON Z (("))
+        XCTAssertTrue(csvText.contains("Find; Trench A"))
+
+        // DXF export assigns tag layers and creates 3D POLYLINE + POINT entities
+        let dxfText = String(decoding: AnnotationExporter.dxfData(for: [pointAnn, polyAnn, rectAnn]), as: UTF8.self)
+        XCTAssertTrue(dxfText.contains("ENTITIES"))
+        XCTAssertTrue(dxfText.contains("POLYLINE"))
+        XCTAssertTrue(dxfText.contains("\nFind\n"))
+        XCTAssertTrue(dxfText.contains("EOF"))
+
+        // PDF report summarizes annotations
+        let reportURL = try ScanReport.pointCloud(updated)
+        defer { try? FileManager.default.removeItem(at: reportURL.deletingLastPathComponent()) }
+        let doc = try XCTUnwrap(PDFDocument(url: reportURL))
+        let pdfText = doc.string ?? ""
+        XCTAssertTrue(pdfText.contains("Coin Find"))
+        XCTAssertTrue(pdfText.contains("Pit 4"))
+    }
 }

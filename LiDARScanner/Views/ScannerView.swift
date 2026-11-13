@@ -88,6 +88,8 @@ struct ScannerView: View {
                 total: model.pointCount,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
+                annotations: model.activeAnnotations,
+                onSaveAnnotations: { model.updateAnnotations(for: nil, annotations: $0) },
                 isFullScreen: $previewFullScreen,
                 onClose: { showPreview = false; previewFullScreen = false }
             )
@@ -98,6 +100,8 @@ struct ScannerView: View {
                 total: model.pointCount,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
+                annotations: model.activeAnnotations,
+                onSaveAnnotations: { model.updateAnnotations(for: nil, annotations: $0) },
                 isFullScreen: $previewFullScreen,
                 onClose: { showPreview = false; previewFullScreen = false }
             )

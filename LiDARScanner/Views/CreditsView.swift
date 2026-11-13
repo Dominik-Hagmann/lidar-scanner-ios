@@ -12,8 +12,8 @@ struct CreditsView: View {
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
 
     private var appVersionString: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "5"
         return LanguageManager.format("Version %@ (Build %@)", version, build)
     }
 

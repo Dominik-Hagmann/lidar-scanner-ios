@@ -623,8 +623,8 @@ enum ScanImporter {
     }
 
     private static func makeMetadata(title: String, pointCount: Int, formatNote: String) -> ScanMetadata {
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2.0"
-        let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4"
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.0"
+        let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "5"
 
         return ScanMetadata(
             schemaVersion: 1,

@@ -57,6 +57,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private var meshAnchors: [UUID: ARMeshAnchor] = [:]
     var hasMesh: Bool { !meshAnchors.isEmpty }
     @Published var activeGroundControlPoints: [GroundControlPoint] = []
+    @Published var activeAnnotations: [CloudAnnotation] = []
     // Worker queue only:
     private var workerFrames = 0
     private var workerSeconds: Double = 0
@@ -219,6 +220,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             DispatchQueue.main.async {
                 self.meshAnchors.removeAll()
                 self.activeGroundControlPoints = []
+                self.activeAnnotations = []
                 self.pointCount = 0; self.activeSeconds = 0
                 self.preview = []; self.previewVersion += 1
                 self.scanTitle = ""; self.sessionClosed = !self.foreground
@@ -415,6 +417,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         let recordedLocation = config.recordLocation ? LocationService.shared.currentLocation : nil
         let currentMeshAnchors = Array(meshAnchors.values)
         let currentGCPs = activeGroundControlPoints
+        let currentAnnotations = activeAnnotations
         worker.async {
             do {
                 let stats = pc_stats(cloud)
@@ -434,6 +437,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         saved = try ScanStorage.updateGroundControlPoints(for: saved, points: currentGCPs)
                         self.cachedScan = saved
                     }
+                    if (saved.metadata.annotations ?? []) != currentAnnotations {
+                        saved = try ScanStorage.updateAnnotations(for: saved, annotations: currentAnnotations)
+                        self.cachedScan = saved
+                    }
                 } else {
                     let metadata = ScanMetadata(schemaVersion: 1, appVersion: appVersion, appBuild: appBuild,
                         scanID: id, title: title, startedAt: start, savedAt: Date(), pointCount: Int(stats.pointCount),
@@ -448,7 +455,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         colorSource: "ARFrame.capturedImage; YCbCr to RGB; 601/709 attachment, 601 fallback; full/video range; not radiometrically calibrated",
                         sessionNote: note,
                         location: recordedLocation,
-                        groundControlPoints: currentGCPs.isEmpty ? nil : currentGCPs)
+                        groundControlPoints: currentGCPs.isEmpty ? nil : currentGCPs,
+                        annotations: currentAnnotations.isEmpty ? nil : currentAnnotations)
                     saved = try ScanStorage.save(cloud, metadata: metadata, format: format, meshAnchors: currentMeshAnchors)
                     self.cachedScan = saved; self.savedSamples = stats.acceptedSamples; self.savedTitle = title
                 }
@@ -472,6 +480,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         var urls = [saved.url(for: format), saved.metadataURL]
                         if FileManager.default.fileExists(atPath: saved.gcpCSVURL.path) {
                             urls.append(saved.gcpCSVURL)
+                        }
+                        if FileManager.default.fileExists(atPath: saved.annotationsGeoJSONURL.path) {
+                            urls.append(saved.annotationsGeoJSONURL)
                         }
                         self.sharedFiles = SharedFiles(urls: urls)
                     }
@@ -513,20 +524,42 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         if scan == nil {
             activeGroundControlPoints = points
         }
+        persistSavedScanUpdate(for: scan) { target in
+            try ScanStorage.updateGroundControlPoints(for: target, points: points)
+        } onMainUpdate: { isCachedMatch in
+            if isCachedMatch { self.activeGroundControlPoints = points }
+        }
+    }
+
+    func updateAnnotations(for scan: SavedScan?, annotations: [CloudAnnotation]) {
+        if scan == nil {
+            activeAnnotations = annotations
+        }
+        persistSavedScanUpdate(for: scan) { target in
+            try ScanStorage.updateAnnotations(for: target, annotations: annotations)
+        } onMainUpdate: { isCachedMatch in
+            if isCachedMatch { self.activeAnnotations = annotations }
+        }
+    }
+
+    private func persistSavedScanUpdate(
+        for scan: SavedScan?,
+        transform: @escaping (SavedScan) throws -> SavedScan,
+        onMainUpdate: @escaping (Bool) -> Void
+    ) {
         worker.async {
             let targetScan = scan ?? self.cachedScan
             guard let targetScan else { return }
             do {
-                let updated = try ScanStorage.updateGroundControlPoints(for: targetScan, points: points)
-                if self.cachedScan?.id == updated.id {
+                let updated = try transform(targetScan)
+                let matchesCached = self.cachedScan?.id == updated.id
+                if matchesCached {
                     self.cachedScan = updated
                 }
                 let scans = try ScanStorage.list()
                 DispatchQueue.main.async {
                     self.savedScans = scans
-                    if self.cachedScan?.id == updated.id || scan == nil {
-                        self.activeGroundControlPoints = points
-                    }
+                    onMainUpdate(matchesCached || scan == nil)
                 }
             } catch {
                 DispatchQueue.main.async { self.errorMessage = error.localizedDescription }

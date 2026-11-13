@@ -51,6 +51,35 @@ enum ScanReport {
         return result
     }
 
+    private static func annotationParagraphs(_ annotations: [CloudAnnotation]) -> [String] {
+        guard !annotations.isEmpty else { return [] }
+        let posix = Locale(identifier: "en_US_POSIX")
+        var result = [
+            text("3D Annotations (\(annotations.count))", "3D-Annotationen (\(annotations.count))")
+        ]
+        for ann in annotations {
+            let c = ann.centroid
+            let typeName: String = switch ann.type {
+            case .point: text("Point", "Punkt")
+            case .polygon: text("Polygon", "Polygon")
+            case .rectangle: text("Rectangle", "Rechteck")
+            }
+            var line = "\(ann.title) [\(typeName)]"
+            if !ann.tags.isEmpty {
+                line += " · " + text("Tags: ", "Tags: ") + ann.tags.joined(separator: ", ")
+            }
+            line += String(format: " · (%.3f, %.3f, %.3f) m", locale: posix, c.x, c.y, c.z)
+            if ann.type != .point {
+                line += String(format: " · P=%.2f m, A=%.3f m²", locale: posix, ann.perimeterMeters, ann.areaSquareMeters)
+            }
+            if !ann.note.isEmpty {
+                line += " — \(ann.note)"
+            }
+            result.append(line)
+        }
+        return result
+    }
+
     static func gaussianParagraphs(_ p: GaussianProject) -> [String] {
         var paragraphs = [
             text("Gaussian Splatting — processing report", "Gaussian Splatting – Verarbeitungsbericht"),
@@ -133,6 +162,9 @@ enum ScanReport {
         }
         if let gcps = p.groundControlPoints, !gcps.isEmpty {
             paragraphs.append(contentsOf: gcpParagraphs(gcps))
+        }
+        if let annotations = p.annotations, !annotations.isEmpty {
+            paragraphs.append(contentsOf: annotationParagraphs(annotations))
         }
         paragraphs.append(contentsOf: [
             text("Recorded session note: \(p.sessionNote)", "Protokollierter Sitzungsvermerk: \(p.sessionNote)"),

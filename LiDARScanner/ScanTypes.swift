@@ -120,6 +120,131 @@ struct GroundControlPoint: Codable, Equatable, Identifiable {
     }
 }
 
+enum CloudAnnotationGeometryType: String, Codable, CaseIterable, Identifiable {
+    case point
+    case polygon
+    case rectangle
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .point: return LanguageManager.string("Point")
+        case .polygon: return LanguageManager.string("Polygon")
+        case .rectangle: return LanguageManager.string("Rectangle")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .point: return "mappin.circle.fill"
+        case .polygon: return "pentagon"
+        case .rectangle: return "rectangle"
+        }
+    }
+}
+
+enum AnnotationColor: String, Codable, CaseIterable, Identifiable {
+    case cyan, amber, magenta, lime, gold
+
+    var id: String { rawValue }
+
+    var hex: String {
+        switch self {
+        case .cyan: return "#38BDF8"
+        case .amber: return "#F97316"
+        case .magenta: return "#EC4899"
+        case .lime: return "#4ADE80"
+        case .gold: return "#FACC15"
+        }
+    }
+
+    var uiColor: UIColor {
+        switch self {
+        case .cyan: return UIColor(red: 0.22, green: 0.74, blue: 0.97, alpha: 1)
+        case .amber: return UIColor(red: 0.98, green: 0.45, blue: 0.09, alpha: 1)
+        case .magenta: return UIColor(red: 0.93, green: 0.28, blue: 0.60, alpha: 1)
+        case .lime: return UIColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1)
+        case .gold: return UIColor(red: 0.98, green: 0.80, blue: 0.08, alpha: 1)
+        }
+    }
+}
+
+struct AnnotationPoint3D: Codable, Equatable {
+    // Local scan coordinates in export frame (meters, Z-up: (x, -z, y) from ARKit).
+    var x: Double
+    var y: Double
+    var z: Double
+
+    var arkitPosition: SIMD3<Float> {
+        SIMD3<Float>(Float(x), Float(z), Float(-y))
+    }
+
+    static func fromARKit(_ point: SIMD3<Float>) -> AnnotationPoint3D {
+        AnnotationPoint3D(x: Double(point.x), y: Double(-point.z), z: Double(point.y))
+    }
+}
+
+struct CloudAnnotation: Codable, Equatable, Identifiable {
+    var id: UUID = UUID()
+    var title: String
+    var type: CloudAnnotationGeometryType
+    var vertices: [AnnotationPoint3D]
+    var tags: [String] = []
+    var color: AnnotationColor = .cyan
+    var note: String = ""
+    var createdAt: Date = Date()
+
+    static let suggestedTagKeys: [String] = [
+        "Feature", "Find", "Wall", "Pit", "Section", "Sample", "Damage", "Measure"
+    ]
+
+    var centroid: AnnotationPoint3D {
+        guard !vertices.isEmpty else { return AnnotationPoint3D(x: 0, y: 0, z: 0) }
+        let count = Double(vertices.count)
+        let sx = vertices.reduce(0.0) { $0 + $1.x }
+        let sy = vertices.reduce(0.0) { $0 + $1.y }
+        let sz = vertices.reduce(0.0) { $0 + $1.z }
+        return AnnotationPoint3D(x: sx / count, y: sy / count, z: sz / count)
+    }
+
+    var perimeterMeters: Double {
+        AnnotationGeometryHelper.perimeter(vertices)
+    }
+
+    var areaSquareMeters: Double {
+        AnnotationGeometryHelper.area(vertices)
+    }
+
+    init(id: UUID = UUID(), title: String, type: CloudAnnotationGeometryType,
+         vertices: [AnnotationPoint3D], tags: [String] = [],
+         color: AnnotationColor = .cyan, note: String = "", createdAt: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.type = type
+        self.vertices = vertices
+        self.tags = Self.normalizedTags(tags)
+        self.color = color
+        self.note = note
+        self.createdAt = createdAt
+    }
+
+    static func normalizedTags(_ raw: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        let trimSet = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "#"))
+        for entry in raw {
+            let trimmed = entry.trimmingCharacters(in: trimSet)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            if seen.insert(key).inserted {
+                result.append(trimmed)
+            }
+        }
+        return result
+    }
+}
+
 struct ScanMetadata: Codable {
     let schemaVersion: Int
     let appVersion: String
@@ -147,6 +272,7 @@ struct ScanMetadata: Codable {
     let sessionNote: String
     var location: GeoLocation? = nil
     var groundControlPoints: [GroundControlPoint]? = nil
+    var annotations: [CloudAnnotation]? = nil
 
     init(schemaVersion: Int, appVersion: String, appBuild: String?, scanID: UUID, title: String,
          startedAt: Date, savedAt: Date, pointCount: Int, acceptedSamples: UInt64,
@@ -155,7 +281,8 @@ struct ScanMetadata: Codable {
          unit: String, coordinateSystem: String, arkitToExportRowMajor: [Int],
          depthSource: String, confidenceMeaning: String, pointSelection: String,
          colorSource: String, sessionNote: String,
-         location: GeoLocation? = nil, groundControlPoints: [GroundControlPoint]? = nil) {
+         location: GeoLocation? = nil, groundControlPoints: [GroundControlPoint]? = nil,
+         annotations: [CloudAnnotation]? = nil) {
         self.schemaVersion = schemaVersion
         self.appVersion = appVersion
         self.appBuild = appBuild
@@ -182,6 +309,7 @@ struct ScanMetadata: Codable {
         self.sessionNote = sessionNote
         self.location = location
         self.groundControlPoints = groundControlPoints
+        self.annotations = annotations
     }
 }
 
@@ -194,6 +322,10 @@ struct SavedScan: Identifiable {
     var hasMesh: Bool { FileManager.default.fileExists(atPath: meshURL.path) }
     var gcpCSVURL: URL { directory.appendingPathComponent("gcps.csv") }
     var hasGCPs: Bool { !(metadata.groundControlPoints?.isEmpty ?? true) || FileManager.default.fileExists(atPath: gcpCSVURL.path) }
+    var annotationsGeoJSONURL: URL { directory.appendingPathComponent("annotations.geojson") }
+    var annotationsCSVURL: URL { directory.appendingPathComponent("annotations.csv") }
+    var annotationsDXFURL: URL { directory.appendingPathComponent("annotations.dxf") }
+    var hasAnnotations: Bool { !(metadata.annotations?.isEmpty ?? true) || FileManager.default.fileExists(atPath: annotationsGeoJSONURL.path) }
     func url(for format: ExportFormat) -> URL { directory.appendingPathComponent(format.fileName) }
     var existingFormats: [ExportFormat] {
         ExportFormat.allCases.filter { FileManager.default.fileExists(atPath: url(for: $0).path) }
@@ -270,10 +402,11 @@ enum ScanStorage {
             if let gcps = metadata.groundControlPoints, !gcps.isEmpty {
                 try gcpCSVData(for: gcps).write(to: staging.appendingPathComponent("gcps.csv"), options: .atomic)
             }
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-            try encoder.encode(metadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
+            if let annotations = metadata.annotations, !annotations.isEmpty {
+                try AnnotationExporter.geoJSONData(for: annotations, metadata: metadata)
+                    .write(to: staging.appendingPathComponent("annotations.geojson"), options: .atomic)
+            }
+            try encodeMetadata(metadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
             try FileManager.default.moveItem(at: staging, to: final)
             return SavedScan(directory: final, metadata: metadata)
         } catch {
@@ -311,17 +444,34 @@ enum ScanStorage {
         return value
     }
 
-    static func updateGroundControlPoints(for scan: SavedScan, points: [GroundControlPoint]) throws -> SavedScan {
-        var meta = scan.metadata
-        meta.groundControlPoints = points.isEmpty ? nil : points
+    private static func encodeMetadata(_ metadata: ScanMetadata) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(meta).write(to: scan.metadataURL, options: .atomic)
+        return try encoder.encode(metadata)
+    }
+
+    static func updateGroundControlPoints(for scan: SavedScan, points: [GroundControlPoint]) throws -> SavedScan {
+        var meta = scan.metadata
+        meta.groundControlPoints = points.isEmpty ? nil : points
+        try encodeMetadata(meta).write(to: scan.metadataURL, options: .atomic)
         if points.isEmpty {
             try? FileManager.default.removeItem(at: scan.gcpCSVURL)
         } else {
             try gcpCSVData(for: points).write(to: scan.gcpCSVURL, options: .atomic)
+        }
+        return SavedScan(directory: scan.directory, metadata: meta)
+    }
+
+    static func updateAnnotations(for scan: SavedScan, annotations: [CloudAnnotation]) throws -> SavedScan {
+        var meta = scan.metadata
+        meta.annotations = annotations.isEmpty ? nil : annotations
+        try encodeMetadata(meta).write(to: scan.metadataURL, options: .atomic)
+        if annotations.isEmpty {
+            try? FileManager.default.removeItem(at: scan.annotationsGeoJSONURL)
+        } else {
+            try AnnotationExporter.geoJSONData(for: annotations, metadata: meta)
+                .write(to: scan.annotationsGeoJSONURL, options: .atomic)
         }
         return SavedScan(directory: scan.directory, metadata: meta)
     }

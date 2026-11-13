@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/workflows/ios-build.yml"><img src="https://github.com/Dominik-Hagmann/lidar-scanner-ios/actions/workflows/ios-build.yml/badge.svg" alt="iOS Build"></a>
-  <img src="https://img.shields.io/badge/version-1.2.0%20(Build%204)-blue" alt="Version 1.2.0 (Build 4)">
+  <img src="https://img.shields.io/badge/version-1.3.0%20(Build%205)-blue" alt="Version 1.3.0 (Build 5)">
   <img src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-18%2B-lightgrey" alt="iOS / iPadOS 18+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
 </p>
@@ -46,7 +46,7 @@ This is exactly what the LiDAR Scanner App is made for.
 - **Two capture modes**
   - **Point Cloud** – accumulates coloured LiDAR depth points and optional ARKit surface meshes; exports binary PLY, ASCII PLY, XYZ, CSV, ASPRS LAS, compressed LAZ, ASTM E57, and Wavefront OBJ (`mesh.obj`) with JSON metadata, GNSS tags, and Ground Control Points (`gcps.csv`).
   - **Gaussian Splatting** – captures distinct views automatically and optimizes a 3D Gaussian scene directly on the device.
-- **On-device 3D analysis & field georeferencing** – interactive 3D preview with point-to-point distance measurement, 3D Ground Control Point (GCP) tagging/editing, and optional offline GNSS coordinates, altitude, and compass heading.
+- **On-device 3D analysis & field georeferencing** – interactive 3D preview with point-to-point distance measurement, 3D **Annotations** (points, polygons, and 3D rectangles) with custom **tags** and **GeoJSON / CSV+WKT / DXF / JSON** export, 3D Ground Control Point (GCP) tagging/editing, and optional offline GNSS coordinates, altitude, and compass heading.
 - **Fully on-device** – no API keys, servers or in-app accounts. Scans are processed offline; the share sheet passes only the selected files to the destination chosen by the user.
 - **Traceable records** – optional narrative PDF report and a processing log with recorded settings, decisions, processing steps and SHA-256 file hashes.
 - **Robust saving** – automatic saves on pause, memory monitoring, processing checkpoints and recovery after interruption.
@@ -71,7 +71,7 @@ This is exactly what the LiDAR Scanner App is made for.
 
 ## Status
 
-**Current version:** 1.2.0 (Build 4) — see the [changelog](CHANGELOG.md).
+**Current version:** 1.3.0 (Build 5) — see the [changelog](CHANGELOG.md).
 
 | Component | Status |
 | --- | --- |
@@ -171,7 +171,13 @@ For point clouds, reports state the limits of the metadata recorded by that mode
 | `points.ply` | X, Y, Z, red, green, blue, confidence | Binary little-endian; 16 bytes per point plus header |
 | `points-ascii.ply` | Identical fields | Text PLY with a decimal point |
 | `points.xyz` | X, Y, Z | Three space-separated columns without a header |
-| `metadata.json` | Designation, times, settings, point count, depth-image dimensions, provenance, coordinate transformation | UTF-8; ISO 8601 dates |
+| `points.csv` | X, Y, Z, R, G, B, confidence | UTF-8 CSV table with header |
+| `points.las` / `points.laz` | X, Y, Z, classification/RGB | ASPRS LAS 1.2 / compressed LAZ (LASzip v2) |
+| `points.e57` | X, Y, Z, R, G, B | ASTM E2807 XML + binary vector point cloud |
+| `mesh.obj` | Reconstructed vertices & faces | Wavefront OBJ (`ARMeshAnchor`, when captured) |
+| `annotations.geojson` | 3D points, polygons, rectangles + tags | UTF-8 GeoJSON FeatureCollection (3D local coords) + CSV/WKT & DXF export |
+| `gcps.csv` | Ground Control Point coordinates & CRS | UTF-8 CSV (when GCPs recorded) |
+| `metadata.json` | Designation, times, settings, point count, GNSS, GCPs, annotations, coordinate transformation | UTF-8; ISO 8601 dates |
 
 Every save contains a binary PLY file; ASCII PLY or XYZ is generated additionally when selected. Colours are 8-bit RGB. Confidence is stored as an additional `uchar` field using the ARKit categories 0, 1 and 2; software that ignores this field can still read coordinates and colours.
 
@@ -281,11 +287,11 @@ The Gaussian mode uses msplat-ios and MetalSplatter; see [third-party notices](T
 
 ## Roadmap
 
-Implemented since 1.2.0 (Build 4) on `main`:
+Implemented in **1.3.0 (Build 5)**:
 
 - CSV, ASPRS LAS, compressed LAZ, and ASTM E57 point-cloud exports plus Wavefront OBJ surface mesh reconstruction.
 - Offline GNSS georeferencing metadata (`metadata.json` and PDF reports) with Settings opt-out toggle.
-- Interactive 3D point-to-point distance measurement and Ground Control Point (GCP) tagging with `gcps.csv` export.
+- Interactive 3D point-to-point distance measurement, Ground Control Point (GCP) tagging with `gcps.csv` export, and 3D point/polygon/rectangle annotations with custom tags and GeoJSON / CSV+WKT / DXF / JSON exports.
 
 ## Research Context & Project Affiliation (RIM Project)
 
@@ -315,7 +321,7 @@ This application is developed and used within the research project **[Tracing th
 
 Scientific, educational or documentary use should cite the specific version and build used. GitHub reads [`CITATION.cff`](CITATION.cff) and offers a “Cite this repository” option.
 
-> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.2.0, Build 4) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
+> Hagmann, D. (2026). *LiDAR Scanner for iPhone and iPad* (Version 1.3.0, Build 5) [Computer software]. GitHub. https://github.com/Dominik-Hagmann/lidar-scanner-ios
 
 <details>
 <summary><strong>Selected literature on LiDAR for iPhone and iPad</strong></summary>

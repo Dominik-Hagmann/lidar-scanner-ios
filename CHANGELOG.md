@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (Build 5) – 2026-11-13
 
+- Added **3D Annotations** (Points, Polygons, and 2- or 3-corner 3D Rectangles) directly on point clouds with custom **Tags**, tag filtering/grouping, live 3D rendering, PDF report summaries, `metadata.json` / `annotations.geojson` persistence, and **GeoJSON (3D)**, **CSV + WKT Z**, **DXF** (layers by tag), and **JSON** exports.
 - Added point-to-point distance measurement tool (`Measure` mode) in the 3D point cloud preview (`OrbitCloudView` / `CloudPreviewSheet`).
 - Added Ground Control Points (GCPs / Passpunkte): 3D point picking, reference coordinate/CRS/notes editor, live 3D markers, `metadata.json` persistence, `gcps.csv` export, and GCP table in PDF reports.
 - Added GNSS georeferencing metadata (`LocationService`, WGS84 coordinates, altitude, horizontal/vertical accuracy, heading) with offline recording toggle in Settings and output in `metadata.json` and PDF reports.

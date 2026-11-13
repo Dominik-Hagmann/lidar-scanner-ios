@@ -88,7 +88,7 @@ inline void writeLASHeader(std::ostream &os, uint32_t count, double scale,
     std::strncpy(sysId, "iOS LiDAR Scanner", 31);
     os.write(sysId, 32);
     char genSoft[32]{};
-    std::strncpy(genSoft, "LiDAR-Scanner 1.2", 31);
+    std::strncpy(genSoft, "LiDAR-Scanner 1.3", 31);
     os.write(genSoft, 32);
     putU16LE(os, 1);    // Creation Day
     putU16LE(os, 2026); // Creation Year
