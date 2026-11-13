@@ -39,14 +39,16 @@ final class ScanUITests: XCTestCase {
 
         app.buttons["Scan-Einstellungen"].tap()
         XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 5))
+        app.swipeUp()
         let germanSettings = XCTAttachment(screenshot: app.screenshot())
         germanSettings.name = "German-Settings-iPhone"; germanSettings.lifetime = .keepAlways; add(germanSettings)
 
-        app.buttons["Projekt & Credits"].tap()
-        XCTAssertTrue(app.staticTexts["Quellcode auf GitHub"].waitForExistence(timeout: 5))
+        let creditsButton = app.buttons["Projekt & Credits"]
+        XCTAssertTrue(creditsButton.waitForExistence(timeout: 5))
+        creditsButton.tap()
+        XCTAssertTrue(app.navigationBars["Über & Danksagung"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["RIM-Projekt"].waitForExistence(timeout: 5))
         let germanCredits = XCTAttachment(screenshot: app.screenshot())
         germanCredits.name = "German-Credits-iPhone"; germanCredits.lifetime = .keepAlways; add(germanCredits)
-
-        app.buttons["Fertig"].tap()
     }
 }
