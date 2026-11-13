@@ -25,7 +25,21 @@
   </a>
 </p>
 
-**LiDAR Scanner** is a native, open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It exports **coloured point clouds** or **locally processed Gaussian scenes** for further work in other software. The app focuses on straightforward capture, transparent processing and open export formats.
+**LiDAR Scanner** is a native, free and open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It produces **point clouds**, **surface meshes** and **locally processed Gaussian scenes** and exports them in open formats for further work in specialised software.
+
+## Why LiDAR Scanner?
+
+**Simplicity first — in the spirit of a digital detox.** The app deliberately concentrates on what is essential, without sacrificing what really matters. Everything is processed on the device: no accounts, no cloud, no servers, no distractions.
+
+**Free software.** The source code is openly available under the [MIT License](LICENSE). Anyone can use it, study it, adapt it to their own needs and develop it further at any time.
+
+**Made for fieldwork, especially on excavations.** The three output types complement each other:
+
+- **Point clouds** — Sometimes a point cloud is simply what is needed, especially as a basis for measurements on excavations: captured quickly, exported easily and processed further in specialised software. Texture is secondary here.
+- **Meshes** — The same applies to surface meshes, particularly when specific surfaces such as ditches or pits need to be documented quickly.
+- **Gaussian splatting** — Gaussian scenes act as a kind of *spatial photograph*. Complementing point clouds and meshes, they help to document complex situations quickly and in detail.
+
+This is exactly what LiDAR Scanner is made for.
 
 ## Features
 
@@ -40,6 +54,7 @@
 
 ## Contents
 
+- [Why LiDAR Scanner?](#why-lidar-scanner)
 - [Status](#status)
 - [Installation](#installation)
 - [Usage: Point Cloud](#usage-point-cloud)
