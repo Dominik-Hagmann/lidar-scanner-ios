@@ -1,4 +1,4 @@
-# LiDAR Scanner for iPhone and iPad
+# LiDAR Scanner App for iPhone and iPad
 
 <p align="center">
   <img src="docs/app-icon.png" alt="LiDAR Scanner app icon" width="180">
@@ -25,9 +25,9 @@
   </a>
 </p>
 
-**LiDAR Scanner** is a native, free and open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It produces **point clouds**, **surface meshes** and **locally processed Gaussian scenes** and exports them in open formats for further work in specialised software.
+The **LiDAR Scanner App** is a native, free and open-source app for capturing scenes with LiDAR-equipped iPhones and iPads. It produces **point clouds**, **surface meshes** and **locally processed Gaussian scenes** and exports them in open formats for further work in specialised software.
 
-## Why LiDAR Scanner?
+## Why another iOS LiDAR scanner app?
 
 **Simplicity first — in the spirit of a digital detox.** The app deliberately concentrates on what is essential, without sacrificing what really matters. Everything is processed on the device: no accounts, no cloud, no servers, no distractions.
 
@@ -39,7 +39,7 @@
 - **Meshes** — The same applies to surface meshes, particularly when specific surfaces such as ditches or pits need to be documented quickly.
 - **Gaussian splatting** — Gaussian scenes act as a kind of *spatial photograph*. Complementing point clouds and meshes, they help to document complex situations quickly and in detail.
 
-This is exactly what LiDAR Scanner is made for.
+This is exactly what the LiDAR Scanner App is made for.
 
 ## Features
 
