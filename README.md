@@ -69,6 +69,9 @@ The app is distributed as source code for installation through Xcode.
 
 ## Installation
 
+> [!TIP]
+> **Effortless setup with AI coding agents:** You can make the installation super simple by using an AI developer agent such as **Google Antigravity** or **OpenAI Codex**. Just open this repository in the agent workspace and ask: *"Set up and prepare this project for my device"* — the agent will install missing command-line tools via Homebrew, run the setup scripts, compile native dependencies, and generate the Xcode project automatically.
+
 ### Requirements
 
 - A **LiDAR-equipped iPhone or iPad** running **iOS or iPadOS 18 or later**. The app checks LiDAR support at runtime; the Simulator and devices without LiDAR cannot capture.
