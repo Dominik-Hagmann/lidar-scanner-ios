@@ -147,4 +147,54 @@ enum ScanStorage {
             throw error
         }
     }
+
+    static func saveImported(sourceURL: URL, metadata: ScanMetadata, format: ExportFormat = .binaryPLY) throws -> SavedScan {
+        let base = try root()
+        let id = UUID().uuidString
+        let staging = base.appendingPathComponent(".pending-" + id, isDirectory: true)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let cleanTitle = metadata.title.replacingOccurrences(of: "/", with: "-")
+        let final = base.appendingPathComponent(formatter.string(from: metadata.savedAt) + "_" + String(id.prefix(8)) + "_" + cleanTitle,
+                                                isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        do {
+            let targetFile = staging.appendingPathComponent(format.fileName)
+            try FileManager.default.copyItem(at: sourceURL, to: targetFile)
+
+            if format != .binaryPLY {
+                let defaultPly = staging.appendingPathComponent(ExportFormat.binaryPLY.fileName)
+                if !FileManager.default.fileExists(atPath: defaultPly.path) {
+                    try? FileManager.default.copyItem(at: sourceURL, to: defaultPly)
+                }
+            }
+
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            try encoder.encode(metadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
+            try FileManager.default.moveItem(at: staging, to: final)
+            return SavedScan(directory: final, metadata: metadata)
+        } catch {
+            try? FileManager.default.removeItem(at: staging)
+            throw error
+        }
+    }
+
+    static func readPreview(for scan: SavedScan, maxPoints: Int = 40_000) -> [PCPoint] {
+        let plyURL = scan.url(for: .binaryPLY)
+        if FileManager.default.fileExists(atPath: plyURL.path) {
+            return ScanImporter.readPreviewPoints(from: plyURL, maxPoints: maxPoints)
+        }
+        let asciiPlyURL = scan.url(for: .asciiPLY)
+        if FileManager.default.fileExists(atPath: asciiPlyURL.path) {
+            return ScanImporter.readPreviewPoints(from: asciiPlyURL, maxPoints: maxPoints)
+        }
+        let xyzURL = scan.url(for: .xyz)
+        if FileManager.default.fileExists(atPath: xyzURL.path) {
+            return ScanImporter.readPreviewPoints(from: xyzURL, maxPoints: maxPoints)
+        }
+        return []
+    }
 }

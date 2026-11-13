@@ -130,4 +130,66 @@ final class ScanTests: XCTestCase {
         torch.turnOff()
         XCTAssertFalse(torch.isOn)
     }
+
+    func testParsePLYHeaderAndPreviewPoints() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let plyContent = """
+        ply
+        format ascii 1.0
+        element vertex 3
+        property float x
+        property float y
+        property float z
+        property uchar red
+        property uchar green
+        property uchar blue
+        end_header
+        1.0 2.0 3.0 255 0 0
+        4.0 5.0 6.0 0 255 0
+        7.0 8.0 9.0 0 0 255
+        """
+        let plyURL = tempDir.appendingPathComponent("test.ply")
+        try plyContent.write(to: plyURL, atomically: true, encoding: .utf8)
+
+        let parsed = try XCTUnwrap(ScanImporter.parsePLYHeader(from: plyURL))
+        XCTAssertEqual(parsed.vertexCount, 3)
+        XCTAssertFalse(parsed.isBinary)
+        XCTAssertTrue(parsed.hasColor)
+
+        let points = ScanImporter.readPreviewPoints(from: plyURL, maxPoints: 10)
+        XCTAssertEqual(points.count, 3)
+        XCTAssertEqual(points[0].x, 1.0)
+        XCTAssertEqual(points[0].r, 255)
+    }
+
+    func testImportScanPLYCreatesCompliantSavedScan() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let plyContent = """
+        ply
+        format ascii 1.0
+        element vertex 2
+        property float x
+        property float y
+        property float z
+        end_header
+        0.5 1.0 1.5
+        2.0 2.5 3.0
+        """
+        let sourceURL = tempDir.appendingPathComponent("imported_cloud.ply")
+        try plyContent.write(to: sourceURL, atomically: true, encoding: .utf8)
+
+        let saved = try ScanImporter.importScan(from: sourceURL)
+        defer { try? FileManager.default.removeItem(at: saved.directory) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.url(for: .binaryPLY).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.metadataURL.path))
+        XCTAssertEqual(saved.metadata.pointCount, 2)
+        XCTAssertEqual(saved.metadata.title, "imported_cloud")
+    }
 }

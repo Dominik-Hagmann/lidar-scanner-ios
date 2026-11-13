@@ -229,6 +229,7 @@ private struct GaussianArchiveView: View {
     @ObservedObject var model: GaussianModel
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: GaussianProject?
+    @State private var showImporter = false
     var body: some View {
         NavigationStack {
             List {
@@ -247,7 +248,37 @@ private struct GaussianArchiveView: View {
                     }.swipeActions { Button("Delete", role: .destructive) { deleting = scan } }
                 }
             }.navigationTitle("Gaussian Scans")
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showImporter = true
+                        } label: {
+                            Label("Import", systemImage: "square.and.arrow.down")
+                        }
+                        .accessibilityLabel("Import Scan")
+                    }
+                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                }
+                .fileImporter(
+                    isPresented: $showImporter,
+                    allowedContentTypes: [.folder],
+                    allowsMultipleSelection: true
+                ) { result in
+                    switch result {
+                    case .success(let urls):
+                        Task {
+                            for url in urls {
+                                do {
+                                    _ = try await model.importProject(from: url)
+                                } catch {
+                                    await MainActor.run { model.errorMessage = error.localizedDescription }
+                                }
+                            }
+                        }
+                    case .failure(let error):
+                        model.errorMessage = error.localizedDescription
+                    }
+                }
                 .alert("Delete Scan?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
                     Button("Cancel", role: .cancel) { deleting = nil }
                     Button("Delete", role: .destructive) { if let deleting { model.delete(deleting) }; deleting = nil }

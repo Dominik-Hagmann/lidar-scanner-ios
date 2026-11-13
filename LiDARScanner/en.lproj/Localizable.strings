@@ -226,3 +226,10 @@
 "Turn Off Torch" = "Turn Off Torch";
 "Brightness" = "Brightness";
 "Illuminates dark surfaces, niches, trenches, and interiors during capture." = "Illuminates dark surfaces, niches, trenches, and interiors during capture.";
+"Import" = "Import";
+"Import Scan" = "Import Scan";
+"View in 3D" = "View in 3D";
+"Unsupported file format. Please select a .ply, .xyz, .zip file or scan folder." = "Unsupported file format. Please select a .ply, .xyz, .zip file or scan folder.";
+"The selected file could not be read or does not exist." = "The selected file could not be read or does not exist.";
+"Import failed: %@" = "Import failed: %@";
+"The point cloud file contains no valid points." = "The point cloud file contains no valid points.";

@@ -226,3 +226,10 @@
 "Turn Off Torch" = "Taschenlampe ausschalten";
 "Brightness" = "Helligkeit";
 "Illuminates dark surfaces, niches, trenches, and interiors during capture." = "Leuchtet dunkle Oberflächen, Nischen, Gräben und Innenräume während der Erfassung aus.";
+"Import" = "Importieren";
+"Import Scan" = "Scan importieren";
+"View in 3D" = "In 3D ansehen";
+"Unsupported file format. Please select a .ply, .xyz, .zip file or scan folder." = "Nicht unterstütztes Format. Bitte eine .ply-, .xyz-, .zip-Datei oder einen Scan-Ordner wählen.";
+"The selected file could not be read or does not exist." = "Die ausgewählte Datei konnte nicht gelesen werden oder existiert nicht.";
+"Import failed: %@" = "Import fehlgeschlagen: %@";
+"The point cloud file contains no valid points." = "Die Punktwolkendatei enthält keine gültigen Punkte.";

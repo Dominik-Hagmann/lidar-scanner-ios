@@ -247,6 +247,14 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             catch { DispatchQueue.main.async { self.errorMessage = error.localizedDescription } }
         }
     }
+
+    func importProject(from url: URL) async throws -> GaussianProject {
+        let p = try await Task.detached(priority: .userInitiated) {
+            try GaussianStore.importProject(from: url)
+        }.value
+        refreshArchive()
+        return p
+    }
     func open(_ project: GaussianProject) {
         guard !isBusy, !isRecording else { return }
         isBusy = true; status = String(localized: "Opening saved scan…"); session.pause(); cameraReady = false

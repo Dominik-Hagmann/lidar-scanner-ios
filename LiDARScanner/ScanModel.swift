@@ -389,6 +389,20 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
+    func importScan(from url: URL) async throws -> SavedScan {
+        let scan = try await Task.detached(priority: .userInitiated) {
+            try ScanImporter.importScan(from: url)
+        }.value
+        refreshArchive()
+        return scan
+    }
+
+    func loadPreview(for scan: SavedScan) async -> [PCPoint] {
+        await Task.detached(priority: .userInitiated) {
+            ScanStorage.readPreview(for: scan)
+        }.value
+    }
+
     private func beginBackgroundTask() {
         guard backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Scan sichern") { [weak self] in

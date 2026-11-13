@@ -171,4 +171,29 @@ final class GaussianStore {
         try FileManager.default.removeItem(at: capture)
         return output
     }
+
+    static func importProject(from url: URL) throws -> GaussianProject {
+        let isAccessing = url.startAccessingSecurityScopedResource()
+        defer { if isAccessing { url.stopAccessingSecurityScopedResource() } }
+
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else {
+            throw ScanImportError.invalidFile
+        }
+
+        if isDir.boolValue {
+            let scanJson = url.appendingPathComponent("scan.json")
+            guard FileManager.default.fileExists(atPath: scanJson.path),
+                  let data = try? Data(contentsOf: scanJson),
+                  let project = try? decoder.decode(GaussianProject.self, from: data) else {
+                throw ScanImportError.unsupportedFormat
+            }
+            let target = root.appendingPathComponent(project.id.uuidString, isDirectory: true)
+            if !FileManager.default.fileExists(atPath: target.path) {
+                try FileManager.default.copyItem(at: url, to: target)
+            }
+            return project
+        }
+        throw ScanImportError.unsupportedFormat
+    }
 }

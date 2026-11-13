@@ -5,6 +5,9 @@ struct ArchiveSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var toDelete: SavedScan?
     @State private var sharing: SharedFiles?
+    @State private var showImporter = false
+    @State private var previewScan: SavedScan?
+    @State private var previewPoints: [PCPoint] = []
     var body: some View {
         NavigationStack {
             List {
@@ -20,6 +23,19 @@ struct ArchiveSheet: View {
                         HStack {
                             Text("Points: \(scan.metadata.pointCount.formatted()) · m · Z↑").font(.subheadline)
                             Spacer()
+                            Button {
+                                Task {
+                                    let pts = await model.loadPreview(for: scan)
+                                    await MainActor.run {
+                                        previewPoints = pts
+                                        previewScan = scan
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "cube.transparent").frame(width: 44, height: 36)
+                            }
+                            .accessibilityLabel("View in 3D")
+
                             Menu {
                                 ForEach(scan.existingFormats) { format in
                                     Button(format.title) {
@@ -42,8 +58,43 @@ struct ArchiveSheet: View {
                 }
             }
             .navigationTitle("My Scans")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Import", systemImage: "square.and.arrow.down")
+                    }
+                    .accessibilityLabel("Import Scan")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
             .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
+            .sheet(item: $previewScan) { scan in
+                CloudPreviewSheet(points: previewPoints, total: scan.metadata.pointCount)
+            }
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: ScanImporter.supportedContentTypes,
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    Task {
+                        for url in urls {
+                            do {
+                                _ = try await model.importScan(from: url)
+                            } catch {
+                                await MainActor.run { model.errorMessage = error.localizedDescription }
+                            }
+                        }
+                    }
+                case .failure(let error):
+                    model.errorMessage = error.localizedDescription
+                }
+            }
             .alert("Delete Scan?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
                 Button("Cancel", role: .cancel) { toDelete = nil }
                 Button("Delete", role: .destructive) { if let scan = toDelete { model.delete(scan) }; toDelete = nil }
