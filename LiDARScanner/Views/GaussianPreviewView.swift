@@ -52,10 +52,28 @@ struct GaussianPreviewSheet: View {
     }
 }
 
-private struct GaussianMetalView: UIViewRepresentable {
-    let url: URL
+enum GaussianSource {
+    case url(URL)
+    case points([PCPoint])
+}
+
+struct GaussianMetalView: UIViewRepresentable {
+    let source: GaussianSource
     @Binding var loading: Bool
     @Binding var error: String?
+
+    init(url: URL, loading: Binding<Bool>, error: Binding<String?>) {
+        self.source = .url(url)
+        self._loading = loading
+        self._error = error
+    }
+
+    init(source: GaussianSource, loading: Binding<Bool>, error: Binding<String?>) {
+        self.source = source
+        self._loading = loading
+        self._error = error
+    }
+
     func makeCoordinator() -> Renderer { Renderer() }
     func makeUIView(context: Context) -> MTKView {
         let view = MTKView(frame: .zero, device: MTLCreateSystemDefaultDevice())
@@ -67,7 +85,7 @@ private struct GaussianMetalView: UIViewRepresentable {
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: renderer, action: #selector(Renderer.pinch(_:))))
         renderer.onFailure = { error = $0; loading = false }
         renderer.task = Task { @MainActor in
-            do { try await renderer.load(url); if !Task.isCancelled { loading = false } }
+            do { try await renderer.load(source); if !Task.isCancelled { loading = false } }
             catch { if !Task.isCancelled { renderer.onFailure?(error.localizedDescription) } }
         }
         return view
@@ -88,7 +106,7 @@ private struct GaussianMetalView: UIViewRepresentable {
         var yaw: Float = 0, pitch: Float = 0.15, zoom: Float = 1
         let semaphore = DispatchSemaphore(value: 2)
 
-        func load(_ url: URL) async throws {
+        func load(_ source: GaussianSource) async throws {
             #if arch(x86_64)
             throw GaussianError.message(String(localized: "The 3D viewer requires an Apple Silicon device."))
             #else
@@ -96,8 +114,14 @@ private struct GaussianMetalView: UIViewRepresentable {
                 throw GaussianError.message(String(localized: "Metal graphics are unavailable."))
             }
             self.queue = queue
-            let reader = try AutodetectSceneReader(url)
-            let points = try await reader.readAll()
+            let points: [SplatPoint]
+            switch source {
+            case .url(let url):
+                let reader = try AutodetectSceneReader(url)
+                points = try await reader.readAll()
+            case .points(let pcPoints):
+                points = PCPoint.toSplatPoints(pcPoints)
+            }
             try Task.checkCancellation()
             guard !points.isEmpty else { throw GaussianError.message(String(localized: "The scene contains no Gaussians.")) }
             var low = SIMD3<Float>(repeating: .greatestFiniteMagnitude)

@@ -1,3 +1,4 @@
+import SplatIO
 import SwiftUI
 
 struct ArchiveSheet: View {
@@ -41,6 +42,26 @@ struct ArchiveSheet: View {
                                     Button(format.title) {
                                         sharing = SharedFiles(urls: [scan.url(for: format), scan.metadataURL])
                                     }
+                                }
+                                Button {
+                                    Task {
+                                        do {
+                                            let pts = await model.loadPreview(for: scan)
+                                            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                                            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+                                            let plyURL = tempDir.appendingPathComponent("\(scan.metadata.title)-gaussians.ply")
+                                            let splatPoints = PCPoint.toSplatPoints(pts)
+                                            let writer = try SplatPLYSceneWriter(to: .file(plyURL))
+                                            try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
+                                            try await writer.write(splatPoints)
+                                            try await writer.close()
+                                            await MainActor.run { sharing = SharedFiles(urls: [plyURL]) }
+                                        } catch {
+                                            await MainActor.run { model.errorMessage = error.localizedDescription }
+                                        }
+                                    }
+                                } label: {
+                                    Label("Export 3D Gaussian Splats", systemImage: "aqi.medium")
                                 }
                                 Button("Export Report") {
                                     DispatchQueue.global(qos: .userInitiated).async {

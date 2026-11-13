@@ -20,4 +20,33 @@ final class ScanUITests: XCTestCase {
         let pointCloud = XCTAttachment(screenshot: app.screenshot())
         pointCloud.name = "Point-cloud-mode-iPhone"; pointCloud.lifetime = .keepAlways; add(pointCloud)
     }
+
+    func testGermanLocalizationSettingsAndCredits() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        app.launch()
+
+        let gaussian = app.segmentedControls.buttons["Gaussian Splatting"]
+        XCTAssertTrue(gaussian.waitForExistence(timeout: 10))
+        gaussian.tap()
+        XCTAssertTrue(app.staticTexts["Aufnehmen · Berechnen · Teilen"].waitForExistence(timeout: 5))
+
+        app.segmentedControls.buttons["Punktwolke"].tap()
+        XCTAssertTrue(app.staticTexts["LiDAR · Szene als Punktwolke"].waitForExistence(timeout: 5))
+        let germanMain = XCTAttachment(screenshot: app.screenshot())
+        germanMain.name = "German-Point-cloud-iPhone"; germanMain.lifetime = .keepAlways; add(germanMain)
+
+        app.buttons["Scan-Einstellungen"].tap()
+        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 5))
+        let germanSettings = XCTAttachment(screenshot: app.screenshot())
+        germanSettings.name = "German-Settings-iPhone"; germanSettings.lifetime = .keepAlways; add(germanSettings)
+
+        app.buttons["Projekt & Credits"].tap()
+        XCTAssertTrue(app.staticTexts["Quellcode auf GitHub"].waitForExistence(timeout: 5))
+        let germanCredits = XCTAttachment(screenshot: app.screenshot())
+        germanCredits.name = "German-Credits-iPhone"; germanCredits.lifetime = .keepAlways; add(germanCredits)
+
+        app.buttons["Fertig"].tap()
+    }
 }

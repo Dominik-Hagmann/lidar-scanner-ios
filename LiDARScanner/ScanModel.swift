@@ -1,7 +1,9 @@
 import ARKit
 import AVFoundation
 import Combine
+import SplatIO
 import SwiftUI
+import simd
 
 /// UI state and ARSession delegate are main-queue confined. All point-cloud,
 /// metadata counters and file operations are confined to `worker`.
@@ -316,6 +318,50 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     func exportReport() {
         saveCurrent(share: false, report: true)
+    }
+
+    func exportGaussians() {
+        guard !isBusy, let cloud else { return }
+        if isRecording { pauseAndSave() }
+        isBusy = true
+        let cleanTitle = scanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = cleanTitle.isEmpty ? "LiDAR-Scan" : cleanTitle
+        worker.async {
+            let stats = pc_stats(cloud)
+            guard stats.pointCount > 0 else {
+                DispatchQueue.main.async { self.isBusy = false }
+                return
+            }
+            let count = Int(stats.pointCount)
+            var points = [PCPoint](repeating: PCPoint(), count: count)
+            let written = points.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
+            if written < count { points.removeLast(count - written) }
+
+            Task.detached(priority: .userInitiated) {
+                do {
+                    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+                    let plyURL = tempDir.appendingPathComponent("\(title)-gaussians.ply")
+
+                    let splatPoints = PCPoint.toSplatPoints(points)
+                    let writer = try SplatPLYSceneWriter(to: .file(plyURL))
+                    try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splatPoints.count)
+                    try await writer.write(splatPoints)
+                    try await writer.close()
+
+                    await MainActor.run {
+                        self.isBusy = false
+                        self.sharedFiles = SharedFiles(urls: [plyURL])
+                        self.notice = String(localized: "3D Gaussian Splats exported successfully.")
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isBusy = false
+                        self.errorMessage = String(localized: "Exporting Gaussians failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 
     func saveCurrent(share: Bool, report: Bool = false) {

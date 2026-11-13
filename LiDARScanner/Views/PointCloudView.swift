@@ -1,7 +1,41 @@
 import ARKit
+import MetalKit
+import MetalSplatter
 import SceneKit
+import SplatIO
 import SwiftUI
 import simd
+
+extension PCPoint {
+    static func toSplatPoints(_ points: [PCPoint]) -> [SplatPoint] {
+        guard !points.isEmpty else { return [] }
+        var low = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
+        var high = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
+        for p in points where p.x.isFinite && p.y.isFinite && p.z.isFinite {
+            let pos = SIMD3<Float>(p.x, p.y, p.z)
+            low = simd_min(low, pos)
+            high = simd_max(high, pos)
+        }
+        let extent = high - low
+        let surfaceEstimate = 2 * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x)
+        let estimatedSpacing = sqrt(max(0.0001, surfaceEstimate) / Float(max(1, points.count)))
+        let splatRadius: Float = max(0.006, min(0.035, estimatedSpacing * 0.95))
+        let rotation = simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
+        let scale = SplatPoint.Scale.linearFloat(SIMD3<Float>(repeating: splatRadius))
+        let opacity = SplatPoint.Opacity.linearFloat(0.92)
+
+        return points.compactMap { p -> SplatPoint? in
+            guard p.x.isFinite && p.y.isFinite && p.z.isFinite else { return nil }
+            return SplatPoint(
+                position: SIMD3<Float>(p.x, p.y, p.z),
+                color: .sRGBUInt8(SIMD3<UInt8>(p.r, p.g, p.b)),
+                opacity: opacity,
+                scale: scale,
+                rotation: rotation
+            )
+        }
+    }
+}
 
 enum PointGeometry {
     static func make(_ points: [PCPoint]) -> SCNGeometry? {
@@ -93,11 +127,27 @@ struct OrbitCloudView: UIViewRepresentable {
     func updateUIView(_ uiView: SCNView, context: Context) {}
 }
 
+enum RenderMode: String, CaseIterable, Identifiable {
+    case points = "Points"
+    case gaussians = "Gaussians"
+    var id: String { rawValue }
+    var title: LocalizedStringKey {
+        switch self {
+        case .points: return "Point Cloud"
+        case .gaussians: return "Gaussians"
+        }
+    }
+}
+
 struct CloudPreviewSheet: View {
     let points: [PCPoint]
     let total: Int
     @Binding var isFullScreen: Bool
     @Environment(\.dismiss) private var dismiss
+    @State private var renderMode: RenderMode = .points
+    @State private var gaussianLoading = true
+    @State private var gaussianError: String?
+    @State private var sharing: SharedFiles?
 
     init(points: [PCPoint], total: Int, isFullScreen: Binding<Bool> = .constant(false)) {
         self.points = points
@@ -107,42 +157,120 @@ struct CloudPreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            OrbitCloudView(points: points).ignoresSafeArea(edges: .bottom)
-                .overlay(alignment: .bottom) {
-                    if !isFullScreen {
-                        Text("Rotate with One Finger · Pinch to Zoom\nPreview points: \(points.count.formatted()) of \(total.formatted()). The export contains all points.")
-                            .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
-                            .padding(10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-                            .padding(.horizontal).padding(.bottom, 16)
-                    } else {
-                        Text("\(points.count.formatted()) / \(total.formatted()) points")
-                            .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .padding(.bottom, 16)
-                    }
-                }
-                .navigationTitle("Point Cloud").navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                isFullScreen.toggle()
+            ZStack {
+                Color(red: 0.035, green: 0.055, blue: 0.07).ignoresSafeArea()
+                if renderMode == .points {
+                    OrbitCloudView(points: points).ignoresSafeArea(edges: .bottom)
+                } else {
+                    GaussianMetalView(source: .points(points), loading: $gaussianLoading, error: $gaussianError)
+                        .ignoresSafeArea(edges: .bottom)
+                        .overlay {
+                            if gaussianLoading {
+                                ProgressView("Generating 3D Gaussians…")
+                                    .padding()
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                             }
-                        } label: {
-                            Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            if let gaussianError {
+                                Text(gaussianError)
+                                    .padding()
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            }
                         }
-                        .accessibilityLabel(LocalizedStringKey(isFullScreen ? "Minimize" : "Maximize"))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !isFullScreen {
+                    VStack(spacing: 4) {
+                        Text(LocalizedStringKey(renderMode == .points ? "Rotate with One Finger · Pinch to Zoom" : "Drag to Rotate · Pinch to Zoom"))
+                            .font(.caption.bold())
+                        Text(renderMode == .points
+                            ? String.localizedStringWithFormat(NSLocalizedString("Preview points: %@ of %@. The export contains all points.", comment: ""), points.count.formatted(), total.formatted())
+                            : String.localizedStringWithFormat(NSLocalizedString("%@ 3D Gaussian Splats · Real-time Metal Rendering", comment: ""), points.count.formatted()))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            isFullScreen = false
-                            dismiss()
+                    .multilineTextAlignment(.center)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
+                } else {
+                    Text(renderMode == .points
+                        ? String.localizedStringWithFormat(NSLocalizedString("%@ / %@ points", comment: ""), points.count.formatted(), total.formatted())
+                        : String.localizedStringWithFormat(NSLocalizedString("%@ Gaussians", comment: ""), points.count.formatted()))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(.bottom, 16)
+                }
+            }
+            .navigationTitle(LocalizedStringKey(renderMode == .points ? "Point Cloud" : "3D Gaussians"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isFullScreen.toggle()
                         }
+                    } label: {
+                        Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    }
+                    .accessibilityLabel(LocalizedStringKey(isFullScreen ? "Minimize" : "Maximize"))
+                }
+                ToolbarItem(placement: .principal) {
+                    Picker("Mode", selection: $renderMode) {
+                        Text(RenderMode.points.title).tag(RenderMode.points)
+                        Text(RenderMode.gaussians.title).tag(RenderMode.gaussians)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 220)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            exportGaussians()
+                        } label: {
+                            Label("Export 3D Gaussian Splats", systemImage: "aqi.medium")
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Export Options")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isFullScreen = false
+                        dismiss()
                     }
                 }
+            }
+            .sheet(item: $sharing) { ShareSheet(urls: $0.urls) }
         }
         .interactiveDismissDisabled(true)
+    }
+
+    private func exportGaussians() {
+        Task {
+            do {
+                let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+                let plyURL = tempDir.appendingPathComponent("pointcloud-gaussians.ply")
+                let splats = PCPoint.toSplatPoints(points)
+                let writer = try SplatPLYSceneWriter(to: .file(plyURL))
+                try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splats.count)
+                try await writer.write(splats)
+                try await writer.close()
+                await MainActor.run {
+                    sharing = SharedFiles(urls: [plyURL])
+                }
+            } catch {
+                await MainActor.run {
+                    gaussianError = error.localizedDescription
+                }
+            }
+        }
     }
 }
 

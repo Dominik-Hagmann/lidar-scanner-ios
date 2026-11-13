@@ -40,8 +40,11 @@ struct ScanModeView: View {
                                 }
                             }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
             .background(.ultraThinMaterial)
             .disabled(isLocked)
         }

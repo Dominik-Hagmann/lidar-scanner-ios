@@ -14,7 +14,7 @@ struct CreditsView: View {
     private var appVersionString: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4"
-        return "Version \(version) (Build \(build))"
+        return String.localizedStringWithFormat(NSLocalizedString("Version %@ (Build %@)", comment: ""), version, build)
     }
 
     var body: some View {

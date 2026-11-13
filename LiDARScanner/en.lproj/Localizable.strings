@@ -266,3 +266,17 @@
 "AI-Assisted Development" = "AI-Assisted Development";
 "This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT." = "This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT.";
 "Released under the MIT License.\nFree and open-source software." = "Released under the MIT License.\nFree and open-source software.";
+"Version %@ (Build %@)" = "Version %@ (Build %@)";
+"3D Gaussians" = "3D Gaussians";
+"Export 3D Gaussian Splats" = "Export 3D Gaussian Splats";
+"Generating 3D Gaussians…" = "Generating 3D Gaussians…";
+"3D View" = "3D View";
+"3D Gaussian Splats exported successfully." = "3D Gaussian Splats exported successfully.";
+"Exporting Gaussians failed: %@" = "Exporting Gaussians failed: %@";
+"%@ 3D Gaussian Splats · Real-time Metal Rendering" = "%@ 3D Gaussian Splats · Real-time Metal Rendering";
+"%@ Gaussians" = "%@ Gaussians";
+"Rotate with One Finger · Pinch to Zoom" = "Rotate with One Finger · Pinch to Zoom";
+"Preview points: %@ of %@. The export contains all points." = "Preview points: %@ of %@. The export contains all points.";
+"%@ / %@ points" = "%@ / %@ points";
+"Mode" = "Mode";
+"Export Options" = "Export Options";

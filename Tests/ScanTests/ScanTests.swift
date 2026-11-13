@@ -1,5 +1,6 @@
 import XCTest
 import PDFKit
+import SplatIO
 import simd
 @testable import LiDARScanner
 
@@ -251,5 +252,65 @@ final class ScanTests: XCTestCase {
         let doc = try XCTUnwrap(PDFDocument(url: url))
         XCTAssertGreaterThan(doc.pageCount, 0)
         XCTAssertTrue(doc.string?.contains("Test Scan") == true)
+    }
+
+    func testPCPointToSplatPointsConversion() {
+        let p1 = PCPoint(x: 1.0, y: 2.0, z: 3.0, r: 255, g: 128, b: 64, confidence: 2)
+        let p2 = PCPoint(x: 1.1, y: 2.1, z: 3.1, r: 0, g: 255, b: 128, confidence: 1)
+        let splats = PCPoint.toSplatPoints([p1, p2])
+        XCTAssertEqual(splats.count, 2)
+        XCTAssertEqual(splats[0].position.x, 1.0, accuracy: 0.001)
+        XCTAssertEqual(splats[0].position.y, 2.0, accuracy: 0.001)
+        XCTAssertEqual(splats[0].position.z, 3.0, accuracy: 0.001)
+        XCTAssertEqual(splats[0].color.asSRGBUInt8.x, 255)
+        XCTAssertEqual(splats[0].color.asSRGBUInt8.y, 128)
+        XCTAssertEqual(splats[0].color.asSRGBUInt8.z, 64)
+        XCTAssertGreaterThan(splats[0].scale.asLinearFloat.x, 0.005)
+        XCTAssertLessThan(splats[0].scale.asLinearFloat.x, 0.05)
+    }
+
+    func testGaussianPLYExportAndReadBack() async throws {
+        let points = [
+            PCPoint(x: 0.0, y: 0.0, z: 1.0, r: 255, g: 0, b: 0, confidence: 2),
+            PCPoint(x: 0.1, y: 0.2, z: 1.1, r: 0, g: 255, b: 0, confidence: 2),
+            PCPoint(x: -0.1, y: 0.1, z: 1.2, r: 0, g: 0, b: 255, confidence: 2)
+        ]
+        let splats = PCPoint.toSplatPoints(points)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ply")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let writer = try SplatPLYSceneWriter(to: .file(url))
+        try await writer.start(sphericalHarmonicDegree: 0, binary: true, pointCount: splats.count)
+        try await writer.write(splats)
+        try await writer.close()
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        let reader = try AutodetectSceneReader(url)
+        let readPoints = try await reader.readAll()
+        XCTAssertEqual(readPoints.count, 3)
+        XCTAssertEqual(readPoints[0].position.x, 0.0, accuracy: 0.001)
+        XCTAssertEqual(readPoints[0].position.y, 0.0, accuracy: 0.001)
+        XCTAssertEqual(readPoints[0].position.z, 1.0, accuracy: 0.001)
+    }
+
+    func testEnglishAndGermanLocalizationsAreCompleteAndLoadable() throws {
+        let bundle = Bundle.main
+        XCTAssertTrue(bundle.localizations.contains("en"), "Missing en localization in app bundle")
+        XCTAssertTrue(bundle.localizations.contains("de"), "Missing de localization in app bundle")
+
+        let enPath = try XCTUnwrap(bundle.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: "en"))
+        let dePath = try XCTUnwrap(bundle.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: "de"))
+        let enDict = try XCTUnwrap(NSDictionary(contentsOfFile: enPath) as? [String: String])
+        let deDict = try XCTUnwrap(NSDictionary(contentsOfFile: dePath) as? [String: String])
+
+        XCTAssertFalse(enDict.isEmpty)
+        XCTAssertEqual(Set(enDict.keys), Set(deDict.keys))
+
+        XCTAssertEqual(deDict["%@ / %@ points"], "%@ / %@ Punkte")
+        XCTAssertEqual(deDict["Mode"], "Modus")
+        XCTAssertEqual(deDict["Export Options"], "Exportoptionen")
+        XCTAssertEqual(deDict["Rotate with One Finger · Pinch to Zoom"], "Drehen mit einem Finger · Aufziehen zum Zoomen")
+        XCTAssertEqual(deDict["Preview points: %@ of %@. The export contains all points."], "Punkte in der Vorschau: %@ von %@. Export enthält alle Punkte.")
+        XCTAssertEqual(deDict["About & Credits"], "Über & Danksagung")
     }
 }
