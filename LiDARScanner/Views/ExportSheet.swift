@@ -31,9 +31,11 @@ struct ExportSheet: View {
                         }
                     }.disabled(model.isBusy || model.pointCount == 0)
                     if model.hasMesh {
-                        Button { model.saveCurrent(share: false, shareMesh: true) } label: {
-                            Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
-                        }.disabled(model.isBusy || model.pointCount == 0)
+                        MeshExportMenu(selectedFormat: model.meshExportFormat) { meshFormat in
+                            model.meshExportFormat = meshFormat
+                            model.saveCurrent(share: false, shareMesh: true, meshFormat: meshFormat)
+                        }
+                        .disabled(model.isBusy || model.pointCount == 0)
                     }
                     ReportExportMenu { format in
                         model.saveCurrent(share: false, reportFormat: format)

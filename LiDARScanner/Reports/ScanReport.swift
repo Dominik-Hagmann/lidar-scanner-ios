@@ -146,7 +146,7 @@ enum ScanReport {
                 (text("Units & Orientation", "Einheit & Ausrichtung"), text("Metres · Local right-handed · Z pointing up", "Meter · Lokal rechtshändig · Z nach oben")),
                 (text("ARKit Transform", "ARKit-Transformation"), "(x, y, z) → (x, −z, y)"),
                 (text("Reference System", "Referenzsystem"), text("Local frame (no EPSG / no north alignment unless external GCPs applied)", "Lokales System (kein EPSG / keine Nordausrichtung ohne externe Passpunkte)")),
-                (text("Supported Formats", "Exportformate"), "Binary/ASCII PLY, CSV, LAS, LAZ, ASTM E57 (RGB + Confidence); XYZ; OBJ Mesh")
+                (text("Supported Formats", "Exportformate"), "Binary/ASCII PLY, CSV, LAS, LAZ, ASTM E57 (RGB + Confidence); XYZ; Mesh: OBJ, STL, PLY, GLB")
             ])
         ]
         if let loc = p.location {

@@ -192,8 +192,16 @@ struct GaussianScannerView: View {
                     Text(L("This capture has too few views for local processing. You can export it or start a new scan."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                HStack {
-                    Button(L("New Scan"), systemImage: "plus") { model.newCapture() }
+                HStack(alignment: .center) {
+                    Button {
+                        model.newCapture()
+                    } label: {
+                        Label(L("New Scan"), systemImage: "plus")
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .contentShape(Capsule())
+                    }
                     Spacer()
                     Menu {
                         Section {
@@ -228,10 +236,13 @@ struct GaussianScannerView: View {
                             }
                             Button(L("Export Processing Log"), systemImage: "list.bullet.rectangle") { model.share(.log) }
                         }
-                    } label: { Label(L("Share"), systemImage: "square.and.arrow.up") }
+                    } label: {
+                        ShareActionButtonLabel(isBusy: false, tint: mint)
+                    }
                 }
+                .padding(.top, 4)
             }
-        }.padding(20).frame(maxWidth: 680).frame(maxWidth: .infinity)
+        }.padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 24).frame(maxWidth: 680).frame(maxWidth: .infinity)
             .background(.ultraThinMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
     }
 }

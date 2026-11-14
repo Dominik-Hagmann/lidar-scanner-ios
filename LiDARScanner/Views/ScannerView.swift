@@ -245,9 +245,15 @@ struct ScannerView: View {
                         .disabled((model.preview.isEmpty && !model.hasMesh) || model.isBusy)
                         .accessibilityLabel(L("View Point Cloud in 3D"))
                     }
-                    HStack {
-                        Button(L("New Scan"), systemImage: "plus") {
+                    HStack(alignment: .center) {
+                        Button {
                             confirmReset = true
+                        } label: {
+                            Label(L("New Scan"), systemImage: "plus")
+                                .font(.subheadline.weight(.medium))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                                .contentShape(Capsule())
                         }
                         .disabled(model.isBusy || !model.supported || model.cameraDenied)
 
@@ -275,20 +281,19 @@ struct ScannerView: View {
                                         }
                                     }
                                 } label: {
-                                    Label(L("Export Formats"), systemImage: "arrow.triangle.branch")
+                                    Label(L("Export 3D Point Cloud"), systemImage: "arrow.triangle.branch")
                                 }
 
                                 Button {
                                     showExport = true
                                 } label: {
-                                    Label(L("Export Point Cloud…"), systemImage: "doc.badge.gearshape")
+                                    Label(L("Export Options…"), systemImage: "doc.badge.gearshape")
                                 }
 
                                 if model.hasMesh {
-                                    Button {
-                                        model.saveCurrent(share: false, shareMesh: true)
-                                    } label: {
-                                        Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
+                                    MeshExportMenu(selectedFormat: model.meshExportFormat) { meshFormat in
+                                        model.meshExportFormat = meshFormat
+                                        model.saveCurrent(share: false, shareMesh: true, meshFormat: meshFormat)
                                     }
                                 }
                             }
@@ -316,15 +321,15 @@ struct ScannerView: View {
                                 }
                             }
                         } label: {
-                            if model.isBusy { ProgressView().padding(.trailing, 4) }
-                            Label(L(model.isBusy ? "Saving…" : "Share"), systemImage: "square.and.arrow.up")
+                            ShareActionButtonLabel(isBusy: model.isBusy, tint: mint)
                         }
                         .disabled(model.isBusy)
-                    }.font(.subheadline.weight(.medium))
+                    }
+                    .padding(.top, 4)
                 }
             }
         }
-        .padding(20).frame(maxWidth: 680).frame(maxWidth: .infinity)
+        .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 24).frame(maxWidth: 680).frame(maxWidth: .infinity)
         .background(.ultraThinMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
     }
 }

@@ -326,6 +326,7 @@ struct SavedScan: Identifiable {
     var id: String { directory.lastPathComponent }
     var metadataURL: URL { directory.appendingPathComponent("metadata.json") }
     var meshURL: URL { directory.appendingPathComponent("mesh.obj") }
+    func meshURL(for format: MeshExportFormat) -> URL { directory.appendingPathComponent(format.fileName) }
     var hasMesh: Bool { FileManager.default.fileExists(atPath: meshURL.path) }
     var gcpCSVURL: URL { directory.appendingPathComponent("gcps.csv") }
     var hasGCPs: Bool { !(metadata.groundControlPoints?.isEmpty ?? true) || FileManager.default.fileExists(atPath: gcpCSVURL.path) }

@@ -403,6 +403,48 @@ struct ReportExportMenu: View {
     }
 }
 
+struct MeshExportMenu: View {
+    var selectedFormat: MeshExportFormat? = nil
+    let onSelect: (MeshExportFormat) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(MeshExportFormat.allCases) { format in
+                Button {
+                    onSelect(format)
+                } label: {
+                    if format == selectedFormat {
+                        Label(format.title, systemImage: "checkmark")
+                    } else {
+                        Text(format.title)
+                    }
+                }
+            }
+        } label: {
+            Label(L("Export 3D Mesh"), systemImage: "cube")
+        }
+    }
+}
+
+struct ShareActionButtonLabel: View {
+    let isBusy: Bool
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if isBusy { ProgressView() }
+            Label(L(isBusy ? "Saving…" : "Share"), systemImage: "square.and.arrow.up")
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(tint.opacity(0.20), in: Capsule())
+        .overlay(Capsule().stroke(tint.opacity(0.45), lineWidth: 1))
+        .contentShape(Capsule())
+    }
+}
+
 struct AnnotationEditorState: Identifiable {
     let id = UUID()
     let existing: CloudAnnotation?

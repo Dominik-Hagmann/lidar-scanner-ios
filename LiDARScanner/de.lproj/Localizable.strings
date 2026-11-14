@@ -398,3 +398,11 @@
 "Word Document (.docx)" = "Word-Dokument (.docx)";
 "Hide Mesh" = "Mesh ausblenden";
 "Show Mesh" = "Mesh einblenden";
+"Export 3D Point Cloud" = "3D-Punktwolke exportieren";
+"Export Options…" = "Export-Optionen…";
+"Export 3D Mesh" = "3D-Mesh exportieren";
+"Wavefront OBJ (.obj)" = "Wavefront OBJ (.obj)";
+"Binary STL (.stl)" = "Binäres STL (.stl)";
+"Stanford PLY Mesh (.ply)" = "Stanford PLY Mesh (.ply)";
+"glTF 2.0 Binary (.glb)" = "glTF 2.0 Binär (.glb)";
+"Could not read saved mesh." = "Gespeichertes Mesh konnte nicht gelesen werden.";

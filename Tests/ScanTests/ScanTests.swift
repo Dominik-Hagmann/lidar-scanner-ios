@@ -803,5 +803,24 @@ final class ScanTests: XCTestCase {
         XCTAssertNotNil(surface)
         XCTAssertEqual(wire?.materials.first?.fillMode, .lines)
         XCTAssertEqual(surface?.materials.first?.fillMode, .fill)
+
+        // Multi-format mesh exports (STL, PLY, GLB)
+        let stlURL = tmp.appendingPathComponent("mesh.stl")
+        try MeshExporter.write(mesh, format: .stl, to: stlURL)
+        let stlData = try Data(contentsOf: stlURL)
+        XCTAssertEqual(stlData.count, 84 + 2 * 50)
+
+        let plyURL = tmp.appendingPathComponent("mesh.ply")
+        try MeshExporter.write(mesh, format: .ply, to: plyURL)
+        let plyData = try Data(contentsOf: plyURL)
+        let plyHead = String(decoding: plyData.prefix(200), as: UTF8.self)
+        XCTAssertTrue(plyHead.contains("element vertex 4"))
+        XCTAssertTrue(plyHead.contains("element face 2"))
+
+        let glbURL = tmp.appendingPathComponent("mesh.glb")
+        try MeshExporter.write(mesh, format: .glb, to: glbURL)
+        let glbData = try Data(contentsOf: glbURL)
+        XCTAssertGreaterThan(glbData.count, 20)
+        XCTAssertEqual(String(decoding: glbData.prefix(4), as: UTF8.self), "glTF")
     }
 }

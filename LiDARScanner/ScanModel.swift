@@ -14,6 +14,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     @Published var scanTitle = ""
     @Published var exportFormat: ExportFormat = .binaryPLY
+    @Published var meshExportFormat: MeshExportFormat = .obj
     @Published private(set) var pointCount = 0
     @Published private(set) var activeSeconds: Double = 0
     @Published private(set) var processedFrames = 0
@@ -451,7 +452,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         saveCurrent(share: false, reportFormat: format)
     }
 
-    func saveCurrent(share: Bool, reportFormat: ReportFormat? = nil, shareMesh: Bool = false) {
+    func saveCurrent(share: Bool, reportFormat: ReportFormat? = nil, shareMesh: Bool = false, meshFormat: MeshExportFormat? = nil) {
         guard !isBusy, let cloud else { return }
         isRecording = false
         LocationService.shared.stopUpdating()
@@ -467,6 +468,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             ? "Capture session closed; not resumable. " + (closedReason ?? "")
             : "Capture paused; ARSession remained active."
         let format = share ? exportFormat : .binaryPLY
+        let resolvedMeshFormat = meshFormat ?? meshExportFormat
         let recordedLocation = config.recordLocation ? LocationService.shared.currentLocation : nil
         let currentMeshAnchors = Array(meshAnchors.values)
         let currentGCPs = activeGroundControlPoints
@@ -516,6 +518,17 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 if !currentMeshAnchors.isEmpty && (!FileManager.default.fileExists(atPath: saved.meshURL.path) || previousSavedSamples != stats.acceptedSamples) {
                     try? MeshExporter.writeOBJ(anchors: currentMeshAnchors, to: saved.meshURL)
                 }
+                let meshExportURL = saved.meshURL(for: resolvedMeshFormat)
+                if shareMesh {
+                    if !FileManager.default.fileExists(atPath: meshExportURL.path) || previousSavedSamples != stats.acceptedSamples {
+                        if !currentMeshAnchors.isEmpty {
+                            try MeshExporter.write(anchors: currentMeshAnchors, format: resolvedMeshFormat, to: meshExportURL)
+                        } else if FileManager.default.fileExists(atPath: saved.meshURL.path),
+                                  let loaded = MeshPreviewData.fromOBJ(url: saved.meshURL) {
+                            try MeshExporter.write(loaded, format: resolvedMeshFormat, to: meshExportURL)
+                        }
+                    }
+                }
                 var snapshot = [PCPoint](repeating: PCPoint(), count: min(40_000, Int(stats.pointCount)))
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
                 let archive = try ScanStorage.list()
@@ -542,8 +555,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         self.sharedFiles = SharedFiles(urls: urls)
                     }
                     if let reportURL { self.sharedFiles = SharedFiles(urls: [reportURL]) }
-                    if shareMesh && FileManager.default.fileExists(atPath: saved.meshURL.path) {
-                        self.sharedFiles = SharedFiles(urls: [saved.meshURL])
+                    if shareMesh && FileManager.default.fileExists(atPath: meshExportURL.path) {
+                        self.sharedFiles = SharedFiles(urls: [meshExportURL])
                     }
                     self.endBackgroundTask()
                 }
@@ -635,9 +648,28 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    func shareMesh(_ scan: SavedScan) {
+    func shareMesh(_ scan: SavedScan, format: MeshExportFormat = .obj, completion: ((URL) -> Void)? = nil) {
         guard scan.hasMesh else { return }
-        sharedFiles = SharedFiles(urls: [scan.meshURL])
+        let targetURL = scan.meshURL(for: format)
+        if format == .obj || FileManager.default.fileExists(atPath: targetURL.path) {
+            if let completion { completion(targetURL) }
+            else { sharedFiles = SharedFiles(urls: [targetURL]) }
+            return
+        }
+        worker.async {
+            do {
+                guard let loaded = MeshPreviewData.fromOBJ(url: scan.meshURL) else {
+                    throw ScanFailure.message(L("Could not read saved mesh."))
+                }
+                try MeshExporter.write(loaded, format: format, to: targetURL)
+                DispatchQueue.main.async {
+                    if let completion { completion(targetURL) }
+                    else { self.sharedFiles = SharedFiles(urls: [targetURL]) }
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
+            }
+        }
     }
 
     func shareGCPs(_ scan: SavedScan) {

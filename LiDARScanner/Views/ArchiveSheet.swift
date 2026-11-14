@@ -174,25 +174,29 @@ struct ArchiveSheet: View {
     private func shareMenu(for scan: SavedScan) -> some View {
         Menu {
             Section {
-                ForEach(scan.existingFormats) { format in
-                    Button {
-                        var urls = [scan.url(for: format), scan.metadataURL]
-                        if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                            urls.append(scan.gcpCSVURL)
+                Menu {
+                    ForEach(scan.existingFormats) { format in
+                        Button {
+                            var urls = [scan.url(for: format), scan.metadataURL]
+                            if FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
+                                urls.append(scan.gcpCSVURL)
+                            }
+                            if FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path) {
+                                urls.append(scan.annotationsGeoJSONURL)
+                            }
+                            sharing = SharedFiles(urls: urls)
+                        } label: {
+                            Label(format.title, systemImage: "cube.transparent")
                         }
-                        if FileManager.default.fileExists(atPath: scan.annotationsGeoJSONURL.path) {
-                            urls.append(scan.annotationsGeoJSONURL)
-                        }
-                        sharing = SharedFiles(urls: urls)
-                    } label: {
-                        Label(format.title, systemImage: "cube.transparent")
                     }
+                } label: {
+                    Label(L("Export 3D Point Cloud"), systemImage: "cube.transparent")
                 }
                 if scan.hasMesh {
-                    Button {
-                        sharing = SharedFiles(urls: [scan.meshURL])
-                    } label: {
-                        Label(L("Export 3D Mesh (OBJ)"), systemImage: "cube")
+                    MeshExportMenu { meshFormat in
+                        model.shareMesh(scan, format: meshFormat) { url in
+                            sharing = SharedFiles(urls: [url])
+                        }
                     }
                 }
             }
