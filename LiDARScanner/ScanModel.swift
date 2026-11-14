@@ -61,6 +61,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private var closedReasonPhrase: L10nPhrase?
     private var cancellables: Set<AnyCancellable> = []
     private var meshAnchors: [UUID: ARMeshAnchor] = [:]
+    private var meshChunkVersions: [UUID: Int] = [:]
+    private var meshReconstructionActive = false
     @Published private(set) var meshVersion = 0
     private var lastMeshPublishTime: TimeInterval = 0
     var hasMesh: Bool { !meshAnchors.isEmpty }
@@ -154,19 +156,26 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         setNotice("Please allow camera access in the device settings.")
     }
 
-    private func startSession(reset: Bool) {
-        guard foreground, supported, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
-        if reset {
-            meshAnchors.removeAll()
-            meshVersion += 1
-        }
+    private func makeConfiguration(meshReconstruction: Bool) -> ARWorldTrackingConfiguration {
         let configuration = ARWorldTrackingConfiguration()
         configuration.frameSemantics = [.sceneDepth]
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+        if meshReconstruction, ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
             configuration.sceneReconstruction = .mesh
         }
         configuration.worldAlignment = .gravity
         configuration.isLightEstimationEnabled = false
+        return configuration
+    }
+
+    private func startSession(reset: Bool) {
+        guard foreground, supported, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
+        if reset {
+            meshAnchors.removeAll()
+            meshChunkVersions.removeAll()
+            meshReconstructionActive = false
+            meshVersion += 1
+        }
+        let configuration = makeConfiguration(meshReconstruction: meshReconstructionActive)
         session.run(configuration, options: reset ? [.resetTracking, .removeExistingAnchors] : [])
         sessionStarted = true
         cameraDenied = false
@@ -201,6 +210,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         worker.async { self.workerLastTimestamp = nil }
         lastScheduledTime = -1
         isRecording = true
+        if !meshReconstructionActive && ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            meshReconstructionActive = true
+            session.run(makeConfiguration(meshReconstruction: true), options: [])
+        }
         UIApplication.shared.isIdleTimerDisabled = true
         setNotice("Scanning. Move the camera slowly and steadily.")
     }
@@ -230,6 +243,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             self.cachedScan = nil; self.savedSamples = 0; self.savedTitle = ""
             DispatchQueue.main.async {
                 self.meshAnchors.removeAll()
+                self.meshChunkVersions.removeAll()
+                self.meshReconstructionActive = false
                 self.meshVersion += 1
                 self.activeGroundControlPoints = []
                 self.activeAnnotations = []
@@ -373,10 +388,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
 
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        guard isRecording, !isBusy, !sessionClosed else { return }
         var addedMesh = false
         for anchor in anchors {
             if let mesh = anchor as? ARMeshAnchor {
                 meshAnchors[mesh.identifier] = mesh
+                meshChunkVersions[mesh.identifier, default: 0] += 1
                 addedMesh = true
             }
         }
@@ -384,10 +401,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        guard isRecording, !isBusy, !sessionClosed else { return }
         var updatedMesh = false
         for anchor in anchors {
             if let mesh = anchor as? ARMeshAnchor {
                 meshAnchors[mesh.identifier] = mesh
+                meshChunkVersions[mesh.identifier, default: 0] += 1
                 updatedMesh = true
             }
         }
@@ -401,18 +420,20 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        guard isRecording, !isBusy, !sessionClosed else { return }
         var removedMesh = false
         for anchor in anchors {
             if let mesh = anchor as? ARMeshAnchor {
                 meshAnchors.removeValue(forKey: mesh.identifier)
+                meshChunkVersions.removeValue(forKey: mesh.identifier)
                 removedMesh = true
             }
         }
         if removedMesh { meshVersion += 1 }
     }
 
-    func meshAnchor(for id: UUID) -> ARMeshAnchor? {
-        meshAnchors[id]
+    func meshAnchorEntries() -> [(id: UUID, anchor: ARMeshAnchor, version: Int)] {
+        meshAnchors.map { (id: $0.key, anchor: $0.value, version: meshChunkVersions[$0.key] ?? 0) }
     }
 
     func currentMeshPreviewData() -> MeshPreviewData? {

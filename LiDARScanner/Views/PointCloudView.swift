@@ -39,78 +39,40 @@ struct LiveCameraView: UIViewRepresentable {
     let showPoints: Bool
     let showMesh: Bool
 
-    final class Coordinator: NSObject, ARSCNViewDelegate {
+    final class Coordinator {
         let node = SCNNode()
+        let meshRootNode = SCNNode()
         var version = -1
-        var meshVersion = -1
-        private let lock = NSLock()
-        private var currentShowMesh = false
-        private var anchorNodes: [UUID: SCNNode] = [:]
-        private var dirtyAnchors: Set<UUID> = []
+        var renderedMeshVersion = -1
+        private var chunkNodes: [UUID: (node: SCNNode, version: Int)] = [:]
 
-        func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
-            guard let meshAnchor = anchor as? ARMeshAnchor else { return nil }
-            let anchorNode = SCNNode()
-            let visible: Bool
-            lock.lock()
-            visible = currentShowMesh
-            anchorNodes[meshAnchor.identifier] = anchorNode
-            if !visible {
-                dirtyAnchors.insert(meshAnchor.identifier)
-            }
-            lock.unlock()
-            anchorNode.isHidden = !visible
-            if visible {
-                anchorNode.geometry = MeshGeometry.makeWireframeGeometry(from: meshAnchor)
-            }
-            return anchorNode
-        }
+        func syncMeshes(showMesh: Bool, model: ScanModel) {
+            meshRootNode.isHidden = !showMesh
+            guard showMesh else { return }
+            let currentVersion = model.meshVersion
+            guard currentVersion != renderedMeshVersion else { return }
+            renderedMeshVersion = currentVersion
 
-        func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
-            guard let meshAnchor = anchor as? ARMeshAnchor else { return }
-            let visible: Bool
-            lock.lock()
-            visible = currentShowMesh
-            if anchorNodes[meshAnchor.identifier] == nil {
-                anchorNodes[meshAnchor.identifier] = node
+            let entries = model.meshAnchorEntries()
+            let activeIDs = Set(entries.map(\.id))
+            for (id, entry) in chunkNodes where !activeIDs.contains(id) {
+                entry.node.removeFromParentNode()
+                chunkNodes.removeValue(forKey: id)
             }
-            if !visible {
-                dirtyAnchors.insert(meshAnchor.identifier)
-            } else {
-                dirtyAnchors.remove(meshAnchor.identifier)
-            }
-            lock.unlock()
-            node.isHidden = !visible
-            if visible {
-                node.geometry = MeshGeometry.makeWireframeGeometry(from: meshAnchor)
-            }
-        }
 
-        func renderer(_ renderer: SCNSceneRenderer, didRemove node: SCNNode, for anchor: ARAnchor) {
-            guard anchor is ARMeshAnchor else { return }
-            lock.lock()
-            anchorNodes.removeValue(forKey: anchor.identifier)
-            dirtyAnchors.remove(anchor.identifier)
-            lock.unlock()
-        }
-
-        @MainActor
-        func syncMeshVisibility(_ showMesh: Bool, model: ScanModel) {
-            lock.lock()
-            currentShowMesh = showMesh
-            let nodesSnapshot = anchorNodes
-            let dirtyToBuild: [UUID] = showMesh ? Array(dirtyAnchors) : []
-            if showMesh {
-                dirtyAnchors.removeAll()
-            }
-            lock.unlock()
-
-            for (id, node) in nodesSnapshot {
-                node.isHidden = !showMesh
-                if showMesh && (node.geometry == nil || dirtyToBuild.contains(id)) {
-                    if let anchor = model.meshAnchor(for: id) {
-                        node.geometry = MeshGeometry.makeWireframeGeometry(from: anchor)
+            for item in entries {
+                if let existing = chunkNodes[item.id] {
+                    if existing.version != item.version {
+                        existing.node.simdTransform = item.anchor.transform
+                        existing.node.geometry = MeshGeometry.makeWireframeGeometry(from: item.anchor)
+                        chunkNodes[item.id] = (existing.node, item.version)
                     }
+                } else {
+                    let chunkNode = SCNNode()
+                    chunkNode.simdTransform = item.anchor.transform
+                    chunkNode.geometry = MeshGeometry.makeWireframeGeometry(from: item.anchor)
+                    meshRootNode.addChildNode(chunkNode)
+                    chunkNodes[item.id] = (chunkNode, item.version)
                 }
             }
         }
@@ -123,10 +85,10 @@ struct LiveCameraView: UIViewRepresentable {
         view.session = model.session
         view.scene = SCNScene()
         view.scene.rootNode.addChildNode(context.coordinator.node)
-        view.delegate = context.coordinator
+        view.scene.rootNode.addChildNode(context.coordinator.meshRootNode)
         view.automaticallyUpdatesLighting = false
         view.preferredFramesPerSecond = 30
-        context.coordinator.syncMeshVisibility(showMesh, model: model)
+        context.coordinator.syncMeshes(showMesh: showMesh, model: model)
         return view
     }
 
@@ -136,8 +98,7 @@ struct LiveCameraView: UIViewRepresentable {
             context.coordinator.node.geometry = PointGeometry.make(model.preview)
             context.coordinator.version = model.previewVersion
         }
-        context.coordinator.syncMeshVisibility(showMesh, model: model)
-        context.coordinator.meshVersion = model.meshVersion
+        context.coordinator.syncMeshes(showMesh: showMesh, model: model)
     }
 }
 
