@@ -60,6 +60,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private var closedReasonPhrase: L10nPhrase?
     private var cancellables: Set<AnyCancellable> = []
     private var meshAnchors: [UUID: ARMeshAnchor] = [:]
+    @Published private(set) var meshVersion = 0
+    private var lastMeshPublishTime: TimeInterval = 0
     var hasMesh: Bool { !meshAnchors.isEmpty }
     @Published var activeGroundControlPoints: [GroundControlPoint] = []
     @Published var activeAnnotations: [CloudAnnotation] = []
@@ -153,7 +155,10 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private func startSession(reset: Bool) {
         guard foreground, supported, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
-        if reset { meshAnchors.removeAll() }
+        if reset {
+            meshAnchors.removeAll()
+            meshVersion += 1
+        }
         let configuration = ARWorldTrackingConfiguration()
         configuration.frameSemantics = [.sceneDepth]
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
@@ -224,6 +229,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             self.cachedScan = nil; self.savedSamples = 0; self.savedTitle = ""
             DispatchQueue.main.async {
                 self.meshAnchors.removeAll()
+                self.meshVersion += 1
                 self.activeGroundControlPoints = []
                 self.activeAnnotations = []
                 self.pointCount = 0; self.activeSeconds = 0
@@ -366,21 +372,52 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
 
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        var addedMesh = false
         for anchor in anchors {
-            if let mesh = anchor as? ARMeshAnchor { meshAnchors[mesh.identifier] = mesh }
+            if let mesh = anchor as? ARMeshAnchor {
+                meshAnchors[mesh.identifier] = mesh
+                addedMesh = true
+            }
         }
+        if addedMesh { meshVersion += 1 }
     }
 
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        var updatedMesh = false
         for anchor in anchors {
-            if let mesh = anchor as? ARMeshAnchor { meshAnchors[mesh.identifier] = mesh }
+            if let mesh = anchor as? ARMeshAnchor {
+                meshAnchors[mesh.identifier] = mesh
+                updatedMesh = true
+            }
+        }
+        if updatedMesh {
+            let now = ProcessInfo.processInfo.systemUptime
+            if now - lastMeshPublishTime >= 0.4 {
+                lastMeshPublishTime = now
+                meshVersion += 1
+            }
         }
     }
 
     func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        var removedMesh = false
         for anchor in anchors {
-            if let mesh = anchor as? ARMeshAnchor { meshAnchors.removeValue(forKey: mesh.identifier) }
+            if let mesh = anchor as? ARMeshAnchor {
+                meshAnchors.removeValue(forKey: mesh.identifier)
+                removedMesh = true
+            }
         }
+        if removedMesh { meshVersion += 1 }
+    }
+
+    func meshAnchor(for id: UUID) -> ARMeshAnchor? {
+        meshAnchors[id]
+    }
+
+    func currentMeshPreviewData() -> MeshPreviewData? {
+        guard !meshAnchors.isEmpty else { return nil }
+        let data = MeshPreviewData.fromAnchors(Array(meshAnchors.values))
+        return data.isEmpty ? nil : data
     }
 
     func leaveMode() {
@@ -700,6 +737,14 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     func loadPreview(for scan: SavedScan) async -> [PCPoint] {
         await Task.detached(priority: .userInitiated) {
             ScanStorage.readPreview(for: scan)
+        }.value
+    }
+
+    func loadMesh(for scan: SavedScan) async -> MeshPreviewData? {
+        guard scan.hasMesh else { return nil }
+        let url = scan.meshURL
+        return await Task.detached(priority: .userInitiated) {
+            MeshPreviewData.fromOBJ(url: url)
         }.value
     }
 

@@ -396,3 +396,5 @@
 "The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters." = "The report explains the capture in full sentences. Exported scans include metadata.json with the full parameters.";
 "PDF Report" = "PDF Report";
 "Word Document (.docx)" = "Word Document (.docx)";
+"Hide Mesh" = "Hide Mesh";
+"Show Mesh" = "Show Mesh";

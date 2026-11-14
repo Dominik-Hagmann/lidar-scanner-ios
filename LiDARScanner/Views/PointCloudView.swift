@@ -37,26 +37,107 @@ enum PointGeometry {
 struct LiveCameraView: UIViewRepresentable {
     @ObservedObject var model: ScanModel
     let showPoints: Bool
-    final class Coordinator {
+    let showMesh: Bool
+
+    final class Coordinator: NSObject, ARSCNViewDelegate {
         let node = SCNNode()
         var version = -1
+        var meshVersion = -1
+        private let lock = NSLock()
+        private var currentShowMesh = false
+        private var anchorNodes: [UUID: SCNNode] = [:]
+        private var dirtyAnchors: Set<UUID> = []
+
+        func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
+            guard let meshAnchor = anchor as? ARMeshAnchor else { return nil }
+            let anchorNode = SCNNode()
+            let visible: Bool
+            lock.lock()
+            visible = currentShowMesh
+            anchorNodes[meshAnchor.identifier] = anchorNode
+            if !visible {
+                dirtyAnchors.insert(meshAnchor.identifier)
+            }
+            lock.unlock()
+            anchorNode.isHidden = !visible
+            if visible {
+                anchorNode.geometry = MeshGeometry.makeWireframeGeometry(from: meshAnchor)
+            }
+            return anchorNode
+        }
+
+        func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+            guard let meshAnchor = anchor as? ARMeshAnchor else { return }
+            let visible: Bool
+            lock.lock()
+            visible = currentShowMesh
+            if anchorNodes[meshAnchor.identifier] == nil {
+                anchorNodes[meshAnchor.identifier] = node
+            }
+            if !visible {
+                dirtyAnchors.insert(meshAnchor.identifier)
+            } else {
+                dirtyAnchors.remove(meshAnchor.identifier)
+            }
+            lock.unlock()
+            node.isHidden = !visible
+            if visible {
+                node.geometry = MeshGeometry.makeWireframeGeometry(from: meshAnchor)
+            }
+        }
+
+        func renderer(_ renderer: SCNSceneRenderer, didRemove node: SCNNode, for anchor: ARAnchor) {
+            guard anchor is ARMeshAnchor else { return }
+            lock.lock()
+            anchorNodes.removeValue(forKey: anchor.identifier)
+            dirtyAnchors.remove(anchor.identifier)
+            lock.unlock()
+        }
+
+        @MainActor
+        func syncMeshVisibility(_ showMesh: Bool, model: ScanModel) {
+            lock.lock()
+            currentShowMesh = showMesh
+            let nodesSnapshot = anchorNodes
+            let dirtyToBuild: [UUID] = showMesh ? Array(dirtyAnchors) : []
+            if showMesh {
+                dirtyAnchors.removeAll()
+            }
+            lock.unlock()
+
+            for (id, node) in nodesSnapshot {
+                node.isHidden = !showMesh
+                if showMesh && (node.geometry == nil || dirtyToBuild.contains(id)) {
+                    if let anchor = model.meshAnchor(for: id) {
+                        node.geometry = MeshGeometry.makeWireframeGeometry(from: anchor)
+                    }
+                }
+            }
+        }
     }
+
     func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> ARSCNView {
         let view = ARSCNView(frame: .zero)
         view.session = model.session
         view.scene = SCNScene()
         view.scene.rootNode.addChildNode(context.coordinator.node)
+        view.delegate = context.coordinator
         view.automaticallyUpdatesLighting = false
         view.preferredFramesPerSecond = 30
+        context.coordinator.syncMeshVisibility(showMesh, model: model)
         return view
     }
+
     func updateUIView(_ view: ARSCNView, context: Context) {
         context.coordinator.node.isHidden = !showPoints
         if model.previewVersion != context.coordinator.version {
             context.coordinator.node.geometry = PointGeometry.make(model.preview)
             context.coordinator.version = model.previewVersion
         }
+        context.coordinator.syncMeshVisibility(showMesh, model: model)
+        context.coordinator.meshVersion = model.meshVersion
     }
 }
 
@@ -169,6 +250,9 @@ enum PreviewVisuals {
 
 struct OrbitCloudView: UIViewRepresentable {
     let points: [PCPoint]
+    let mesh: MeshPreviewData?
+    let showPoints: Bool
+    let showMesh: Bool
     let toolMode: PreviewToolMode
     @Binding var selectedA: SIMD3<Float>?
     @Binding var selectedB: SIMD3<Float>?
@@ -185,6 +269,10 @@ struct OrbitCloudView: UIViewRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate, SCNSceneRendererDelegate {
         var parent: OrbitCloudView
+        let pointsNode = SCNNode()
+        let meshWireNode = SCNNode()
+        let meshSurfaceNode = SCNNode()
+        var meshBuilt = false
         let overlayNode = SCNNode()
         weak var scnView: SCNView?
         var boundsRadius: Float = 1.0
@@ -287,6 +375,19 @@ struct OrbitCloudView: UIViewRepresentable {
 
         func updateVisuals() {
             overlayNode.childNodes.forEach { $0.removeFromParentNode() }
+            pointsNode.isHidden = !parent.showPoints
+            if parent.showMesh, let mesh = parent.mesh, !mesh.isEmpty {
+                if !meshBuilt {
+                    meshWireNode.geometry = MeshGeometry.makeSCNGeometry(from: mesh, wireframe: true, color: MeshGeometry.previewWireframeColor)
+                    meshSurfaceNode.geometry = MeshGeometry.makeSCNGeometry(from: mesh, wireframe: false, color: MeshGeometry.previewSurfaceColor)
+                    meshBuilt = true
+                }
+                meshWireNode.isHidden = !parent.showPoints
+                meshSurfaceNode.isHidden = parent.showPoints
+            } else {
+                meshWireNode.isHidden = true
+                meshSurfaceNode.isHidden = true
+            }
             let markerRadius = CGFloat(max(0.005, boundsRadius * 0.014))
             let lineRadius = CGFloat(max(0.002, boundsRadius * 0.0045))
 
@@ -356,8 +457,33 @@ struct OrbitCloudView: UIViewRepresentable {
         let view = SCNView()
         view.backgroundColor = UIColor(red: 0.035, green: 0.055, blue: 0.07, alpha: 1)
         let scene = SCNScene()
-        scene.rootNode.addChildNode(SCNNode(geometry: PointGeometry.make(points)))
+        context.coordinator.pointsNode.geometry = PointGeometry.make(points)
+        context.coordinator.meshWireNode.isHidden = true
+        context.coordinator.meshSurfaceNode.isHidden = true
+        scene.rootNode.addChildNode(context.coordinator.pointsNode)
+        scene.rootNode.addChildNode(context.coordinator.meshSurfaceNode)
+        scene.rootNode.addChildNode(context.coordinator.meshWireNode)
         scene.rootNode.addChildNode(context.coordinator.overlayNode)
+
+        let ambient = SCNNode()
+        ambient.light = SCNLight()
+        ambient.light?.type = .ambient
+        ambient.light?.intensity = 550
+        scene.rootNode.addChildNode(ambient)
+
+        let keyLight = SCNNode()
+        keyLight.light = SCNLight()
+        keyLight.light?.type = .directional
+        keyLight.light?.intensity = 850
+        keyLight.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 4, 0)
+        scene.rootNode.addChildNode(keyLight)
+
+        let fillLight = SCNNode()
+        fillLight.light = SCNLight()
+        fillLight.light?.type = .directional
+        fillLight.light?.intensity = 400
+        fillLight.eulerAngles = SCNVector3(Float.pi / 4, -3 * Float.pi / 4, 0)
+        scene.rootNode.addChildNode(fillLight)
 
         var low = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
         var high = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
@@ -365,8 +491,15 @@ struct OrbitCloudView: UIViewRepresentable {
             low = simd_min(low, SIMD3(p.x, p.y, p.z))
             high = simd_max(high, SIMD3(p.x, p.y, p.z))
         }
-        let center = points.isEmpty ? SIMD3<Float>(repeating: 0) : (low + high) * 0.5
-        let radius = points.isEmpty ? Float(1) : max(0.25, simd_length(high - low) * 0.65)
+        if points.isEmpty, let meshVerts = mesh?.vertices {
+            for v in meshVerts {
+                low = simd_min(low, v)
+                high = simd_max(high, v)
+            }
+        }
+        let hasBounds = !points.isEmpty || !(mesh?.vertices.isEmpty ?? true)
+        let center = hasBounds ? (low + high) * 0.5 : SIMD3<Float>(repeating: 0)
+        let radius = hasBounds ? max(0.25, simd_length(high - low) * 0.65) : Float(1)
         context.coordinator.boundsRadius = radius
 
         let camera = SCNNode()
@@ -408,12 +541,15 @@ private struct GCPEditorState: Identifiable {
 struct CloudPreviewSheet: View {
     let points: [PCPoint]
     let total: Int
+    let mesh: MeshPreviewData?
     let scanMetadata: ScanMetadata?
     @Binding var isFullScreen: Bool
     let onClose: (() -> Void)?
     let onSaveGCPs: (([GroundControlPoint]) -> Void)?
     let onSaveAnnotations: (([CloudAnnotation]) -> Void)?
 
+    @State private var showPoints = true
+    @State private var showMesh = false
     @State private var toolMode: PreviewToolMode = .view
     @State private var selectedA: SIMD3<Float>?
     @State private var selectedB: SIMD3<Float>?
@@ -444,6 +580,7 @@ struct CloudPreviewSheet: View {
     init(
         points: [PCPoint],
         total: Int,
+        mesh: MeshPreviewData? = nil,
         scanMetadata: ScanMetadata? = nil,
         groundControlPoints: [GroundControlPoint] = [],
         onSaveGCPs: (([GroundControlPoint]) -> Void)? = nil,
@@ -454,6 +591,7 @@ struct CloudPreviewSheet: View {
     ) {
         self.points = points
         self.total = total
+        self.mesh = mesh
         self.scanMetadata = scanMetadata
         self._gcps = State(initialValue: groundControlPoints)
         self.onSaveGCPs = onSaveGCPs
@@ -468,6 +606,9 @@ struct CloudPreviewSheet: View {
             ZStack(alignment: .bottom) {
                 OrbitCloudView(
                     points: points,
+                    mesh: mesh,
+                    showPoints: showPoints,
+                    showMesh: showMesh,
                     toolMode: toolMode,
                     selectedA: $selectedA,
                     selectedB: $selectedB,
@@ -525,6 +666,30 @@ struct CloudPreviewSheet: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
+            }
+            .overlay(alignment: .topTrailing) {
+                if let mesh, !mesh.isEmpty {
+                    VStack(spacing: 10) {
+                        Button { showPoints.toggle() } label: {
+                            Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
+                                .font(.title3)
+                                .foregroundStyle(showPoints ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
+                                .frame(width: 44, height: 44)
+                                .background(.ultraThinMaterial, in: Circle())
+                        }
+                        .accessibilityLabel(L(showPoints ? "Hide Points" : "Show Points"))
+
+                        Button { showMesh.toggle() } label: {
+                            Image(systemName: showMesh ? "cube.fill" : "cube")
+                                .font(.title3)
+                                .foregroundStyle(showMesh ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
+                                .frame(width: 44, height: 44)
+                                .background(.ultraThinMaterial, in: Circle())
+                        }
+                        .accessibilityLabel(L(showMesh ? "Hide Mesh" : "Show Mesh"))
+                    }
+                    .padding(16)
+                }
             }
             .navigationTitle(L("Point Cloud"))
             .navigationBarTitleDisplayMode(.inline)

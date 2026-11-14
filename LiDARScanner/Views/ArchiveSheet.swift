@@ -9,6 +9,7 @@ struct ArchiveSheet: View {
     @State private var showImporter = false
     @State private var previewScan: SavedScan?
     @State private var previewPoints: [PCPoint] = []
+    @State private var previewMesh: MeshPreviewData?
     @State private var previewFullScreen = false
     var body: some View {
         NavigationStack {
@@ -43,13 +44,14 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    mesh: previewMesh,
                     scanMetadata: scan.metadata,
                     groundControlPoints: scan.metadata.groundControlPoints ?? [],
                     onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
                     annotations: scan.metadata.annotations ?? [],
                     onSaveAnnotations: { model.updateAnnotations(for: scan, annotations: $0) },
                     isFullScreen: $previewFullScreen,
-                    onClose: { previewScan = nil; previewFullScreen = false }
+                    onClose: { previewScan = nil; previewMesh = nil; previewFullScreen = false }
                 )
             }
             .fullScreenCover(item: Binding(
@@ -59,13 +61,14 @@ struct ArchiveSheet: View {
                 CloudPreviewSheet(
                     points: previewPoints,
                     total: scan.metadata.pointCount,
+                    mesh: previewMesh,
                     scanMetadata: scan.metadata,
                     groundControlPoints: scan.metadata.groundControlPoints ?? [],
                     onSaveGCPs: { model.updateGroundControlPoints(for: scan, points: $0) },
                     annotations: scan.metadata.annotations ?? [],
                     onSaveAnnotations: { model.updateAnnotations(for: scan, annotations: $0) },
                     isFullScreen: $previewFullScreen,
-                    onClose: { previewScan = nil; previewFullScreen = false }
+                    onClose: { previewScan = nil; previewMesh = nil; previewFullScreen = false }
                 )
             }
             .fileImporter(
@@ -118,9 +121,12 @@ struct ArchiveSheet: View {
                 Spacer()
                 Button {
                     Task {
-                        let pts = await model.loadPreview(for: scan)
+                        async let ptsTask = model.loadPreview(for: scan)
+                        async let meshTask = model.loadMesh(for: scan)
+                        let (pts, loadedMesh) = await (ptsTask, meshTask)
                         await MainActor.run {
                             previewPoints = pts
+                            previewMesh = loadedMesh
                             previewScan = scan
                         }
                     }

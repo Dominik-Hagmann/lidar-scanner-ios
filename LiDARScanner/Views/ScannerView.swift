@@ -6,11 +6,13 @@ struct ScannerView: View {
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPoints = true
+    @State private var showMesh = false
     @State private var showSettings = false
     @State private var showArchive = false
     @State private var showDetails = false
     @State private var showExport = false
     @State private var showPreview = false
+    @State private var previewMesh: MeshPreviewData?
     @State private var previewFullScreen = false
     @State private var confirmReset = false
     private let mint = Color(red: 0.38, green: 0.93, blue: 0.76)
@@ -19,7 +21,7 @@ struct ScannerView: View {
         ZStack {
             Color(red: 0.035, green: 0.055, blue: 0.07).ignoresSafeArea()
             if model.supported && !model.cameraDenied {
-                LiveCameraView(model: model, showPoints: showPoints).ignoresSafeArea()
+                LiveCameraView(model: model, showPoints: showPoints, showMesh: showMesh).ignoresSafeArea()
                 LinearGradient(colors: [.black.opacity(0.7), .clear, .black.opacity(0.4)],
                                startPoint: .top, endPoint: .bottom).ignoresSafeArea().allowsHitTesting(false)
             } else {
@@ -62,9 +64,19 @@ struct ScannerView: View {
                             }
                             Button { showPoints.toggle() } label: {
                                 Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
-                                    .font(.title3).frame(width: 48, height: 48)
+                                    .font(.title3)
+                                    .foregroundStyle(showPoints ? mint : .white)
+                                    .frame(width: 48, height: 48)
                                     .background(.ultraThinMaterial, in: Circle())
                             }.accessibilityLabel(L(showPoints ? "Hide Points" : "Show Points"))
+
+                            Button { showMesh.toggle() } label: {
+                                Image(systemName: showMesh ? "cube.fill" : "cube")
+                                    .font(.title3)
+                                    .foregroundStyle(showMesh ? mint : .white)
+                                    .frame(width: 48, height: 48)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }.accessibilityLabel(L(showMesh ? "Hide Mesh" : "Show Mesh"))
                         }
                     }
                 }
@@ -88,24 +100,26 @@ struct ScannerView: View {
             CloudPreviewSheet(
                 points: model.preview,
                 total: model.pointCount,
+                mesh: previewMesh,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 annotations: model.activeAnnotations,
                 onSaveAnnotations: { model.updateAnnotations(for: nil, annotations: $0) },
                 isFullScreen: $previewFullScreen,
-                onClose: { showPreview = false; previewFullScreen = false }
+                onClose: { showPreview = false; previewFullScreen = false; previewMesh = nil }
             )
         }
         .fullScreenCover(isPresented: $previewFullScreen) {
             CloudPreviewSheet(
                 points: model.preview,
                 total: model.pointCount,
+                mesh: previewMesh,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 annotations: model.activeAnnotations,
                 onSaveAnnotations: { model.updateAnnotations(for: nil, annotations: $0) },
                 isFullScreen: $previewFullScreen,
-                onClose: { showPreview = false; previewFullScreen = false }
+                onClose: { showPreview = false; previewFullScreen = false; previewMesh = nil }
             )
         }
         .sheet(item: $model.sharedFiles) { ShareSheet(urls: $0.urls) }
@@ -220,12 +234,15 @@ struct ScannerView: View {
                         .foregroundStyle(canCapture ? Color.black : Color.white.opacity(0.72))
                         .disabled(!canCapture)
 
-                        Button { showPreview = true } label: {
+                        Button {
+                            previewMesh = model.currentMeshPreviewData()
+                            showPreview = true
+                        } label: {
                             Label(L("3D View"), systemImage: "cube.transparent")
                                 .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(model.preview.isEmpty || model.isBusy)
+                        .disabled((model.preview.isEmpty && !model.hasMesh) || model.isBusy)
                         .accessibilityLabel(L("View Point Cloud in 3D"))
                     }
                     HStack {
