@@ -406,3 +406,12 @@
 "Stanford PLY Mesh (.ply)" = "Stanford PLY Mesh (.ply)";
 "glTF 2.0 Binary (.glb)" = "glTF 2.0 Binär (.glb)";
 "Could not read saved mesh." = "Gespeichertes Mesh konnte nicht gelesen werden.";
+"Delete Corner" = "Eckpunkt löschen";
+"Corner %@" = "Ecke %@";
+"Append" = "Anhängen";
+"Tap scene to move corner %@ (or tap another corner)" = "Szene tippen, um Ecke %@ zu verschieben (oder andere Ecke tippen)";
+"Hide Annotations" = "Annotationen ausblenden";
+"Show Annotations" = "Annotationen einblenden";
+"Annotation Appearance" = "Darstellung der Annotationen";
+"Symbol Size" = "Symbolgröße";
+"Polygon Opacity" = "Polygon-Deckkraft";

@@ -11,6 +11,7 @@ struct GaussianPreviewSheet: View {
     @Binding var isFullScreen: Bool
     let onClose: (() -> Void)?
 
+    @ObservedObject private var displaySettings = AnnotationDisplaySettings.shared
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
@@ -21,6 +22,7 @@ struct GaussianPreviewSheet: View {
     @State private var annotationShape: CloudAnnotationGeometryType = .point
     @State private var draftAnnotationPoints: [SIMD3<Float>] = []
     @State private var editingGeometryAnnotation: CloudAnnotation?
+    @State private var selectedEditVertexIndex: Int?
     @State private var selectedAnnotationID: UUID?
     @State private var activeTagFilter: String?
     @State private var annotationEditorState: AnnotationEditorState?
@@ -58,8 +60,13 @@ struct GaussianPreviewSheet: View {
                     activeTagFilter: activeTagFilter,
                     editingAnnotationID: editingGeometryAnnotation?.id,
                     draftAnnotationPoints: draftAnnotationPoints,
+                    selectedDraftVertexIndex: selectedEditVertexIndex,
+                    showAnnotations: displaySettings.showAnnotations,
                     projectionModel: projectionModel,
                     onPickAnnotationPoint: handleAnnotationTap(at:),
+                    onSelectDraftVertex: { idx in
+                        selectedEditVertexIndex = idx
+                    },
                     loading: $loading,
                     error: $error
                 )
@@ -67,7 +74,10 @@ struct GaussianPreviewSheet: View {
 
                 AnnotationShapesCanvasOverlay(
                     projection: projectionModel,
-                    isEditingDraft: editingGeometryAnnotation != nil
+                    isEditingDraft: editingGeometryAnnotation != nil,
+                    selectedDraftVertexIndex: selectedEditVertexIndex,
+                    symbolScale: displaySettings.symbolScale,
+                    fillOpacity: displaySettings.fillOpacity
                 )
                 .ignoresSafeArea(edges: .bottom)
 
@@ -86,6 +96,7 @@ struct GaussianPreviewSheet: View {
                         annotationShape: $annotationShape,
                         draftPoints: $draftAnnotationPoints,
                         editingAnnotation: $editingGeometryAnnotation,
+                        selectedEditVertexIndex: $selectedEditVertexIndex,
                         onFinishNewDraft: finishDraftAnnotation,
                         onCommitGeometryEdit: commitGeometryEdit,
                         onCancelGeometryEdit: cancelGeometryEdit,
@@ -116,6 +127,12 @@ struct GaussianPreviewSheet: View {
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if !annotations.isEmpty || isAnnotateMode {
+                    AnnotationDisplayControlButtons(settings: displaySettings)
+                        .padding(16)
+                }
+            }
             .navigationTitle(L("3D Scene")).navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -133,6 +150,7 @@ struct GaussianPreviewSheet: View {
                         if !isAnnotateMode {
                             draftAnnotationPoints = []
                             editingGeometryAnnotation = nil
+                            selectedEditVertexIndex = nil
                             selectedAnnotationID = nil
                         }
                     } label: {
@@ -174,6 +192,7 @@ struct GaussianPreviewSheet: View {
                         selectedAnnotationID = updatedDraft.id
                         annotationShape = updatedDraft.type
                         draftAnnotationPoints = updatedDraft.vertices.map(\.arkitPosition)
+                        selectedEditVertexIndex = updatedDraft.vertices.isEmpty ? nil : 0
                         isAnnotateMode = true
                     }
                 )
@@ -198,11 +217,12 @@ struct GaussianPreviewSheet: View {
 
     private func handleAnnotationTap(at point: SIMD3<Float>) {
         if let editing = editingGeometryAnnotation {
-            if editing.type == .point {
-                draftAnnotationPoints = [point]
-            } else {
-                draftAnnotationPoints.append(point)
-            }
+            AnnotationDraftEditing.applyTap(
+                point: point,
+                editingType: editing.type,
+                draftPoints: &draftAnnotationPoints,
+                selectedVertexIndex: &selectedEditVertexIndex
+            )
             return
         }
         switch annotationShape {
@@ -226,12 +246,14 @@ struct GaussianPreviewSheet: View {
         guard draftAnnotationPoints.count >= minCount else { return }
         updated.vertices = draftAnnotationPoints.map(AnnotationPoint3D.fromARKit)
         editingGeometryAnnotation = nil
+        selectedEditVertexIndex = nil
         draftAnnotationPoints = []
         saveAnnotation(updated, isNew: false)
     }
 
     private func cancelGeometryEdit() {
         editingGeometryAnnotation = nil
+        selectedEditVertexIndex = nil
         draftAnnotationPoints = []
     }
 
@@ -280,8 +302,11 @@ struct GaussianMetalView: UIViewRepresentable {
     let activeTagFilter: String?
     let editingAnnotationID: UUID?
     let draftAnnotationPoints: [SIMD3<Float>]
+    let selectedDraftVertexIndex: Int?
+    let showAnnotations: Bool
     let projectionModel: AnnotationOverlayProjectionModel
     let onPickAnnotationPoint: (SIMD3<Float>) -> Void
+    let onSelectDraftVertex: (Int) -> Void
     @Binding var loading: Bool
     @Binding var error: String?
 
@@ -379,12 +404,25 @@ struct GaussianMetalView: UIViewRepresentable {
             let location = gesture.location(in: view)
             let size = view.bounds.size
             guard size.width > 0, size.height > 0 else { return }
+            let vp = lastProjectionMatrix * lastViewMatrix
+
+            if parent.editingAnnotationID != nil,
+               parent.draftAnnotationPoints.count >= 2,
+               let tappedVertex = AnnotationDraftEditing.hitTestDraftVertex(
+                   at: location,
+                   vertices: parent.draftAnnotationPoints,
+                   excludingIndex: parent.selectedDraftVertexIndex,
+                   project: { Self.project($0, viewProj: vp, viewSize: size)?.point }
+               ) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                parent.onSelectDraftVertex(tappedVertex)
+                return
+            }
 
             let maxScreenDistance: Float = 44.0
             var closestDistance = maxScreenDistance
             var closestZ: Float = .greatestFiniteMagnitude
             var bestPoint: SIMD3<Float>?
-            let vp = lastProjectionMatrix * lastViewMatrix
 
             for p in splatPositions {
                 guard let proj = Self.project(p, viewProj: vp, viewSize: size) else { continue }
@@ -425,10 +463,15 @@ struct GaussianMetalView: UIViewRepresentable {
 
         private func updateProjectedOverlays(viewProj: simd_float4x4, viewSize: CGSize) {
             guard viewSize.width > 0, viewSize.height > 0 else { return }
-            let visible = parent.annotations.filter { ann in
-                guard let filter = parent.activeTagFilter else { return true }
-                if filter == "__untagged__" { return ann.tags.isEmpty }
-                return ann.tags.contains { $0.caseInsensitiveCompare(filter) == .orderedSame }
+            let visible: [CloudAnnotation]
+            if parent.showAnnotations {
+                visible = parent.annotations.filter { ann in
+                    guard let filter = parent.activeTagFilter else { return true }
+                    if filter == "__untagged__" { return ann.tags.isEmpty }
+                    return ann.tags.contains { $0.caseInsensitiveCompare(filter) == .orderedSame }
+                }
+            } else {
+                visible = []
             }
             let selectedID = parent.selectedAnnotationID
             let editingID = parent.editingAnnotationID

@@ -1,6 +1,92 @@
 import SwiftUI
 import simd
 
+final class AnnotationDisplaySettings: ObservableObject {
+    static let shared = AnnotationDisplaySettings()
+
+    private enum Keys {
+        static let visible = "annotation.visible"
+        static let symbolScale = "annotation.symbolScale"
+        static let fillOpacity = "annotation.fillOpacity"
+    }
+
+    @Published var showAnnotations: Bool {
+        didSet { UserDefaults.standard.set(showAnnotations, forKey: Keys.visible) }
+    }
+    @Published var symbolScale: Double {
+        didSet { UserDefaults.standard.set(symbolScale, forKey: Keys.symbolScale) }
+    }
+    @Published var fillOpacity: Double {
+        didSet { UserDefaults.standard.set(fillOpacity, forKey: Keys.fillOpacity) }
+    }
+
+    init() {
+        let d = UserDefaults.standard
+        self.showAnnotations = d.object(forKey: Keys.visible) as? Bool ?? true
+        let savedScale = d.object(forKey: Keys.symbolScale) as? Double ?? 1.0
+        self.symbolScale = min(2.4, max(0.4, savedScale))
+        let savedOpacity = d.object(forKey: Keys.fillOpacity) as? Double ?? 0.28
+        self.fillOpacity = min(0.85, max(0.0, savedOpacity))
+    }
+
+    func reset() {
+        showAnnotations = true
+        symbolScale = 1.0
+        fillOpacity = 0.28
+    }
+}
+
+enum AnnotationDraftEditing {
+    static func hitTestDraftVertex(
+        at location: CGPoint,
+        vertices: [SIMD3<Float>],
+        excludingIndex: Int?,
+        maxScreenDistance: CGFloat = 28.0,
+        project: (SIMD3<Float>) -> CGPoint?
+    ) -> Int? {
+        var bestIdx: Int?
+        var bestDist = maxScreenDistance
+        for (idx, v) in vertices.enumerated() where idx != excludingIndex {
+            guard let pt = project(v) else { continue }
+            let dist = hypot(pt.x - location.x, pt.y - location.y)
+            if dist <= bestDist {
+                bestDist = dist
+                bestIdx = idx
+            }
+        }
+        return bestIdx
+    }
+
+    static func applyTap(
+        point: SIMD3<Float>,
+        editingType: CloudAnnotationGeometryType,
+        draftPoints: inout [SIMD3<Float>],
+        selectedVertexIndex: inout Int?
+    ) {
+        if editingType == .point {
+            draftPoints = [point]
+            selectedVertexIndex = 0
+            return
+        }
+        if let idx = selectedVertexIndex, draftPoints.indices.contains(idx) {
+            draftPoints[idx] = point
+        } else {
+            draftPoints.append(point)
+        }
+    }
+
+    static func removeSelectedVertex(
+        draftPoints: inout [SIMD3<Float>],
+        selectedVertexIndex: inout Int?
+    ) {
+        guard let idx = selectedVertexIndex,
+              draftPoints.indices.contains(idx),
+              draftPoints.count > 3 else { return }
+        draftPoints.remove(at: idx)
+        selectedVertexIndex = min(idx, draftPoints.count - 1)
+    }
+}
+
 struct ProjectedAnnotationLabel: Identifiable, Equatable {
     let id: UUID
     let title: String
@@ -78,8 +164,13 @@ final class AnnotationOverlayProjectionModel: ObservableObject {
 struct AnnotationShapesCanvasOverlay: View {
     @ObservedObject var projection: AnnotationOverlayProjectionModel
     let isEditingDraft: Bool
+    let selectedDraftVertexIndex: Int?
+    let symbolScale: Double
+    let fillOpacity: Double
 
     var body: some View {
+        let scale = CGFloat(max(0.4, min(2.4, symbolScale)))
+        let fillAlpha = max(0.0, min(0.85, fillOpacity))
         Canvas { context, _ in
             for shape in projection.shapes where !shape.points.isEmpty {
                 let uiColor = shape.color.uiColor
@@ -88,11 +179,13 @@ struct AnnotationShapesCanvasOverlay: View {
                     var path = Path()
                     path.addLines(shape.points)
                     path.closeSubpath()
-                    context.fill(path, with: .color(swiftColor.opacity(shape.isSelected ? 0.34 : 0.22)))
-                    context.stroke(path, with: .color(swiftColor), lineWidth: shape.isSelected ? 3.0 : 2.0)
+                    let shapeAlpha = shape.isSelected ? min(0.92, fillAlpha + 0.12) : fillAlpha
+                    context.fill(path, with: .color(swiftColor.opacity(shapeAlpha)))
+                    context.stroke(path, with: .color(swiftColor), lineWidth: (shape.isSelected ? 3.0 : 2.0) * min(1.8, scale))
                 }
                 for pt in shape.points {
-                    let r: CGFloat = shape.isPolygon ? (shape.isSelected ? 5 : 4) : (shape.isSelected ? 7 : 5.5)
+                    let baseR: CGFloat = shape.isPolygon ? (shape.isSelected ? 5.0 : 4.0) : (shape.isSelected ? 7.0 : 5.5)
+                    let r = baseR * scale
                     let rect = CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)
                     context.fill(Path(ellipseIn: rect), with: .color(swiftColor))
                     context.stroke(Path(ellipseIn: rect), with: .color(.white.opacity(0.85)), lineWidth: 1)
@@ -107,19 +200,26 @@ struct AnnotationShapesCanvasOverlay: View {
                     path.addLines(draft)
                     if draft.count >= 3 {
                         path.closeSubpath()
-                        context.fill(path, with: .color(draftColor.opacity(0.24)))
+                        context.fill(path, with: .color(draftColor.opacity(max(0.12, fillAlpha))))
                     }
                     context.stroke(
                         path,
                         with: .color(draftColor),
-                        style: StrokeStyle(lineWidth: isEditingDraft ? 2.8 : 2.2, dash: isEditingDraft ? [6, 4] : [])
+                        style: StrokeStyle(lineWidth: (isEditingDraft ? 2.8 : 2.2) * min(1.8, scale), dash: isEditingDraft ? [6, 4] : [])
                     )
                 }
-                for pt in draft {
-                    let r: CGFloat = 5.5
+                for (idx, pt) in draft.enumerated() {
+                    let isActive = isEditingDraft && idx == selectedDraftVertexIndex
+                    let r: CGFloat = (isActive ? 8.0 : 5.5) * scale
                     let rect = CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)
-                    context.fill(Path(ellipseIn: rect), with: .color(draftColor))
-                    context.stroke(Path(ellipseIn: rect), with: .color(.white), lineWidth: 1.5)
+                    context.fill(Path(ellipseIn: rect), with: .color(isActive ? .yellow : draftColor))
+                    context.stroke(Path(ellipseIn: rect), with: .color(.white), lineWidth: isActive ? 2.4 : 1.5)
+                    if isEditingDraft {
+                        let text = Text("\(idx + 1)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(isActive ? .black : .white)
+                        context.draw(text, at: CGPoint(x: pt.x, y: pt.y - r - 8))
+                    }
                 }
             }
         }
@@ -180,6 +280,7 @@ struct AnnotationToolHUDCard: View {
     @Binding var annotationShape: CloudAnnotationGeometryType
     @Binding var draftPoints: [SIMD3<Float>]
     @Binding var editingAnnotation: CloudAnnotation?
+    @Binding var selectedEditVertexIndex: Int?
     let onFinishNewDraft: () -> Void
     let onCommitGeometryEdit: () -> Void
     let onCancelGeometryEdit: () -> Void
@@ -196,9 +297,7 @@ struct AnnotationToolHUDCard: View {
                         Text(L("Editing: %@", editing.title))
                             .font(.caption.weight(.bold))
                             .lineLimit(1)
-                        Text(editing.type == .point
-                             ? L("Tap scene to move point")
-                             : L("Tap scene to add corners (%@)", draftPoints.count.formatted()))
+                        Text(editingHint(for: editing))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -209,15 +308,18 @@ struct AnnotationToolHUDCard: View {
                     .font(.caption)
                     .buttonStyle(.bordered)
 
-                    if editing.type == .polygon && !draftPoints.isEmpty {
-                        Button {
-                            draftPoints.removeLast()
+                    if editing.type == .polygon && selectedEditVertexIndex != nil && draftPoints.count > 3 {
+                        Button(role: .destructive) {
+                            AnnotationDraftEditing.removeSelectedVertex(
+                                draftPoints: &draftPoints,
+                                selectedVertexIndex: &selectedEditVertexIndex
+                            )
                         } label: {
-                            Image(systemName: "arrow.uturn.backward")
+                            Image(systemName: "trash")
                         }
                         .font(.caption)
                         .buttonStyle(.bordered)
-                        .accessibilityLabel(L("Undo"))
+                        .accessibilityLabel(L("Delete Corner"))
                     }
 
                     Button(L("Save")) {
@@ -228,6 +330,38 @@ struct AnnotationToolHUDCard: View {
                     .tint(.cyan)
                     .foregroundStyle(.black)
                     .disabled(editing.type == .point ? draftPoints.isEmpty : draftPoints.count < 3)
+                }
+
+                if editing.type == .polygon {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(draftPoints.indices, id: \.self) { idx in
+                                let isSelected = selectedEditVertexIndex == idx
+                                Button {
+                                    selectedEditVertexIndex = idx
+                                } label: {
+                                    Text(L("Corner %@", "\(idx + 1)"))
+                                        .font(.caption2.weight(.semibold).monospacedDigit())
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(isSelected ? Color.yellow.opacity(0.9) : Color.cyan.opacity(0.20), in: Capsule())
+                                }
+                                .foregroundStyle(isSelected ? .black : .primary)
+                                .buttonStyle(.plain)
+                            }
+                            Button {
+                                selectedEditVertexIndex = nil
+                            } label: {
+                                Label(L("Append"), systemImage: "plus")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(selectedEditVertexIndex == nil ? Color.cyan.opacity(0.9) : Color.secondary.opacity(0.20), in: Capsule())
+                            }
+                            .foregroundStyle(selectedEditVertexIndex == nil ? .black : .primary)
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             } else {
                 HStack(spacing: 6) {
@@ -326,6 +460,89 @@ struct AnnotationToolHUDCard: View {
         .padding()
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func editingHint(for editing: CloudAnnotation) -> String {
+        if editing.type == .point {
+            return L("Tap scene to move point")
+        }
+        if let idx = selectedEditVertexIndex, draftPoints.indices.contains(idx) {
+            return L("Tap scene to move corner %@ (or tap another corner)", "\(idx + 1)")
+        }
+        return L("Tap scene to add corners (%@)", draftPoints.count.formatted())
+    }
+}
+
+struct AnnotationDisplayControlButtons: View {
+    @ObservedObject var settings: AnnotationDisplaySettings
+    @State private var showPopover = false
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Button {
+                settings.showAnnotations.toggle()
+            } label: {
+                Image(systemName: settings.showAnnotations ? "eye.fill" : "eye.slash")
+                    .font(.title3)
+                    .foregroundStyle(settings.showAnnotations ? .cyan : .white)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel(L(settings.showAnnotations ? "Hide Annotations" : "Show Annotations"))
+
+            Button {
+                showPopover.toggle()
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3)
+                    .foregroundStyle(showPopover ? .cyan : .white)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel(L("Annotation Appearance"))
+            .popover(isPresented: $showPopover) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Toggle(L("Show Annotations"), isOn: $settings.showAnnotations)
+                        .tint(.cyan)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(L("Symbol Size")).font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text(String(format: "%.1f×", settings.symbolScale))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $settings.symbolScale, in: 0.4...2.4, step: 0.1)
+                            .tint(.cyan)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(L("Polygon Opacity")).font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text("\(Int(round(settings.fillOpacity * 100))) %")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $settings.fillOpacity, in: 0.0...0.85, step: 0.05)
+                            .tint(.cyan)
+                    }
+
+                    HStack {
+                        Spacer()
+                        Button(L("Reset")) {
+                            settings.reset()
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(16)
+                .frame(width: 280)
+                .presentationCompactAdaptation(.popover)
+            }
+        }
     }
 }
 

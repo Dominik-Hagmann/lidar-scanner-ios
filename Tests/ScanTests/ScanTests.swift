@@ -823,4 +823,83 @@ final class ScanTests: XCTestCase {
         XCTAssertGreaterThan(glbData.count, 20)
         XCTAssertEqual(String(decoding: glbData.prefix(4), as: UTF8.self), "glTF")
     }
+
+    func testAnnotationDraftVertexEditingAndDisplaySettings() {
+        var vertices: [SIMD3<Float>] = [
+            SIMD3<Float>(0, 0, 0),
+            SIMD3<Float>(1, 0, 0),
+            SIMD3<Float>(1, 0, 1)
+        ]
+        var selectedIndex: Int? = 1
+
+        // Hit-test skips currently selected index 1 even if closer, allowing user to move it or pick index 2
+        let picked = AnnotationDraftEditing.hitTestDraftVertex(
+            at: CGPoint(x: 205, y: 102),
+            vertices: vertices,
+            excludingIndex: selectedIndex,
+            maxScreenDistance: 28,
+            project: { v in CGPoint(x: CGFloat(v.x * 200), y: CGFloat(v.z * 100)) }
+        )
+        XCTAssertEqual(picked, 2)
+
+        // Tapping scene while corner 1 is selected updates corner 1 in place
+        let movedPos = SIMD3<Float>(2.5, 0.2, 0.5)
+        AnnotationDraftEditing.applyTap(
+            point: movedPos,
+            editingType: .polygon,
+            draftPoints: &vertices,
+            selectedVertexIndex: &selectedIndex
+        )
+        XCTAssertEqual(vertices.count, 3)
+        XCTAssertEqual(vertices[1], movedPos)
+        XCTAssertEqual(selectedIndex, 1)
+
+        // Switching to append mode (selectedIndex = nil) adds corner 4 and does not remove below 3
+        AnnotationDraftEditing.removeSelectedVertex(draftPoints: &vertices, selectedVertexIndex: &selectedIndex)
+        XCTAssertEqual(vertices.count, 3) // Cannot remove below 3 corners
+
+        selectedIndex = nil
+        let fourth = SIMD3<Float>(0, 0, 1)
+        AnnotationDraftEditing.applyTap(
+            point: fourth,
+            editingType: .polygon,
+            draftPoints: &vertices,
+            selectedVertexIndex: &selectedIndex
+        )
+        XCTAssertEqual(vertices.count, 4)
+        XCTAssertEqual(vertices[3], fourth)
+
+        // Deleting a corner when count > 3 removes it cleanly and shifts selection
+        selectedIndex = 1
+        AnnotationDraftEditing.removeSelectedVertex(draftPoints: &vertices, selectedVertexIndex: &selectedIndex)
+        XCTAssertEqual(vertices.count, 3)
+        XCTAssertEqual(selectedIndex, 1)
+
+        // Point annotation editing replaces single point
+        var ptDraft = [SIMD3<Float>(0, 0, 0)]
+        var ptIdx: Int? = 0
+        AnnotationDraftEditing.applyTap(
+            point: movedPos,
+            editingType: .point,
+            draftPoints: &ptDraft,
+            selectedVertexIndex: &ptIdx
+        )
+        XCTAssertEqual(ptDraft, [movedPos])
+        XCTAssertEqual(ptIdx, 0)
+
+        // Appearance settings persist and reset to defaults
+        let settings = AnnotationDisplaySettings.shared
+        defer { settings.reset() }
+        settings.showAnnotations = false
+        settings.symbolScale = 1.8
+        settings.fillOpacity = 0.65
+        XCTAssertFalse(settings.showAnnotations)
+        XCTAssertEqual(settings.symbolScale, 1.8, accuracy: 0.001)
+        XCTAssertEqual(settings.fillOpacity, 0.65, accuracy: 0.001)
+
+        settings.reset()
+        XCTAssertTrue(settings.showAnnotations)
+        XCTAssertEqual(settings.symbolScale, 1.0, accuracy: 0.001)
+        XCTAssertEqual(settings.fillOpacity, 0.28, accuracy: 0.001)
+    }
 }

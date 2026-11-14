@@ -144,7 +144,11 @@ enum PreviewVisuals {
         return node
     }
 
-    static func makePolygonSurface(vertices: [SIMD3<Float>], color: UIColor) -> SCNNode? {
+    static func makePolygonSurface(
+        vertices: [SIMD3<Float>],
+        color: UIColor,
+        fillOpacity: CGFloat = 0.28
+    ) -> SCNNode? {
         guard vertices.count >= 3 else { return nil }
         var coords: [Float] = []
         coords.reserveCapacity(vertices.count * 3)
@@ -176,7 +180,7 @@ enum PreviewVisuals {
         let geometry = SCNGeometry(sources: [vertexSource], elements: [element])
         let material = SCNMaterial()
         material.lightingModel = .constant
-        material.diffuse.contents = color.withAlphaComponent(0.28)
+        material.diffuse.contents = color.withAlphaComponent(fillOpacity)
         material.isDoubleSided = true
         material.writesToDepthBuffer = false
         geometry.materials = [material]
@@ -187,13 +191,21 @@ enum PreviewVisuals {
         vertices: [SIMD3<Float>],
         closed: Bool,
         fill: Bool,
+        fillOpacity: CGFloat = 0.28,
         markerRadius: CGFloat,
         lineRadius: CGFloat,
         color: UIColor,
+        selectedVertexIndex: Int? = nil,
         into parentNode: SCNNode
     ) {
-        for v in vertices {
-            parentNode.addChildNode(makeMarker(at: v, radius: markerRadius, color: color))
+        let activeColor = UIColor(red: 1.0, green: 0.84, blue: 0.04, alpha: 1)
+        for (idx, v) in vertices.enumerated() {
+            let isActive = idx == selectedVertexIndex
+            parentNode.addChildNode(makeMarker(
+                at: v,
+                radius: isActive ? markerRadius * 1.45 : markerRadius,
+                color: isActive ? activeColor : color
+            ))
         }
         if vertices.count >= 2 {
             let edgeCount = closed ? vertices.count : vertices.count - 1
@@ -203,7 +215,7 @@ enum PreviewVisuals {
                 parentNode.addChildNode(makeLine(from: a, to: b, radius: lineRadius, color: color))
             }
         }
-        if fill, let surface = makePolygonSurface(vertices: vertices, color: color) {
+        if fill, fillOpacity > 0.01, let surface = makePolygonSurface(vertices: vertices, color: color, fillOpacity: fillOpacity) {
             parentNode.addChildNode(surface)
         }
     }
@@ -225,8 +237,13 @@ struct OrbitCloudView: UIViewRepresentable {
     let activeTagFilter: String?
     let editingAnnotationID: UUID?
     let draftAnnotationPoints: [SIMD3<Float>]
+    let selectedDraftVertexIndex: Int?
+    let showAnnotations: Bool
+    let symbolScale: Double
+    let fillOpacity: Double
     let projectionModel: AnnotationOverlayProjectionModel
     let onPickAnnotationPoint: (SIMD3<Float>) -> Void
+    let onSelectDraftVertex: (Int) -> Void
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate, SCNSceneRendererDelegate {
         var parent: OrbitCloudView
@@ -250,6 +267,26 @@ struct OrbitCloudView: UIViewRepresentable {
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard parent.toolMode != .view, let scnView else { return }
             let location = gesture.location(in: scnView)
+
+            if parent.toolMode == .annotate,
+               parent.editingAnnotationID != nil,
+               parent.draftAnnotationPoints.count >= 2,
+               let tappedVertex = AnnotationDraftEditing.hitTestDraftVertex(
+                   at: location,
+                   vertices: parent.draftAnnotationPoints,
+                   excludingIndex: parent.selectedDraftVertexIndex,
+                   project: { vertex in
+                       let projected = scnView.projectPoint(SCNVector3(vertex.x, vertex.y, vertex.z))
+                       guard projected.z > 0, projected.z < 1,
+                             projected.x.isFinite, projected.y.isFinite else { return nil }
+                       return CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                   }
+               ) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                parent.onSelectDraftVertex(tappedVertex)
+                return
+            }
+
             guard let hitPoint = findNearestPoint(to: location, in: scnView) else { return }
 
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -304,7 +341,7 @@ struct OrbitCloudView: UIViewRepresentable {
             guard let scnView else { return }
             let bounds = scnView.bounds
             guard bounds.width > 0, bounds.height > 0 else { return }
-            let snapshot = filteredAnnotations
+            let snapshot = parent.showAnnotations ? filteredAnnotations : []
             let selectedID = parent.selectedAnnotationID
             let model = parent.projectionModel
             var labels: [ProjectedAnnotationLabel] = []
@@ -351,6 +388,10 @@ struct OrbitCloudView: UIViewRepresentable {
             }
             let markerRadius = CGFloat(max(0.005, boundsRadius * 0.014))
             let lineRadius = CGFloat(max(0.002, boundsRadius * 0.0045))
+            let symScale = CGFloat(parent.symbolScale)
+            let annMarkerRadius = markerRadius * symScale
+            let annLineRadius = lineRadius * symScale
+            let annFillOpacity = CGFloat(parent.fillOpacity)
 
             for gcp in parent.groundControlPoints {
                 let isSelected = gcp.id == parent.selectedGCPID
@@ -361,27 +402,30 @@ struct OrbitCloudView: UIViewRepresentable {
                 overlayNode.addChildNode(PreviewVisuals.makeMarker(at: gcp.arkitPosition, radius: markerRadius * scale, color: color))
             }
 
-            for ann in filteredAnnotations {
-                if ann.id == parent.editingAnnotationID { continue }
-                let isSelected = ann.id == parent.selectedAnnotationID
-                let scale: CGFloat = isSelected ? 1.45 : 1.0
-                let verts = ann.vertices.map(\.arkitPosition)
-                if ann.type == .point || verts.count == 1, let pos = verts.first {
-                    overlayNode.addChildNode(PreviewVisuals.makeMarker(
-                        at: pos,
-                        radius: markerRadius * scale,
-                        color: ann.color.uiColor
-                    ))
-                } else {
-                    PreviewVisuals.addShape(
-                        vertices: verts,
-                        closed: true,
-                        fill: true,
-                        markerRadius: markerRadius * 0.85 * scale,
-                        lineRadius: lineRadius * (isSelected ? 1.5 : 1.0),
-                        color: ann.color.uiColor,
-                        into: overlayNode
-                    )
+            if parent.showAnnotations {
+                for ann in filteredAnnotations {
+                    if ann.id == parent.editingAnnotationID { continue }
+                    let isSelected = ann.id == parent.selectedAnnotationID
+                    let scale: CGFloat = isSelected ? 1.45 : 1.0
+                    let verts = ann.vertices.map(\.arkitPosition)
+                    if ann.type == .point || verts.count == 1, let pos = verts.first {
+                        overlayNode.addChildNode(PreviewVisuals.makeMarker(
+                            at: pos,
+                            radius: annMarkerRadius * scale,
+                            color: ann.color.uiColor
+                        ))
+                    } else {
+                        PreviewVisuals.addShape(
+                            vertices: verts,
+                            closed: true,
+                            fill: true,
+                            fillOpacity: annFillOpacity,
+                            markerRadius: annMarkerRadius * 0.85 * scale,
+                            lineRadius: annLineRadius * (isSelected ? 1.5 : 1.0),
+                            color: ann.color.uiColor,
+                            into: overlayNode
+                        )
+                    }
                 }
             }
 
@@ -391,9 +435,11 @@ struct OrbitCloudView: UIViewRepresentable {
                     vertices: parent.draftAnnotationPoints,
                     closed: parent.draftAnnotationPoints.count >= 3,
                     fill: parent.draftAnnotationPoints.count >= 3,
-                    markerRadius: markerRadius * 0.95,
-                    lineRadius: lineRadius * 1.2,
+                    fillOpacity: annFillOpacity,
+                    markerRadius: annMarkerRadius * 0.95,
+                    lineRadius: annLineRadius * 1.2,
                     color: draftColor,
+                    selectedVertexIndex: parent.editingAnnotationID != nil ? parent.selectedDraftVertexIndex : nil,
                     into: overlayNode
                 )
             }
@@ -524,12 +570,14 @@ struct CloudPreviewSheet: View {
     @State private var annotationShape: CloudAnnotationGeometryType = .point
     @State private var draftAnnotationPoints: [SIMD3<Float>] = []
     @State private var editingGeometryAnnotation: CloudAnnotation?
+    @State private var selectedEditVertexIndex: Int?
     @State private var selectedAnnotationID: UUID?
     @State private var activeTagFilter: String?
     @State private var annotationEditorState: AnnotationEditorState?
     @State private var showAnnotationList = false
     @StateObject private var projectionModel = AnnotationOverlayProjectionModel()
 
+    @ObservedObject private var displaySettings = AnnotationDisplaySettings.shared
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -581,8 +629,15 @@ struct CloudPreviewSheet: View {
                     activeTagFilter: activeTagFilter,
                     editingAnnotationID: editingGeometryAnnotation?.id,
                     draftAnnotationPoints: draftAnnotationPoints,
+                    selectedDraftVertexIndex: selectedEditVertexIndex,
+                    showAnnotations: displaySettings.showAnnotations,
+                    symbolScale: displaySettings.symbolScale,
+                    fillOpacity: displaySettings.fillOpacity,
                     projectionModel: projectionModel,
-                    onPickAnnotationPoint: handleAnnotationTap(at:)
+                    onPickAnnotationPoint: handleAnnotationTap(at:),
+                    onSelectDraftVertex: { idx in
+                        selectedEditVertexIndex = idx
+                    }
                 )
                 .ignoresSafeArea(edges: .bottom)
 
@@ -606,6 +661,7 @@ struct CloudPreviewSheet: View {
                             annotationShape: $annotationShape,
                             draftPoints: $draftAnnotationPoints,
                             editingAnnotation: $editingGeometryAnnotation,
+                            selectedEditVertexIndex: $selectedEditVertexIndex,
                             onFinishNewDraft: finishDraftAnnotation,
                             onCommitGeometryEdit: commitGeometryEdit,
                             onCancelGeometryEdit: cancelGeometryEdit,
@@ -629,25 +685,32 @@ struct CloudPreviewSheet: View {
                 .padding(.bottom, 16)
             }
             .overlay(alignment: .topTrailing) {
-                if let mesh, !mesh.isEmpty {
+                let hasMesh = mesh != nil && !(mesh?.isEmpty ?? true)
+                if hasMesh || !annotations.isEmpty || toolMode == .annotate {
                     VStack(spacing: 10) {
-                        Button { showPoints.toggle() } label: {
-                            Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
-                                .font(.title3)
-                                .foregroundStyle(showPoints ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
-                                .frame(width: 44, height: 44)
-                                .background(.ultraThinMaterial, in: Circle())
-                        }
-                        .accessibilityLabel(L(showPoints ? "Hide Points" : "Show Points"))
+                        if hasMesh {
+                            Button { showPoints.toggle() } label: {
+                                Image(systemName: showPoints ? "circle.hexagongrid.fill" : "circle.hexagongrid")
+                                    .font(.title3)
+                                    .foregroundStyle(showPoints ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
+                                    .frame(width: 44, height: 44)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }
+                            .accessibilityLabel(L(showPoints ? "Hide Points" : "Show Points"))
 
-                        Button { showMesh.toggle() } label: {
-                            Image(systemName: showMesh ? "cube.fill" : "cube")
-                                .font(.title3)
-                                .foregroundStyle(showMesh ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
-                                .frame(width: 44, height: 44)
-                                .background(.ultraThinMaterial, in: Circle())
+                            Button { showMesh.toggle() } label: {
+                                Image(systemName: showMesh ? "cube.fill" : "cube")
+                                    .font(.title3)
+                                    .foregroundStyle(showMesh ? Color(red: 0.38, green: 0.93, blue: 0.76) : .white)
+                                    .frame(width: 44, height: 44)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }
+                            .accessibilityLabel(L(showMesh ? "Hide Mesh" : "Show Mesh"))
                         }
-                        .accessibilityLabel(L(showMesh ? "Hide Mesh" : "Show Mesh"))
+
+                        if !annotations.isEmpty || toolMode == .annotate {
+                            AnnotationDisplayControlButtons(settings: displaySettings)
+                        }
                     }
                     .padding(16)
                 }
@@ -743,6 +806,7 @@ struct CloudPreviewSheet: View {
                         selectedAnnotationID = updatedDraft.id
                         annotationShape = updatedDraft.type
                         draftAnnotationPoints = updatedDraft.vertices.map(\.arkitPosition)
+                        selectedEditVertexIndex = updatedDraft.vertices.isEmpty ? nil : 0
                         toolMode = .annotate
                     }
                 )
@@ -777,6 +841,7 @@ struct CloudPreviewSheet: View {
             selectedAnnotationID = nil
             draftAnnotationPoints = []
             editingGeometryAnnotation = nil
+            selectedEditVertexIndex = nil
         } else {
             if target != .measure {
                 selectedA = nil
@@ -785,6 +850,7 @@ struct CloudPreviewSheet: View {
             if target != .annotate {
                 draftAnnotationPoints = []
                 editingGeometryAnnotation = nil
+                selectedEditVertexIndex = nil
             }
             toolMode = target
         }
@@ -1011,11 +1077,12 @@ struct CloudPreviewSheet: View {
 
     private func handleAnnotationTap(at point: SIMD3<Float>) {
         if let editing = editingGeometryAnnotation {
-            if editing.type == .point {
-                draftAnnotationPoints = [point]
-            } else {
-                draftAnnotationPoints.append(point)
-            }
+            AnnotationDraftEditing.applyTap(
+                point: point,
+                editingType: editing.type,
+                draftPoints: &draftAnnotationPoints,
+                selectedVertexIndex: &selectedEditVertexIndex
+            )
             return
         }
         switch annotationShape {
@@ -1039,12 +1106,14 @@ struct CloudPreviewSheet: View {
         guard draftAnnotationPoints.count >= minCount else { return }
         updated.vertices = draftAnnotationPoints.map(AnnotationPoint3D.fromARKit)
         editingGeometryAnnotation = nil
+        selectedEditVertexIndex = nil
         draftAnnotationPoints = []
         saveAnnotation(updated, isNew: false)
     }
 
     private func cancelGeometryEdit() {
         editingGeometryAnnotation = nil
+        selectedEditVertexIndex = nil
         draftAnnotationPoints = []
     }
 

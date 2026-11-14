@@ -406,3 +406,12 @@
 "Stanford PLY Mesh (.ply)" = "Stanford PLY Mesh (.ply)";
 "glTF 2.0 Binary (.glb)" = "glTF 2.0 Binary (.glb)";
 "Could not read saved mesh." = "Could not read saved mesh.";
+"Delete Corner" = "Delete Corner";
+"Corner %@" = "Corner %@";
+"Append" = "Append";
+"Tap scene to move corner %@ (or tap another corner)" = "Tap scene to move corner %@ (or tap another corner)";
+"Hide Annotations" = "Hide Annotations";
+"Show Annotations" = "Show Annotations";
+"Annotation Appearance" = "Annotation Appearance";
+"Symbol Size" = "Symbol Size";
+"Polygon Opacity" = "Polygon Opacity";
