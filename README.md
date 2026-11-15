@@ -317,15 +317,15 @@ This section provides additional usage guidance and does not replace or modify t
 
 <p align="center">
   <a href="https://rim.iarh.hr/index.php/en" target="_blank">
-    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="75">
+    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="100">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://hrzz.hr/en/" target="_blank">
-    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="50">
+    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="85">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.iarh.hr/en/home/" target="_blank">
-    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="50">
+    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="85">
   </a>
 </p>
 
