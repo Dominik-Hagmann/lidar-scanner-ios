@@ -38,6 +38,7 @@ targets:
       - sdk: ImageIO.framework
       - sdk: CoreGraphics.framework
       - sdk: CoreLocation.framework
+      - sdk: MapKit.framework
       - sdk: libz.tbd
       - sdk: libc++.tbd
     settings:

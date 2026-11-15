@@ -112,7 +112,21 @@ enum ScanReport {
 
         // 1. Capture Summary & Settings
         var capturePairs: [(String, String)] = [
-            (text("Scan ID", "Scan-ID"), p.scanID.uuidString),
+            (text("Scan ID", "Scan-ID"), p.scanID.uuidString)
+        ]
+        if let desc = p.projectDescription, !desc.isEmpty {
+            capturePairs.append((text("Description", "Beschreibung"), desc))
+        }
+        if let tags = p.tags, !tags.isEmpty {
+            capturePairs.append((text("Project Tags", "Projekt-Tags"), tags.map { "#\($0)" }.joined(separator: " ")))
+        }
+        if let colIDs = p.collectionIDs, !colIDs.isEmpty {
+            let names = ProjectCollectionStore.shared.collections(for: colIDs).map(\.title)
+            if !names.isEmpty {
+                capturePairs.append((text("Collections", "Sammlungen"), names.joined(separator: ", ")))
+            }
+        }
+        capturePairs.append(contentsOf: [
             (text("Started", "Startzeitpunkt"), "\(date(p.startedAt)) (\(isoDate(p.startedAt)))"),
             (text("Saved", "Speicherzeitpunkt"), "\(date(p.savedAt)) (\(isoDate(p.savedAt)))"),
             (text("Device & OS", "Gerät & System"), "\(p.deviceModel) · iOS \(p.systemVersion)"),
@@ -124,9 +138,12 @@ enum ScanReport {
             (text("Depth Range", "Tiefenbereich"), "0.2 – \(number(Double(p.settings.maxDepth), decimals: 1)) m"),
             (text("Pixel Step / Min Confidence", "Pixelabstand / Min. Konfidenz"), "\(p.settings.pixelStep) / \(p.settings.minConfidence)"),
             (text("Point Limit", "Punktlimit"), p.settings.maxPoints == 0 ? text("Automatic memory monitoring", "Automatische Speicherüberwachung") : integer(p.settings.maxPoints))
-        ]
+        ])
         if scan.hasMesh {
             capturePairs.append((text("Surface Mesh", "Oberflächennetz"), "mesh.obj (\(text("Local Z↑", "Lokal Z↑")))"))
+        }
+        if scan.imageCount > 0 {
+            capturePairs.append((text("Saved Camera Images", "Gespeicherte Kamerabilder"), integer(scan.imageCount)))
         }
 
         sections.append(ReportSection(
@@ -149,6 +166,17 @@ enum ScanReport {
                 (text("Supported Formats", "Exportformate"), "Binary/ASCII PLY, CSV, LAS, LAZ, ASTM E57 (RGB + Confidence); XYZ; Mesh: OBJ, STL, PLY, GLB")
             ])
         ]
+        if let geo = p.georeferencing {
+            let crsLabel = geo.targetCRSName.map { "\(geo.targetCRS) · \($0)" } ?? geo.targetCRS
+            var geoPairs: [(String, String)] = [
+                (text("GCP Target CRS", "GCP-Zielsystem"), crsLabel),
+                (text("GCP Reference Points", "GCP-Referenzpunkte"), "\(geo.referencePointCount) / \(geo.controlPointCount)")
+            ]
+            if let rmse = geo.rmseMeters {
+                geoPairs.append((text("3D GCP Registration RMSE", "3D-Passpunkt-RMSE"), "\(number(rmse, decimals: 4)) m"))
+            }
+            provenanceBlocks.append(.keyValues(geoPairs))
+        }
         if let loc = p.location {
             provenanceBlocks.append(.keyValues(gnssPairs(loc)))
         }
@@ -159,6 +187,7 @@ enum ScanReport {
 
         // 3. GCPs (if present)
         if let gcps = p.groundControlPoints, !gcps.isEmpty {
+            let residualMap = Dictionary((p.georeferencing?.residuals ?? []).map { ($0.label, $0.error3DMeters) }, uniquingKeysWith: { a, _ in a })
             let headers = [
                 text("Label", "Bezeichnung"),
                 text("Local (X, Y, Z) m", "Lokal (X, Y, Z) m"),
@@ -176,12 +205,26 @@ enum ScanReport {
                 } else {
                     target = "–"
                 }
-                let extra = [gcp.coordinateSystem, gcp.note].filter { !$0.isEmpty }.joined(separator: " · ")
+                var extraParts = [gcp.coordinateSystem, gcp.note].filter { !$0.isEmpty }
+                if let err = residualMap[gcp.label] {
+                    extraParts.append(String(format: "RMSE Δ=%.4f m", locale: posix, err))
+                }
+                let extra = extraParts.joined(separator: " · ")
                 return [gcp.label, local, target, extra.isEmpty ? "–" : extra]
             }
+            var gcpBlocks: [ReportBlock] = []
+            if let geo = p.georeferencing {
+                let crsLabel = geo.targetCRSName.map { "\(geo.targetCRS) · \($0)" } ?? geo.targetCRS
+                var summaryPairs: [(String, String)] = [(text("Target CRS", "Ziel-CRS"), crsLabel)]
+                if let rmse = geo.rmseMeters {
+                    summaryPairs.append((text("3D Registration RMSE", "3D-Registrierungs-RMSE"), "\(number(rmse, decimals: 4)) m"))
+                }
+                gcpBlocks.append(.keyValues(summaryPairs))
+            }
+            gcpBlocks.append(.table(headers: headers, rows: rows, dotHexes: nil))
             sections.append(ReportSection(
                 heading: text("Ground Control Points (\(gcps.count))", "Passpunkte / Ground Control Points (\(gcps.count))"),
-                blocks: [.table(headers: headers, rows: rows, dotHexes: nil)]
+                blocks: gcpBlocks
             ))
         }
 
@@ -196,7 +239,10 @@ enum ScanReport {
                 (text("Session Note", "Sitzungsvermerk"), p.sessionNote),
                 (text("Local Processing", "Lokale Verarbeitung"), text("100% on device · No server uploads · Color not radiometrically calibrated", "100 % lokal auf dem Gerät · Kein Server-Upload · Farbe nicht radiometrisch kalibriert"))
             ]),
-            .paragraph(text(
+            .paragraph(scan.imageCount > 0 ? text(
+                "This report summarizes metadata saved with the point cloud. Camera keyframes were saved as JPEGs alongside the point cloud, while individual frame-selection decisions are not logged in point-cloud mode. Independent metric accuracy and complete coverage were not measured.",
+                "Dieser Bericht fasst die mit der Punktwolke gespeicherten Metadaten zusammen. Kamera-Einzelbilder wurden als JPEGs zusammen mit der Punktwolke gespeichert; einzelne Bildauswahlentscheidungen werden im Punktwolkenmodus nicht protokolliert. Eine unabhängige metrische Genauigkeit oder vollständige Abdeckung wurde nicht gemessen."
+            ) : text(
                 "This report summarizes metadata saved with the point cloud. Raw RGB keyframes and individual frame-selection decisions are not retained in point-cloud mode. Independent metric accuracy and complete coverage were not measured.",
                 "Dieser Bericht fasst die mit der Punktwolke gespeicherten Metadaten zusammen. Einzelne RGB-Bilder und Bildauswahlentscheidungen werden im Punktwolkenmodus nicht gespeichert. Eine unabhängige metrische Genauigkeit oder vollständige Abdeckung wurde nicht gemessen."
             ))
@@ -247,14 +293,28 @@ enum ScanReport {
         // 1. Capture Overview
         var capturePairs: [(String, String)] = [
             (text("Project ID", "Projekt-ID"), p.id.uuidString),
-            (text("Status", "Status"), p.phase.title),
+            (text("Status", "Status"), p.phase.title)
+        ]
+        if let desc = p.projectDescription, !desc.isEmpty {
+            capturePairs.append((text("Description", "Beschreibung"), desc))
+        }
+        if let tags = p.tags, !tags.isEmpty {
+            capturePairs.append((text("Project Tags", "Projekt-Tags"), tags.map { "#\($0)" }.joined(separator: " ")))
+        }
+        if let colIDs = p.collectionIDs, !colIDs.isEmpty {
+            let names = ProjectCollectionStore.shared.collections(for: colIDs).map(\.title)
+            if !names.isEmpty {
+                capturePairs.append((text("Collections", "Sammlungen"), names.joined(separator: ", ")))
+            }
+        }
+        capturePairs.append(contentsOf: [
             (text("Started", "Startzeitpunkt"), "\(date(p.startedAt)) (\(isoDate(p.startedAt)))"),
             (text("Updated", "Aktualisiert"), "\(date(p.updatedAt)) (\(isoDate(p.updatedAt)))"),
             (text("Device & OS", "Gerät & System"), "\(p.device) · iOS \(p.operatingSystem)"),
             (text("App Version", "App-Version"), "LiDAR Scanner App for iPhone and iPad \(p.appVersion) (Build \(p.appBuild))"),
             (text("Saved Views / Decisions", "Ansichten / Bildentscheidungen"), "\(integer(p.frames.count)) / \(integer(p.receivedFrames))"),
             (text("Seed Depth Points", "Ausgangs-Tiefenpunkte"), integer(p.seedCount))
-        ]
+        ])
         if let recovery = p.recoveryNote {
             capturePairs.append((text("Recovery Note", "Wiederherstellung"), recovery))
         }

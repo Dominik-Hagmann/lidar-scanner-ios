@@ -379,7 +379,56 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    enum ShareKind: Equatable { case scene, capture, report(ReportFormat), log }
+    func updateProjectOrganization(
+        for project: GaussianProject,
+        title: String?,
+        projectDescription: String?,
+        tags: [String],
+        collectionIDs: [UUID]
+    ) {
+        worker.async {
+            do {
+                let updated: GaussianProject
+                if let store = self.store, store.project.id == project.id {
+                    let defaultTitle = store.project.startedAt.formatted(date: .abbreviated, time: .shortened)
+                    let trimmedTitle = ProjectTagCatalog.trimmedOrNil(title)
+                    store.project.customTitle = (trimmedTitle == defaultTitle) ? nil : trimmedTitle
+                    store.project.projectDescription = ProjectTagCatalog.trimmedOrNil(projectDescription)
+                    store.project.tags = ProjectTagCatalog.normalizedOrNil(tags)
+                    var seen = Set<UUID>()
+                    let dedupedIDs = collectionIDs.filter { seen.insert($0).inserted }
+                    store.project.collectionIDs = dedupedIDs.isEmpty ? nil : dedupedIDs
+                    try store.event("project_organization_updated", [
+                        "tags": "\(store.project.tags?.count ?? 0)",
+                        "collections": "\(store.project.collectionIDs?.count ?? 0)"
+                    ])
+                    try store.save()
+                    updated = store.project
+                } else {
+                    updated = try GaussianStore.updateProjectOrganization(
+                        for: project,
+                        title: title,
+                        projectDescription: projectDescription,
+                        tags: tags,
+                        collectionIDs: collectionIDs
+                    )
+                }
+                let scans = (try? GaussianStore.list()) ?? []
+                DispatchQueue.main.async {
+                    if self.current?.id == updated.id {
+                        self.current = updated
+                    }
+                    self.archive = scans
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    enum ShareKind: Equatable { case scene, images, capture, report(ReportFormat), log }
     func share(_ kind: ShareKind) {
         guard !isBusy, !isRecording, current != nil else { return }
         let isReport: Bool
@@ -402,6 +451,7 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
                         sceneURLs.append(store.project.annotationsGeoJSONURL)
                     }
                     urls = sceneURLs
+                case .images: urls = [try store.exportImages()]
                 case .capture: urls = [try store.exportInputs()]
                 case .log: urls = [store.directory.appendingPathComponent("scan.json"), store.directory.appendingPathComponent("events.jsonl")]
                 case .report(let format): urls = [try ScanReport.gaussian(store.project, format: format)]
@@ -413,10 +463,22 @@ final class GaussianModel: NSObject, ObservableObject, ARSessionDelegate {
             } catch { self.fail(error) }
         }
     }
+
+    func exportImages(for project: GaussianProject, completion: @escaping (URL) -> Void) {
+        worker.async {
+            do {
+                let url = try GaussianStore.exportImages(for: project)
+                DispatchQueue.main.async { completion(url) }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
+            }
+        }
+    }
     private func publish(_ project: GaussianProject) {
         DispatchQueue.main.async { self.current = project; self.statusFromProject = true; self.status = project.phase.title }
     }
     private func finished(_ project: GaussianProject) {
+        ReportPreviewRenderer.writeGaussianThumbnail(for: project)
         let scans = (try? GaussianStore.list()) ?? []
         DispatchQueue.main.async {
             self.current = project; self.archive = scans; self.isBusy = false; self.processingActive = false

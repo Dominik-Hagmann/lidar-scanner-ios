@@ -7,6 +7,7 @@ import simd
 struct GaussianPreviewSheet: View {
     let url: URL
     let exportMetadata: AnnotationExportMetadata?
+    let location: GeoLocation?
     let onSaveAnnotations: (([CloudAnnotation]) -> Void)?
     @Binding var isFullScreen: Bool
     let onClose: (() -> Void)?
@@ -16,6 +17,7 @@ struct GaussianPreviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var loading = true
+    @State private var showLocationMap = false
 
     @State private var isAnnotateMode = false
     @State private var annotations: [CloudAnnotation]
@@ -32,6 +34,7 @@ struct GaussianPreviewSheet: View {
     init(
         url: URL,
         exportMetadata: AnnotationExportMetadata? = nil,
+        location: GeoLocation? = nil,
         annotations: [CloudAnnotation] = [],
         onSaveAnnotations: (([CloudAnnotation]) -> Void)? = nil,
         isFullScreen: Binding<Bool> = .constant(false),
@@ -39,6 +42,7 @@ struct GaussianPreviewSheet: View {
     ) {
         self.url = url
         self.exportMetadata = exportMetadata
+        self.location = location
         self._annotations = State(initialValue: annotations)
         self.onSaveAnnotations = onSaveAnnotations
         self._isFullScreen = isFullScreen
@@ -164,6 +168,15 @@ struct GaussianPreviewSheet: View {
                     }
                     .tint(isAnnotateMode ? .cyan : .primary)
                     .accessibilityLabel(L("3D Annotations"))
+
+                    if let loc = location, loc.isValidCoordinate {
+                        Button {
+                            showLocationMap = true
+                        } label: {
+                            Image(systemName: "map")
+                        }
+                        .accessibilityLabel(L("GNSS Map"))
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Done")) {
@@ -210,6 +223,11 @@ struct GaussianPreviewSheet: View {
                         annotationEditorState = AnnotationEditorState(existing: ann, initial: ann)
                     }
                 )
+            }
+            .sheet(isPresented: $showLocationMap) {
+                if let loc = location, loc.isValidCoordinate {
+                    ScanLocationMapSheet(location: loc, title: exportMetadata?.title)
+                }
             }
         }
         .interactiveDismissDisabled(true)

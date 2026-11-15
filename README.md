@@ -315,24 +315,28 @@ This section provides additional usage guidance and does not replace or modify t
 
 ## Acknowledgments
 
-<p align="center">
-  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
-    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="100">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://hrzz.hr/en/" target="_blank">
-    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="85">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.iarh.hr/en/home/" target="_blank">
-    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="85">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://rim.iarh.hr/index.php/en">Roman Infrastructure Mapping (RIM)</a>
-  &nbsp;·&nbsp;
-  <a href="https://hrzz.hr/en/">Croatian Science Foundation (HRZZ)</a>
-  &nbsp;·&nbsp;
-  <a href="https://www.iarh.hr/en/home/">Institute of Archaeology (IARH)</a>
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="https://rim.iarh.hr/index.php/en" target="_blank">
+        <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="90">
+      </a>
+      <br><br>
+      <a href="https://rim.iarh.hr/index.php/en" target="_blank">Roman Infrastructure Mapping<br>(RIM)</a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="https://hrzz.hr/en/" target="_blank">
+        <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="90">
+      </a>
+      <br><br>
+      <a href="https://hrzz.hr/en/" target="_blank">Croatian Science Foundation<br>(HRZZ)</a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="https://www.iarh.hr/en/home/" target="_blank">
+        <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="90">
+      </a>
+      <br><br>
+      <a href="https://www.iarh.hr/en/home/" target="_blank">Institute of Archaeology<br>(IARH)</a>
+    </td>
+  </tr>
+</table>

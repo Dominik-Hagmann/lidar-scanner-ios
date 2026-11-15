@@ -63,6 +63,9 @@ struct SettingsSheet: View {
                     Picker(L("Format"), selection: $model.exportFormat) {
                         ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
                     }
+                    Toggle(L("Save Camera Images"), isOn: $model.settings.saveImages)
+                    Text(L("Saves camera keyframes as JPEG images during scanning so they can be exported separately as a ZIP archive."))
+                        .font(.caption).foregroundStyle(.secondary)
                     Text(L("PLY, CSV, LAS, LAZ, and ASTM E57 preserve RGB color and confidence; XYZ contains three coordinate columns. All coordinates are local, in meters, with Z pointing up. Each scan includes a JSON metadata file."))
                         .font(.caption).foregroundStyle(.secondary)
                 }

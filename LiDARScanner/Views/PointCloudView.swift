@@ -550,6 +550,7 @@ struct CloudPreviewSheet: View {
     let total: Int
     let mesh: MeshPreviewData?
     let scanMetadata: ScanMetadata?
+    let location: GeoLocation?
     @Binding var isFullScreen: Bool
     let onClose: (() -> Void)?
     let onSaveGCPs: (([GroundControlPoint]) -> Void)?
@@ -557,6 +558,7 @@ struct CloudPreviewSheet: View {
 
     @State private var showPoints = true
     @State private var showMesh = false
+    @State private var showLocationMap = false
     @State private var toolMode: PreviewToolMode = .view
     @State private var selectedA: SIMD3<Float>?
     @State private var selectedB: SIMD3<Float>?
@@ -581,6 +583,10 @@ struct CloudPreviewSheet: View {
     @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
 
+    private var effectiveLocation: GeoLocation? {
+        location ?? scanMetadata?.location
+    }
+
     private var measurementDistance: Float? {
         guard let a = selectedA, let b = selectedB else { return nil }
         return simd_distance(a, b)
@@ -591,6 +597,7 @@ struct CloudPreviewSheet: View {
         total: Int,
         mesh: MeshPreviewData? = nil,
         scanMetadata: ScanMetadata? = nil,
+        location: GeoLocation? = nil,
         groundControlPoints: [GroundControlPoint] = [],
         onSaveGCPs: (([GroundControlPoint]) -> Void)? = nil,
         annotations: [CloudAnnotation] = [],
@@ -602,6 +609,7 @@ struct CloudPreviewSheet: View {
         self.total = total
         self.mesh = mesh
         self.scanMetadata = scanMetadata
+        self.location = location
         self._gcps = State(initialValue: groundControlPoints)
         self.onSaveGCPs = onSaveGCPs
         self._annotations = State(initialValue: annotations)
@@ -763,6 +771,15 @@ struct CloudPreviewSheet: View {
                     }
                     .tint(toolMode == .annotate ? .cyan : .primary)
                     .accessibilityLabel(L("3D Annotations"))
+
+                    if let loc = effectiveLocation, loc.isValidCoordinate {
+                        Button {
+                            showLocationMap = true
+                        } label: {
+                            Image(systemName: "map")
+                        }
+                        .accessibilityLabel(L("GNSS Map"))
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Done")) {
@@ -779,6 +796,7 @@ struct CloudPreviewSheet: View {
                 GCPEditorSheet(
                     initial: state.initialPoint,
                     isNew: state.existing == nil,
+                    existingCRSCodes: existingCRSCodes,
                     onSave: { saved in
                         saveGCP(saved, isNew: state.existing == nil)
                     },
@@ -828,6 +846,11 @@ struct CloudPreviewSheet: View {
             .sheet(item: $sharedGCPFile) { item in
                 ShareSheet(urls: item.urls)
             }
+            .sheet(isPresented: $showLocationMap) {
+                if let loc = effectiveLocation, loc.isValidCoordinate {
+                    ScanLocationMapSheet(location: loc, title: scanMetadata?.title)
+                }
+            }
         }
         .interactiveDismissDisabled(true)
     }
@@ -863,7 +886,7 @@ struct CloudPreviewSheet: View {
             Text(L("Preview points: %@ of %@. The export contains all points.", points.count.formatted(), total.formatted()))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            if !gcps.isEmpty || !annotations.isEmpty {
+            if !gcps.isEmpty || !annotations.isEmpty || (effectiveLocation?.isValidCoordinate == true) {
                 HStack(spacing: 12) {
                     if !gcps.isEmpty {
                         Button {
@@ -882,6 +905,16 @@ struct CloudPreviewSheet: View {
                                 .font(.caption2.weight(.semibold))
                         }
                         .foregroundStyle(.cyan)
+                    }
+                    if let loc = effectiveLocation, loc.isValidCoordinate {
+                        Button {
+                            showLocationMap = true
+                        } label: {
+                            Label(loc.formattedCoordinates, systemImage: "location.fill")
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(Color(red: 0.38, green: 0.93, blue: 0.76))
                     }
                 }
                 .padding(.top, 2)
@@ -977,14 +1010,42 @@ struct CloudPreviewSheet: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private var existingCRSCodes: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for gcp in gcps {
+            let normalized = CRSCatalog.normalizeCode(gcp.coordinateSystem)
+            guard !normalized.isEmpty else { continue }
+            let key = normalized.uppercased()
+            if seen.insert(key).inserted {
+                result.append(normalized)
+            }
+        }
+        return result
+    }
+
     private var gcpListSheet: some View {
-        NavigationStack {
+        let geo = GCPRegistration.computeGeoreferencing(for: gcps)
+        let residualMap = Dictionary((geo?.residuals ?? []).map { ($0.label, $0.error3DMeters) }, uniquingKeysWith: { a, _ in a })
+
+        return NavigationStack {
             List {
                 if gcps.isEmpty {
                     Text(L("No ground control points recorded yet. Switch to GCP mode in the 3D preview and tap a point."))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
+                    if let geo {
+                        Section(L("Georeferencing")) {
+                            let crsDisplay = geo.targetCRSName.map { "\(geo.targetCRS) · \($0)" } ?? geo.targetCRS
+                            LabeledContent(L("Target CRS"), value: crsDisplay)
+                            LabeledContent(L("Reference Points"), value: "\(geo.referencePointCount) / \(geo.controlPointCount)")
+                            if let rmse = geo.rmseMeters {
+                                LabeledContent(L("3D Registration RMSE"), value: String(format: "%.4f m", rmse))
+                            }
+                        }
+                    }
+
                     ForEach(gcps) { gcp in
                         Button {
                             showGCPList = false
@@ -1015,6 +1076,11 @@ struct CloudPreviewSheet: View {
                                         .font(.caption.monospacedDigit())
                                         .foregroundStyle(.orange)
                                 }
+                                if let err = residualMap[gcp.label] {
+                                    Text(L("Residual: %@", String(format: "%.4f m", err)))
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
                                 if !gcp.note.isEmpty {
                                     Text(gcp.note).font(.caption).foregroundStyle(.secondary)
                                 }
@@ -1033,10 +1099,8 @@ struct CloudPreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if !gcps.isEmpty {
-                        Button {
-                            exportGCPCSV()
-                        } label: {
-                            Label(L("Export CSV"), systemImage: "square.and.arrow.up")
+                        GCPExportMenu(titleKey: "Export GCPs", systemImage: "square.and.arrow.up") { kind in
+                            exportGCPs(kind)
                         }
                     }
                 }
@@ -1153,10 +1217,11 @@ struct CloudPreviewSheet: View {
         onSaveAnnotations?(annotations)
     }
 
-    private func exportGCPCSV() {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("gcps.csv")
+    private func exportGCPs(_ kind: GCPExportKind) {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
         do {
-            try ScanStorage.gcpCSVData(for: gcps).write(to: tempURL, options: .atomic)
+            let data = try GCPExporter.data(for: gcps, kind: kind, metadata: scanMetadata)
+            try data.write(to: tempURL, options: .atomic)
             showGCPList = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 sharedGCPFile = SharedFiles(urls: [tempURL])
@@ -1168,20 +1233,25 @@ struct CloudPreviewSheet: View {
 private struct GCPEditorSheet: View {
     let initial: GroundControlPoint
     let isNew: Bool
+    let existingCRSCodes: [String]
     let onSave: (GroundControlPoint) -> Void
     let onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var locationService = LocationService.shared
     @State private var label: String
     @State private var targetX: String
     @State private var targetY: String
     @State private var targetZ: String
     @State private var crs: String
     @State private var note: String
+    @State private var showCRSPicker = false
 
-    init(initial: GroundControlPoint, isNew: Bool, onSave: @escaping (GroundControlPoint) -> Void, onDelete: (() -> Void)?) {
+    init(initial: GroundControlPoint, isNew: Bool, existingCRSCodes: [String] = [],
+         onSave: @escaping (GroundControlPoint) -> Void, onDelete: (() -> Void)?) {
         self.initial = initial
         self.isNew = isNew
+        self.existingCRSCodes = existingCRSCodes
         self.onSave = onSave
         self.onDelete = onDelete
         _label = State(initialValue: initial.label)
@@ -1190,6 +1260,27 @@ private struct GCPEditorSheet: View {
         _targetZ = State(initialValue: initial.targetZ.map { String($0) } ?? "")
         _crs = State(initialValue: initial.coordinateSystem)
         _note = State(initialValue: initial.note)
+    }
+
+    private var resolvedCRS: CRSEntry? {
+        CRSCatalog.lookup(crs)
+    }
+
+    private var isGeographicDegrees: Bool {
+        resolvedCRS?.unitKind == .degrees
+    }
+
+    private var quickPickList: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for code in existingCRSCodes + CRSCatalog.quickPickCodes {
+            let norm = CRSCatalog.normalizeCode(code)
+            guard !norm.isEmpty else { continue }
+            if seen.insert(norm.uppercased()).inserted {
+                result.append(norm)
+            }
+        }
+        return result
     }
 
     var body: some View {
@@ -1205,16 +1296,92 @@ private struct GCPEditorSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Section(L("Reference Coordinates (Optional)")) {
-                    TextField(L("Target X / Easting / Lon"), text: $targetX)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField(L("Target Y / Northing / Lat"), text: $targetY)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField(L("Target Z / Elevation (m)"), text: $targetZ)
-                        .keyboardType(.numbersAndPunctuation)
+
+                Section(L("Coordinate Reference System (CRS)")) {
+                    Button {
+                        showCRSPicker = true
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let entry = resolvedCRS {
+                                    Text(entry.code)
+                                        .font(.subheadline.weight(.semibold).monospaced())
+                                        .foregroundStyle(.primary)
+                                    Text("\(entry.name) · \(entry.region)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    let trimmed = CRSCatalog.normalizeCode(crs)
+                                    Text(trimmed.isEmpty ? L("Choose EPSG / Coordinate System…") : trimmed)
+                                        .font(.subheadline)
+                                        .foregroundStyle(trimmed.isEmpty ? .orange : .primary)
+                                    if !trimmed.isEmpty {
+                                        Text(L("Custom CRS"))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(quickPickList, id: \.self) { code in
+                                let isSelected = CRSCatalog.normalizeCode(crs).caseInsensitiveCompare(code) == .orderedSame
+                                Button {
+                                    crs = code
+                                } label: {
+                                    Text(code)
+                                        .font(.caption.weight(.semibold).monospaced())
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(isSelected ? Color.orange.opacity(0.28) : Color.secondary.opacity(0.14), in: Capsule())
+                                        .overlay(
+                                            Capsule().strokeBorder(isSelected ? Color.orange : Color.clear, lineWidth: 1)
+                                        )
+                                }
+                                .foregroundStyle(isSelected ? .orange : .primary)
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+
                     TextField(L("CRS (e.g. EPSG:31256 or EPSG:4326)"), text: $crs)
                         .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
                 }
+
+                Section(L("Reference Coordinates (Optional)")) {
+                    TextField(L(isGeographicDegrees ? "Longitude (°)" : "Easting / X (m)"), text: $targetX)
+                        .keyboardType(.numbersAndPunctuation)
+                    TextField(L(isGeographicDegrees ? "Latitude (°)" : "Northing / Y (m)"), text: $targetY)
+                        .keyboardType(.numbersAndPunctuation)
+                    TextField(L(isGeographicDegrees ? "Elevation / Ellipsoid Height (m)" : "Target Z / Elevation (m)"), text: $targetZ)
+                        .keyboardType(.numbersAndPunctuation)
+                    if let loc = locationService.currentLocation {
+                        Button {
+                            if resolvedCRS?.unitKind != .degrees {
+                                crs = "EPSG:4326"
+                            }
+                            let posix = Locale(identifier: "en_US_POSIX")
+                            targetX = String(format: "%.8f", locale: posix, loc.longitude)
+                            targetY = String(format: "%.8f", locale: posix, loc.latitude)
+                            if let alt = loc.altitude {
+                                targetZ = String(format: "%.2f", locale: posix, alt)
+                            }
+                        } label: {
+                            Label(L("Use Current GNSS Position (WGS84)"), systemImage: "location.fill")
+                                .font(.subheadline)
+                        }
+                    }
+                }
+
                 Section(L("Notes")) {
                     TextField(L("Target / Nail / Trench note"), text: $note)
                 }
@@ -1241,12 +1408,15 @@ private struct GCPEditorSheet: View {
                         updated.targetX = parseDouble(targetX)
                         updated.targetY = parseDouble(targetY)
                         updated.targetZ = parseDouble(targetZ)
-                        updated.coordinateSystem = crs.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.coordinateSystem = CRSCatalog.normalizeCode(crs)
                         updated.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
                         onSave(updated)
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showCRSPicker) {
+                CRSPickerSheet(selectedCode: $crs)
             }
         }
     }
@@ -1254,6 +1424,99 @@ private struct GCPEditorSheet: View {
     private func parseDouble(_ text: String) -> Double? {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
         return normalized.isEmpty ? nil : Double(normalized)
+    }
+}
+
+private struct CRSPickerSheet: View {
+    @Binding var selectedCode: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    private var filteredEntries: [CRSEntry] {
+        CRSCatalog.search(searchText)
+    }
+
+    private var groupedSections: [(category: CRSCategory, entries: [CRSEntry])] {
+        let matches = filteredEntries
+        return CRSCategory.allCases.compactMap { category in
+            let items = matches.filter { $0.category == category }
+            return items.isEmpty ? nil : (category, items)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if groupedSections.isEmpty {
+                    Text(L("No matching EPSG codes found. Enter a numeric EPSG code (e.g. 31256)."))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(groupedSections, id: \.category) { section in
+                        Section(section.category.title) {
+                            ForEach(section.entries) { entry in
+                                let isSelected = CRSCatalog.normalizeCode(selectedCode)
+                                    .caseInsensitiveCompare(entry.code) == .orderedSame
+                                Button {
+                                    selectedCode = entry.code
+                                    dismiss()
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            HStack(spacing: 6) {
+                                                Text(entry.code)
+                                                    .font(.subheadline.weight(.bold).monospaced())
+                                                    .foregroundStyle(.orange)
+                                                Text(entry.unitKind.shortLabel)
+                                                    .font(.caption2.weight(.semibold))
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 1)
+                                                    .background(Color.secondary.opacity(0.18), in: Capsule())
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Text(entry.name)
+                                                .font(.subheadline)
+                                                .foregroundStyle(.primary)
+                                            Text(entry.region)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        if isSelected {
+                                            Image(systemName: "checkmark")
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: Text(L("Search EPSG code, name, or country"))
+            )
+            .navigationTitle(L("Select EPSG / CRS"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Cancel")) { dismiss() }
+                }
+                if !selectedCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L("Clear")) {
+                            selectedCode = ""
+                            dismiss()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

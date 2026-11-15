@@ -1,6 +1,7 @@
 import ARKit
 import AVFoundation
 import Combine
+import CoreImage
 import SwiftUI
 import simd
 
@@ -13,6 +14,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         didSet { LocationService.shared.isEnabled = settings.recordLocation }
     }
     @Published var scanTitle = ""
+    @Published var scanDescription = ""
+    @Published var activeProjectTags: [String] = []
+    @Published var activeCollectionIDs: [UUID] = []
     @Published var exportFormat: ExportFormat = .binaryPLY
     @Published var meshExportFormat: MeshExportFormat = .obj
     @Published private(set) var pointCount = 0
@@ -21,6 +25,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var acceptedSamples: UInt64 = 0
     @Published private(set) var depthWidth = 0
     @Published private(set) var depthHeight = 0
+    @Published private(set) var savedImageCount = 0
     @Published private(set) var savedScanDetail: SavedScan?
     @Published private(set) var isRecording = false
     @Published private(set) var isBusy = false
@@ -40,6 +45,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
 
     private let worker = DispatchQueue(label: "LiDARScanner.cloud", qos: .userInitiated)
     private let cloud: OpaquePointer?
+    private let imageContext = CIContext(options: [.cacheIntermediates: false])
     private var processingFrame = false
     private var lastScheduledTime: TimeInterval = -1
     private var lastPreviewTime: TimeInterval = -1
@@ -77,6 +83,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
     private var cachedScan: SavedScan?
     private var savedSamples: UInt64 = 0
     private var savedTitle = ""
+    private var workerSavedImages = 0
+    private var workerLastImageTime: TimeInterval = -Double.infinity
+    private var workerLastImagePose: simd_float4x4?
 
     override init() {
         cloud = pc_create(ScanSettings().core)
@@ -95,6 +104,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 self?.refreshLocalizedText()
             }
             .store(in: &cancellables)
+        worker.async { ScanStorage.cleanupStagingImages() }
         refreshArchive()
     }
 
@@ -198,7 +208,15 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         if pointCount == 0 {
             activeSettings = settings
             let configuration = activeSettings.core
-            worker.async { pc_reset(cloud, configuration) }
+            let currentScanID = scanID
+            savedImageCount = 0
+            worker.async {
+                pc_reset(cloud, configuration)
+                self.workerSavedImages = 0
+                self.workerLastImageTime = -Double.infinity
+                self.workerLastImagePose = nil
+                ScanStorage.cleanupStagingImages(for: currentScanID)
+            }
             startedAt = Date()
             if activeSettings.recordLocation {
                 LocationService.shared.isEnabled = true
@@ -234,13 +252,18 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         UIApplication.shared.isIdleTimerDisabled = false
         isBusy = true
         generation += 1
+        let previousScanID = scanID
         scanID = UUID(); startedAt = Date(); activeSettings = settings
         let config = settings.core
         worker.async {
             pc_reset(cloud, config)
+            ScanStorage.cleanupStagingImages(for: previousScanID)
             self.workerFrames = 0; self.workerSeconds = 0; self.workerLastTimestamp = nil
             self.workerWidth = 0; self.workerHeight = 0
             self.cachedScan = nil; self.savedSamples = 0; self.savedTitle = ""
+            self.workerSavedImages = 0
+            self.workerLastImageTime = -Double.infinity
+            self.workerLastImagePose = nil
             DispatchQueue.main.async {
                 self.meshAnchors.removeAll()
                 self.meshChunkVersions.removeAll()
@@ -251,9 +274,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 self.pointCount = 0; self.activeSeconds = 0
                 self.processedFrames = 0; self.acceptedSamples = 0
                 self.depthWidth = 0; self.depthHeight = 0
+                self.savedImageCount = 0
                 self.savedScanDetail = nil
                 self.preview = []; self.previewVersion += 1
-                self.scanTitle = ""; self.sessionClosed = !self.foreground
+                self.scanTitle = ""; self.scanDescription = ""
+                self.activeProjectTags = []; self.activeCollectionIDs = []
+                self.sessionClosed = !self.foreground
                 self.closedReason = nil
                 self.localizedClosedReason = nil
                 self.closedReasonPhrase = nil
@@ -311,6 +337,8 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         processingFrame = true
         lastScheduledTime = frame.timestamp
         let thisGeneration = generation
+        let thisScanID = scanID
+        let saveImages = activeSettings.saveImages
         let makePreview = frame.timestamp - lastPreviewTime >= 0.5
         if makePreview { lastPreviewTime = frame.timestamp }
         worker.async {
@@ -322,11 +350,23 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 }
                 self.workerLastTimestamp = frame.timestamp
                 self.workerWidth = result.width; self.workerHeight = result.height
+                if saveImages &&
+                   (frame.timestamp - self.workerLastImageTime >= GaussianCapture.interval) &&
+                   GaussianCapture.needsView(frame.camera.transform, after: self.workerLastImagePose) {
+                    autoreleasepool {
+                        if (try? ScanStorage.writeStagingImage(frame.capturedImage, index: self.workerSavedImages, scanID: thisScanID, context: self.imageContext)) == true {
+                            self.workerSavedImages += 1
+                            self.workerLastImageTime = frame.timestamp
+                            self.workerLastImagePose = frame.camera.transform
+                        }
+                    }
+                }
                 let seconds = self.workerSeconds
                 let frames = self.workerFrames
                 let samples = result.stats.acceptedSamples
                 let width = result.width
                 let height = result.height
+                let imagesCount = self.workerSavedImages
                 DispatchQueue.main.async {
                     self.processingFrame = false
                     guard thisGeneration == self.generation else { return }
@@ -336,6 +376,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     self.acceptedSamples = samples
                     self.depthWidth = width
                     self.depthHeight = height
+                    self.savedImageCount = imagesCount
                     if let points = result.preview { self.preview = points; self.previewVersion += 1 }
                     if self.isRecording && os_proc_available_memory() < Self.captureMemoryReserve {
                         self.closeSession(reason: "Die Erfassung wurde wegen knappen Arbeitsspeichers beendet. Für weitere Aufnahmen bitte einen neuen Scan beginnen.")
@@ -473,7 +514,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         saveCurrent(share: false, reportFormat: format)
     }
 
-    func saveCurrent(share: Bool, reportFormat: ReportFormat? = nil, shareMesh: Bool = false, meshFormat: MeshExportFormat? = nil) {
+    func saveCurrent(share: Bool, reportFormat: ReportFormat? = nil, shareMesh: Bool = false, meshFormat: MeshExportFormat? = nil, shareImages: Bool = false) {
         guard !isBusy, let cloud else { return }
         isRecording = false
         LocationService.shared.stopUpdating()
@@ -494,6 +535,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         let currentMeshAnchors = Array(meshAnchors.values)
         let currentGCPs = activeGroundControlPoints
         let currentAnnotations = activeAnnotations
+        let currentDescription = ProjectTagCatalog.trimmedOrNil(scanDescription)
+        let currentProjectTags = ProjectTagCatalog.normalizedOrNil(activeProjectTags)
+        let currentCollectionIDs = activeCollectionIDs.isEmpty ? nil : activeCollectionIDs
         worker.async {
             do {
                 let stats = pc_stats(cloud)
@@ -502,6 +546,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     return
                 }
                 let previousSavedSamples = self.savedSamples
+                let stagingImagesURL = try? ScanStorage.stagingImagesDirectory(for: id)
                 var saved: SavedScan
                 if let cached = self.cachedScan, self.savedSamples == stats.acceptedSamples,
                    self.savedTitle == title, cached.metadata.sessionNote == note, FileManager.default.fileExists(atPath: cached.directory.path) {
@@ -509,12 +554,25 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     if !FileManager.default.fileExists(atPath: saved.url(for: format).path) {
                         try ScanStorage.writeCloud(cloud, to: saved.url(for: format), format: format)
                     }
+                    _ = try? ScanStorage.syncStagingImages(from: stagingImagesURL, to: saved.imagesDirectory)
                     if (saved.metadata.groundControlPoints ?? []) != currentGCPs {
                         saved = try ScanStorage.updateGroundControlPoints(for: saved, points: currentGCPs)
                         self.cachedScan = saved
                     }
                     if (saved.metadata.annotations ?? []) != currentAnnotations {
                         saved = try ScanStorage.updateAnnotations(for: saved, annotations: currentAnnotations)
+                        self.cachedScan = saved
+                    }
+                    if saved.metadata.projectDescription != currentDescription ||
+                       (saved.metadata.tags ?? []) != (currentProjectTags ?? []) ||
+                       (saved.metadata.collectionIDs ?? []) != (currentCollectionIDs ?? []) {
+                        saved = try ScanStorage.updateProjectOrganization(
+                            for: saved,
+                            title: title,
+                            projectDescription: currentDescription,
+                            tags: currentProjectTags ?? [],
+                            collectionIDs: currentCollectionIDs ?? []
+                        )
                         self.cachedScan = saved
                     }
                 } else {
@@ -532,8 +590,12 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         sessionNote: note,
                         location: recordedLocation,
                         groundControlPoints: currentGCPs.isEmpty ? nil : currentGCPs,
-                        annotations: currentAnnotations.isEmpty ? nil : currentAnnotations)
-                    saved = try ScanStorage.save(cloud, metadata: metadata, format: format, meshAnchors: currentMeshAnchors)
+                        annotations: currentAnnotations.isEmpty ? nil : currentAnnotations,
+                        savedImageCount: self.workerSavedImages > 0 ? self.workerSavedImages : nil,
+                        projectDescription: currentDescription,
+                        tags: currentProjectTags,
+                        collectionIDs: currentCollectionIDs)
+                    saved = try ScanStorage.save(cloud, metadata: metadata, format: format, meshAnchors: currentMeshAnchors, stagingImagesURL: stagingImagesURL)
                     self.cachedScan = saved; self.savedSamples = stats.acceptedSamples; self.savedTitle = title
                 }
                 if !currentMeshAnchors.isEmpty && (!FileManager.default.fileExists(atPath: saved.meshURL.path) || previousSavedSamples != stats.acceptedSamples) {
@@ -554,6 +616,7 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                 _ = snapshot.withUnsafeMutableBufferPointer { pc_copy_preview(cloud, $0.baseAddress, $0.count) }
                 let archive = try ScanStorage.list()
                 let reportURL = try reportFormat.map { try ScanReport.pointCloud(saved, format: $0) }
+                let imagesZipURL = shareImages ? (try ScanStorage.exportImagesZIP(for: saved)) : nil
                 DispatchQueue.main.async {
                     self.pointCount = Int(stats.pointCount)
                     self.acceptedSamples = stats.acceptedSamples
@@ -570,6 +633,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                         if FileManager.default.fileExists(atPath: saved.gcpCSVURL.path) {
                             urls.append(saved.gcpCSVURL)
                         }
+                        if FileManager.default.fileExists(atPath: saved.gcpGeoJSONURL.path) {
+                            urls.append(saved.gcpGeoJSONURL)
+                        }
                         if FileManager.default.fileExists(atPath: saved.annotationsGeoJSONURL.path) {
                             urls.append(saved.annotationsGeoJSONURL)
                         }
@@ -578,6 +644,9 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
                     if let reportURL { self.sharedFiles = SharedFiles(urls: [reportURL]) }
                     if shareMesh && FileManager.default.fileExists(atPath: meshExportURL.path) {
                         self.sharedFiles = SharedFiles(urls: [meshExportURL])
+                    }
+                    if let imagesZipURL {
+                        self.sharedFiles = SharedFiles(urls: [imagesZipURL])
                     }
                     self.endBackgroundTask()
                 }
@@ -611,18 +680,14 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         savedScanDetail?.metadata.location ?? (effectiveSettings.recordLocation ? LocationService.shared.currentLocation : nil)
     }
 
-    func shareActiveGCPs() {
+    func shareActiveGCPs(_ kind: GCPExportKind = .csv) {
         let gcps = activeGroundControlPoints
         guard !gcps.isEmpty else { return }
         worker.async {
             do {
-                let data = ScanStorage.gcpCSVData(for: gcps)
-                let url: URL
-                if let cached = self.cachedScan, FileManager.default.fileExists(atPath: cached.directory.path) {
-                    url = cached.gcpCSVURL
-                } else {
-                    url = FileManager.default.temporaryDirectory.appendingPathComponent("gcps.csv")
-                }
+                let cached = self.cachedScan.flatMap { FileManager.default.fileExists(atPath: $0.directory.path) ? $0 : nil }
+                let data = try GCPExporter.data(for: gcps, kind: kind, metadata: cached?.metadata)
+                let url = cached?.gcpURL(for: kind) ?? FileManager.default.temporaryDirectory.appendingPathComponent(kind.fileName)
                 try data.write(to: url, options: .atomic)
                 DispatchQueue.main.async {
                     self.sharedFiles = SharedFiles(urls: [url])
@@ -693,15 +758,35 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    func shareGCPs(_ scan: SavedScan) {
-        guard let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty else { return }
-        do {
-            if !FileManager.default.fileExists(atPath: scan.gcpCSVURL.path) {
-                try ScanStorage.gcpCSVData(for: gcps).write(to: scan.gcpCSVURL, options: .atomic)
+    func shareImages(_ scan: SavedScan, completion: ((URL) -> Void)? = nil) {
+        guard scan.hasImages else { return }
+        worker.async {
+            do {
+                let url = try ScanStorage.exportImagesZIP(for: scan)
+                DispatchQueue.main.async {
+                    if let completion { completion(url) }
+                    else { self.sharedFiles = SharedFiles(urls: [url]) }
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
             }
-            sharedFiles = SharedFiles(urls: [scan.gcpCSVURL])
-        } catch {
-            errorMessage = error.localizedDescription
+        }
+    }
+
+    func shareGCPs(_ scan: SavedScan, kind: GCPExportKind = .csv, completion: ((URL) -> Void)? = nil) {
+        guard let gcps = scan.metadata.groundControlPoints, !gcps.isEmpty else { return }
+        worker.async {
+            do {
+                let url = scan.gcpURL(for: kind)
+                let data = try GCPExporter.data(for: gcps, kind: kind, metadata: scan.metadata)
+                try data.write(to: url, options: .atomic)
+                DispatchQueue.main.async {
+                    if let completion { completion(url) }
+                    else { self.sharedFiles = SharedFiles(urls: [url]) }
+                }
+            } catch {
+                DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
+            }
         }
     }
 
@@ -724,6 +809,31 @@ final class ScanModel: NSObject, ObservableObject, ARSessionDelegate {
             try ScanStorage.updateAnnotations(for: target, annotations: annotations)
         } onMainUpdate: { isCachedMatch in
             if isCachedMatch { self.activeAnnotations = annotations }
+        }
+    }
+
+    func updateProjectOrganization(
+        for scan: SavedScan,
+        title: String,
+        projectDescription: String?,
+        tags: [String],
+        collectionIDs: [UUID]
+    ) {
+        persistSavedScanUpdate(for: scan) { target in
+            try ScanStorage.updateProjectOrganization(
+                for: target,
+                title: title,
+                projectDescription: projectDescription,
+                tags: tags,
+                collectionIDs: collectionIDs
+            )
+        } onMainUpdate: { isCachedMatch in
+            if isCachedMatch {
+                self.scanTitle = title
+                self.scanDescription = projectDescription ?? ""
+                self.activeProjectTags = CloudAnnotation.normalizedTags(tags)
+                self.activeCollectionIDs = collectionIDs
+            }
         }
     }
 

@@ -112,6 +112,7 @@ struct GaussianScannerView: View {
                 GaussianPreviewSheet(
                     url: p.resultURL,
                     exportMetadata: AnnotationExportMetadata(gaussian: p),
+                    location: p.location,
                     annotations: p.annotations ?? [],
                     onSaveAnnotations: { model.updateAnnotations(for: p, annotations: $0) },
                     isFullScreen: $previewFullScreen,
@@ -124,6 +125,7 @@ struct GaussianScannerView: View {
                 GaussianPreviewSheet(
                     url: p.resultURL,
                     exportMetadata: AnnotationExportMetadata(gaussian: p),
+                    location: p.location,
                     annotations: p.annotations ?? [],
                     onSaveAnnotations: { model.updateAnnotations(for: p, annotations: $0) },
                     isFullScreen: $previewFullScreen,
@@ -206,6 +208,7 @@ struct GaussianScannerView: View {
                     Menu {
                         Section {
                             Button(L("Share 3D Scene"), systemImage: "cube.transparent") { model.share(.scene) }.disabled(!p.hasResult)
+                            Button(L("Export Images (ZIP)"), systemImage: "photo.on.rectangle.angled") { model.share(.images) }.disabled(p.frames.isEmpty)
                             Button(L("Export Capture"), systemImage: "photo.stack") { model.share(.capture) }
                         }
                         if let annotations = p.annotations, !annotations.isEmpty {
@@ -278,6 +281,13 @@ struct GaussianDetailsView: View {
                     }
                     Section(L("What Happened")) {
                         Text(L("Selected images and camera poses are saved on this device. Processing uses all saved views and LiDAR depth as its starting point."))
+                        if let loc = p.location {
+                            LabeledContent(L("GNSS Location"), value: loc.formattedCoordinates)
+                            if loc.isValidCoordinate {
+                                ScanLocationMapCard(location: loc, title: p.title)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            }
+                        }
                         if let issue = p.issueDescription { Text(issue).textSelection(.enabled) }
                         if p.recoveryNote != nil { Text(L("This scan was recovered after an interruption. The last saved checkpoint is used when processing continues.")) }
                         ForEach(p.decisions.keys.sorted(), id: \.self) { key in
@@ -285,6 +295,7 @@ struct GaussianDetailsView: View {
                         }
                     }
                     Section {
+                        Button(L("Export Images (ZIP)"), systemImage: "photo.on.rectangle.angled") { model.share(.images) }.disabled(p.frames.isEmpty)
                         ReportExportMenu { format in
                             model.share(.report(format))
                         }
@@ -323,48 +334,232 @@ struct GaussianDetailsView: View {
 }
 
 private struct GaussianArchiveView: View {
+    private enum ViewMode: String, CaseIterable, Identifiable {
+        case list, map
+        var id: String { rawValue }
+    }
+
     @ObservedObject var model: GaussianModel
     @ObservedObject private var language = LanguageManager.shared
+    @ObservedObject private var collectionStore = ProjectCollectionStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: GaussianProject?
+    @State private var archiveSharing: SharedFiles?
     @State private var showImporter = false
+    @State private var viewMode: ViewMode = .list
+    @State private var searchText = ""
+    @State private var selectedCollectionID: UUID?
+    @State private var selectedTag: String?
+    @State private var editingProject: GaussianProject?
+    @State private var showingCollectionsManager = false
+    @State private var editingSelectedCollection: ProjectCollection?
+
+    private var filteredProjects: [GaussianProject] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let activeTagLower = selectedTag?.lowercased()
+        return model.archive.filter { project in
+            if let selectedCollectionID,
+               !(project.collectionIDs?.contains(selectedCollectionID) ?? false) {
+                return false
+            }
+            if let activeTagLower,
+               !(project.tags?.contains { $0.lowercased() == activeTagLower } ?? false) {
+                return false
+            }
+            if !query.isEmpty {
+                let inTitle = project.title.lowercased().contains(query)
+                let inDesc = project.projectDescription?.lowercased().contains(query) ?? false
+                let inTags = project.tags?.contains { $0.lowercased().contains(query) } ?? false
+                let inCollection = collectionStore.collections(for: project.collectionIDs)
+                    .contains { $0.title.lowercased().contains(query) || $0.summary.lowercased().contains(query) }
+                if !(inTitle || inDesc || inTags || inCollection) {
+                    return false
+                }
+            }
+            return true
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                if model.archive.isEmpty {
-                    ContentUnavailableView(L("No Scans Yet"), systemImage: "square.stack.3d.up")
+            VStack(spacing: 0) {
+                let projectsToDisplay = filteredProjects
+                let mapItems = ArchiveMapItem.loadAllGeoreferenced(gaussians: projectsToDisplay)
+                if !model.archive.isEmpty || !mapItems.isEmpty {
+                    Picker(L("Map"), selection: $viewMode) {
+                        Label(L("List"), systemImage: "list.bullet").tag(ViewMode.list)
+                        Label(L("Map"), systemImage: "map").tag(ViewMode.map)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
-                ForEach(model.archive) { scan in
-                    Button {
-                        model.open(scan); dismiss()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(scan.title).font(.headline)
-                            Text(scan.phase.title).font(.subheadline).foregroundStyle(.secondary)
-                            HStack(spacing: 6) {
-                                Text(L("Saved views: %lld", Int64(scan.frames.count))).font(.caption)
-                                if let annCount = scan.annotations?.count, annCount > 0 {
-                                    Text(L("Tags %@", annCount.formatted()))
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 6).padding(.vertical, 2)
-                                        .background(.cyan.opacity(0.2), in: Capsule())
-                                        .foregroundStyle(.cyan)
+
+                if viewMode == .map {
+                    ArchiveScansMapView(
+                        items: mapItems,
+                        onSelectGaussian: { project in
+                            model.open(project)
+                            dismiss()
+                        }
+                    )
+                } else {
+                    if !model.archive.isEmpty {
+                        ArchiveFilterBar(
+                            collectionStore: collectionStore,
+                            searchText: $searchText,
+                            selectedCollectionID: $selectedCollectionID,
+                            selectedTag: $selectedTag,
+                            availableTags: collectionStore.allUsedTags(gaussians: model.archive),
+                            totalCount: model.archive.count,
+                            countForCollection: { cid in
+                                model.archive.filter { $0.collectionIDs?.contains(cid) == true }.count
+                            },
+                            onManageCollections: { showingCollectionsManager = true }
+                        )
+                        if let selectedCollectionID,
+                           let activeCollection = collectionStore.collection(for: selectedCollectionID) {
+                            CollectionHeaderCard(
+                                collection: activeCollection,
+                                matchingPointClouds: [],
+                                matchingGaussians: projectsToDisplay,
+                                onEdit: { editingSelectedCollection = activeCollection }
+                            )
+                        }
+                    }
+
+                    List {
+                        if model.archive.isEmpty {
+                            ContentUnavailableView(L("No Scans Yet"), systemImage: "square.stack.3d.up")
+                        } else if projectsToDisplay.isEmpty {
+                            ContentUnavailableView(L("No Matching Scans"), systemImage: "magnifyingglass",
+                                description: Text(L("Adjust the active collection, tag, or search filter.")))
+                        }
+                        ForEach(projectsToDisplay) { scan in
+                            HStack(alignment: .top, spacing: 12) {
+                                ProjectThumbnailView(gaussian: scan, width: 88, height: 64)
+                                    .onTapGesture {
+                                        editingProject = scan
+                                    }
+
+                                Button {
+                                    model.open(scan); dismiss()
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(scan.title).font(.headline)
+                                        if let desc = scan.projectDescription, !desc.isEmpty {
+                                            Text(desc)
+                                                .font(.subheadline)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                        Text(scan.phase.title).font(.subheadline).foregroundStyle(.secondary)
+                                        if let loc = scan.location {
+                                            Label(loc.formattedCoordinates, systemImage: "location.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        ProjectOrganizationBadges(
+                                            collectionIDs: scan.collectionIDs,
+                                            tags: scan.tags
+                                        )
+                                        HStack(spacing: 6) {
+                                            Text(L("Saved views: %lld", Int64(scan.frames.count))).font(.caption)
+                                            if let annCount = scan.annotations?.count, annCount > 0 {
+                                                Text(L("Tags %@", annCount.formatted()))
+                                                    .font(.caption2.bold())
+                                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                                    .background(.cyan.opacity(0.2), in: Capsule())
+                                                    .foregroundStyle(.cyan)
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+
+                                VStack(spacing: 4) {
+                                    Button {
+                                        editingProject = scan
+                                    } label: {
+                                        Image(systemName: "tag")
+                                            .frame(width: 36, height: 36)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel(L("Project Details"))
+
+                                    if !scan.frames.isEmpty {
+                                        Button {
+                                            model.exportImages(for: scan) { url in
+                                                archiveSharing = SharedFiles(urls: [url])
+                                            }
+                                        } label: {
+                                            Image(systemName: "photo.on.rectangle.angled")
+                                                .frame(width: 36, height: 36)
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .accessibilityLabel(L("Export Images (ZIP)"))
+                                    }
                                 }
                             }
-                        }.padding(.vertical, 6)
-                    }.swipeActions { Button(L("Delete"), role: .destructive) { deleting = scan } }
+                            .padding(.vertical, 6)
+                            .swipeActions(edge: .trailing) {
+                                Button(L("Delete"), role: .destructive) { deleting = scan }
+                                Button {
+                                    editingProject = scan
+                                } label: {
+                                    Label(L("Tags"), systemImage: "tag")
+                                }
+                                .tint(.indigo)
+                            }
+                        }
+                    }
                 }
             }.navigationTitle(L("Gaussian Scans"))
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItemGroup(placement: .topBarLeading) {
                         Button {
                             showImporter = true
                         } label: {
                             Label(L("Import"), systemImage: "square.and.arrow.down")
                         }
                         .accessibilityLabel(L("Import Scan"))
+                        Button {
+                            showingCollectionsManager = true
+                        } label: {
+                            Label(L("Collections"), systemImage: "folder")
+                        }
+                        .accessibilityLabel(L("Collections"))
                     }
                     ToolbarItem(placement: .confirmationAction) { Button(L("Done")) { dismiss() } }
+                }
+                .sheet(item: $archiveSharing) { ShareSheet(urls: $0.urls) }
+                .sheet(item: $editingProject) { project in
+                    ProjectOrganizationEditorSheet(
+                        gaussian: project,
+                        existingTags: collectionStore.allUsedTags(gaussians: model.archive)
+                    ) { title, desc, tags, collectionIDs in
+                        model.updateProjectOrganization(
+                            for: project,
+                            title: title,
+                            projectDescription: desc,
+                            tags: tags,
+                            collectionIDs: collectionIDs
+                        )
+                    }
+                }
+                .sheet(isPresented: $showingCollectionsManager) {
+                    CollectionsManagerSheet(gaussians: model.archive)
+                }
+                .sheet(item: $editingSelectedCollection) { collection in
+                    CollectionEditorSheet(
+                        collection: collection,
+                        existingTags: collectionStore.allUsedTags(gaussians: model.archive)
+                    ) { updated in
+                        collectionStore.save(updated)
+                    }
                 }
                 .fileImporter(
                     isPresented: $showImporter,

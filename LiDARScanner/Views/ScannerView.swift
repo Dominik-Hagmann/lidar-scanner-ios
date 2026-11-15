@@ -101,6 +101,7 @@ struct ScannerView: View {
                 points: model.preview,
                 total: model.pointCount,
                 mesh: previewMesh,
+                location: model.currentLocationSnapshot,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 annotations: model.activeAnnotations,
@@ -114,6 +115,7 @@ struct ScannerView: View {
                 points: model.preview,
                 total: model.pointCount,
                 mesh: previewMesh,
+                location: model.currentLocationSnapshot,
                 groundControlPoints: model.activeGroundControlPoints,
                 onSaveGCPs: { model.updateGroundControlPoints(for: nil, points: $0) },
                 annotations: model.activeAnnotations,
@@ -296,15 +298,20 @@ struct ScannerView: View {
                                         model.saveCurrent(share: false, shareMesh: true, meshFormat: meshFormat)
                                     }
                                 }
+                                if model.savedImageCount > 0 || model.savedScanDetail?.hasImages == true {
+                                    Button {
+                                        model.saveCurrent(share: false, shareImages: true)
+                                    } label: {
+                                        Label(L("Export Images (ZIP)"), systemImage: "photo.on.rectangle.angled")
+                                    }
+                                }
                             }
 
                             if !model.activeGroundControlPoints.isEmpty || !model.activeAnnotations.isEmpty {
                                 Section {
                                     if !model.activeGroundControlPoints.isEmpty {
-                                        Button {
-                                            model.shareActiveGCPs()
-                                        } label: {
-                                            Label(L("Export Ground Control Points (CSV)"), systemImage: "scope")
+                                        GCPExportMenu { kind in
+                                            model.shareActiveGCPs(kind)
                                         }
                                     }
                                     if !model.activeAnnotations.isEmpty {
@@ -358,6 +365,9 @@ struct PointCloudDetailsView: View {
                     if model.hasMesh {
                         LabeledContent(L("Surface Mesh (OBJ)"), value: L("Captured"))
                     }
+                    if model.savedImageCount > 0 || (model.savedScanDetail?.imageCount ?? 0) > 0 {
+                        LabeledContent(L("Saved Images"), value: max(model.savedImageCount, model.savedScanDetail?.imageCount ?? 0).formatted())
+                    }
                     if !model.activeGroundControlPoints.isEmpty {
                         LabeledContent(L("Ground Control Points"), value: model.activeGroundControlPoints.count.formatted())
                     }
@@ -372,9 +382,24 @@ struct PointCloudDetailsView: View {
                     }
                     if let loc = model.currentLocationSnapshot {
                         LabeledContent(L("GNSS Location"), value: loc.formattedCoordinates)
+                        if loc.isValidCoordinate {
+                            let trimmedTitle = model.scanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                            ScanLocationMapCard(
+                                location: loc,
+                                title: model.savedScanDetail?.metadata.title ?? (trimmedTitle.isEmpty ? nil : trimmedTitle)
+                            )
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        }
                     }
                 }
                 Section {
+                    if model.savedImageCount > 0 || model.savedScanDetail?.hasImages == true {
+                        Button {
+                            model.saveCurrent(share: false, shareImages: true)
+                        } label: {
+                            Label(L("Export Images (ZIP)"), systemImage: "photo.on.rectangle.angled")
+                        }
+                    }
                     ReportExportMenu { format in
                         model.exportReport(format: format)
                     }

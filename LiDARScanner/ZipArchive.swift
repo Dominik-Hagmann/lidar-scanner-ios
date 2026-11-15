@@ -329,6 +329,28 @@ enum ZipArchive {
         try archiveData.write(to: destinationURL, options: .atomic)
     }
 
+    /// Packages `files` inside a subdirectory named `folderName` and creates a `.zip` archive via `NSFileCoordinator`.
+    static func zipFiles(_ files: [URL], folderName: String, zipFileName: String) throws -> URL {
+        let exportRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let stagingFolder = exportRoot.appendingPathComponent(folderName, isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingFolder, withIntermediateDirectories: true)
+        for src in files {
+            let dst = stagingFolder.appendingPathComponent(src.lastPathComponent)
+            if !FileManager.default.fileExists(atPath: dst.path) {
+                try FileManager.default.copyItem(at: src, to: dst)
+            }
+        }
+        let output = exportRoot.appendingPathComponent(zipFileName)
+        var coordinatorError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: stagingFolder, options: .forUploading, error: &coordinatorError) { zipped in
+            do { try FileManager.default.copyItem(at: zipped, to: output) } catch { copyError = error }
+        }
+        if let error = coordinatorError ?? (copyError as NSError?) { throw error }
+        try? FileManager.default.removeItem(at: stagingFolder)
+        return output
+    }
+
     private static func computeCRC32(_ data: Data) -> UInt32 {
         data.withUnsafeBytes { raw in
             guard let base = raw.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return 0 }

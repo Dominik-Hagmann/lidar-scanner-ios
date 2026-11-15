@@ -1,5 +1,9 @@
 import XCTest
+import CoreImage
+import CoreLocation
+import CoreVideo
 import PDFKit
+import UIKit
 import simd
 @testable import LiDARScanner
 
@@ -472,11 +476,14 @@ final class ScanTests: XCTestCase {
         XCTAssertEqual(decoded.pixelStep, 4)
         XCTAssertEqual(decoded.maxPoints, 500_000)
         XCTAssertTrue(decoded.recordLocation)
+        XCTAssertTrue(decoded.saveImages)
 
         var custom = ScanSettings()
         custom.recordLocation = false
+        custom.saveImages = false
         let roundtrip = try JSONDecoder().decode(ScanSettings.self, from: JSONEncoder().encode(custom))
         XCTAssertFalse(roundtrip.recordLocation)
+        XCTAssertFalse(roundtrip.saveImages)
     }
 
     func testAllExportFormatsHaveDistinctIDsAndFileNames() {
@@ -901,5 +908,613 @@ final class ScanTests: XCTestCase {
         XCTAssertTrue(settings.showAnnotations)
         XCTAssertEqual(settings.symbolScale, 1.0, accuracy: 0.001)
         XCTAssertEqual(settings.fillOpacity, 0.28, accuracy: 0.001)
+    }
+
+    func testCRSCatalogLookupNormalizationAndSearch() throws {
+        XCTAssertEqual(CRSCatalog.normalizeCode("31256"), "EPSG:31256")
+        XCTAssertEqual(CRSCatalog.normalizeCode("epsg 3765"), "EPSG:3765")
+        XCTAssertEqual(CRSCatalog.normalizeCode("EPSG:4326"), "EPSG:4326")
+        XCTAssertEqual(CRSCatalog.normalizeCode("local"), "LOCAL")
+        XCTAssertEqual(CRSCatalog.normalizeCode("   "), "")
+
+        let austria = try XCTUnwrap(CRSCatalog.lookup("31256"))
+        XCTAssertEqual(austria.code, "EPSG:31256")
+        XCTAssertEqual(austria.epsgNumber, 31256)
+        XCTAssertEqual(austria.unitKind, .meters)
+        XCTAssertEqual(austria.ogcURN, "urn:ogc:def:crs:EPSG::31256")
+
+        let croatia = try XCTUnwrap(CRSCatalog.lookup("EPSG:3765"))
+        XCTAssertEqual(croatia.category, .croatiaBalkans)
+        XCTAssertEqual(croatia.unitKind, .meters)
+
+        XCTAssertEqual(CRSCatalog.lookup("EPSG:25833")?.unitKind, .meters)
+        XCTAssertEqual(CRSCatalog.lookup("EPSG:32633")?.unitKind, .meters)
+        XCTAssertEqual(CRSCatalog.lookup("EPSG:32733")?.unitKind, .meters)
+        XCTAssertEqual(CRSCatalog.lookup("EPSG:4326")?.unitKind, .degrees)
+        XCTAssertEqual(CRSCatalog.lookup("LOCAL")?.category, .local)
+
+        let custom = try XCTUnwrap(CRSCatalog.lookup("6345"))
+        XCTAssertEqual(custom.code, "EPSG:6345")
+        XCTAssertEqual(custom.epsgNumber, 6345)
+
+        let croatiaSearch = CRSCatalog.search("Croatia")
+        XCTAssertTrue(croatiaSearch.contains(where: { $0.code == "EPSG:3765" }))
+        let customSearch = CRSCatalog.search("6345")
+        XCTAssertTrue(customSearch.contains(where: { $0.code == "EPSG:6345" }))
+    }
+
+    func testGCPMultiFormatExportAndRigidRegistrationMetadata() throws {
+        // Known 3D rigid transformation: +90 deg rotation around +Z, plus translation (1000, 2000, 50)
+        // (x, y, z) -> (-y + 1000, x + 2000, z + 50)
+        func transform(_ x: Double, _ y: Double, _ z: Double) -> (Double, Double, Double) {
+            (-y + 1000.0, x + 2000.0, z + 50.0)
+        }
+
+        let locals: [(String, Double, Double, Double)] = [
+            ("GCP-1", 0.0, 0.0, 0.0),
+            ("GCP-2", 4.0, 0.0, 0.0),
+            ("GCP-3", 0.0, 3.0, 0.5),
+            ("GCP-4", 2.0, 2.0, 1.0)
+        ]
+
+        let gcps: [GroundControlPoint] = locals.map { label, lx, ly, lz in
+            let (tx, ty, tz) = transform(lx, ly, lz)
+            return GroundControlPoint(
+                label: label,
+                localX: lx,
+                localY: ly,
+                localZ: lz,
+                targetX: tx,
+                targetY: ty,
+                targetZ: tz,
+                coordinateSystem: "31256",
+                note: "Benchmark"
+            )
+        }
+
+        XCTAssertEqual(gcps[0].coordinateSystem, "EPSG:31256")
+        let geo = try XCTUnwrap(GCPRegistration.computeGeoreferencing(for: gcps))
+        XCTAssertEqual(geo.targetCRS, "EPSG:31256")
+        XCTAssertEqual(geo.targetCRSName, "MGI / Austria GK East")
+        XCTAssertEqual(geo.ogcURN, "urn:ogc:def:crs:EPSG::31256")
+        XCTAssertEqual(geo.controlPointCount, 4)
+        XCTAssertEqual(geo.referencePointCount, 4)
+        XCTAssertEqual(try XCTUnwrap(geo.rmseMeters), 0.0, accuracy: 1e-5)
+
+        let mat = try XCTUnwrap(geo.localToTargetRowMajor)
+        XCTAssertEqual(mat.count, 16)
+        // Row 0: [0, -1, 0, 1000]
+        XCTAssertEqual(mat[0], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[1], -1.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[2], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[3], 1000.0, accuracy: 1e-5)
+        // Row 1: [1, 0, 0, 2000]
+        XCTAssertEqual(mat[4], 1.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[5], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[6], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[7], 2000.0, accuracy: 1e-5)
+        // Row 2: [0, 0, 1, 50]
+        XCTAssertEqual(mat[8], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[9], 0.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[10], 1.0, accuracy: 1e-5)
+        XCTAssertEqual(mat[11], 50.0, accuracy: 1e-5)
+        // Row 3: [0, 0, 0, 1]
+        XCTAssertEqual(mat[15], 1.0, accuracy: 1e-5)
+
+        // Test ScanMetadata automatic georeferencing & persistence
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GCPFormats-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let meta = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(),
+            title: "Georef Scan", startedAt: Date(), savedAt: Date(), pointCount: 100,
+            acceptedSamples: 100, processedFrames: 10, activeSeconds: 2.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: ""
+        )
+        let saved = SavedScan(directory: tempDir, metadata: meta)
+        let updated = try ScanStorage.updateGroundControlPoints(for: saved, points: gcps)
+        XCTAssertEqual(updated.metadata.georeferencing?.targetCRS, "EPSG:31256")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updated.gcpCSVURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updated.gcpGeoJSONURL.path))
+
+        // Verify CSV
+        let csvText = String(decoding: GCPExporter.csvData(for: gcps), as: UTF8.self)
+        XCTAssertTrue(csvText.contains("MGI / Austria GK East"))
+        XCTAssertTrue(csvText.contains("POINT Z ("))
+
+        // Verify GeoJSON
+        let geoJSONData = try GCPExporter.geoJSONData(for: gcps, metadata: updated.metadata)
+        let geoJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: geoJSONData) as? [String: Any])
+        XCTAssertEqual(geoJSON["type"] as? String, "FeatureCollection")
+        let crsObj = try XCTUnwrap(geoJSON["crs"] as? [String: Any])
+        let crsProps = try XCTUnwrap(crsObj["properties"] as? [String: Any])
+        XCTAssertEqual(crsProps["name"] as? String, "urn:ogc:def:crs:EPSG::31256")
+
+        // Verify DXF
+        let dxfText = String(decoding: GCPExporter.dxfData(for: gcps), as: UTF8.self)
+        XCTAssertTrue(dxfText.contains("GCP_LOCAL"))
+        XCTAssertTrue(dxfText.contains("GCP_TARGET"))
+        XCTAssertTrue(dxfText.contains("EOF"))
+
+        // Verify CloudCompare / Metashape TXT
+        let ccText = String(decoding: GCPExporter.cloudCompareData(for: gcps), as: UTF8.self)
+        XCTAssertTrue(ccText.contains("# CoordinateSystem: EPSG:31256"))
+        XCTAssertTrue(ccText.contains("# Local_to_Target_Matrix_4x4"))
+        XCTAssertTrue(ccText.contains("# Target_Reference_Points"))
+
+        // Verify QGIS .points
+        let qgisText = String(decoding: GCPExporter.qgisPointsData(for: gcps), as: UTF8.self)
+        XCTAssertTrue(qgisText.contains("#CRS: EPSG:31256"))
+        XCTAssertTrue(qgisText.contains("mapX,mapY,sourceX,sourceY,enable,dX,dY,residual"))
+        XCTAssertTrue(qgisText.contains("1000.00000000,2000.00000000,0.000000,0.000000,1"))
+    }
+
+    func testGNSSLocationMapFigureAndArchiveMapItems() throws {
+        let loc = GeoLocation(
+            latitude: 48.208174,
+            longitude: 16.373819,
+            altitude: 171.5,
+            horizontalAccuracy: 4.5,
+            verticalAccuracy: 6.0,
+            heading: 92.5,
+            timestamp: Date(timeIntervalSince1970: 1_790_000_000)
+        )
+        XCTAssertTrue(loc.isValidCoordinate)
+        XCTAssertEqual(loc.coordinate.latitude, 48.208174, accuracy: 1e-6)
+        XCTAssertEqual(loc.coordinate.longitude, 16.373819, accuracy: 1e-6)
+        XCTAssertEqual(loc.cardinalHeadingString, "92.5° (E)")
+
+        let northOffset = loc.coordinateOffset(northMeters: 100.0, eastMeters: 0.0)
+        XCTAssertGreaterThan(northOffset.latitude, loc.latitude)
+        XCTAssertEqual(northOffset.longitude, loc.longitude, accuracy: 1e-8)
+
+        let rayEnd = try XCTUnwrap(loc.headingRayEndCoordinate(distanceMeters: 50.0))
+        XCTAssertGreaterThan(rayEnd.longitude, loc.longitude)
+        XCTAssertLessThan(rayEnd.latitude, loc.latitude)
+
+        let invalidLoc = GeoLocation(
+            latitude: 120.0,
+            longitude: 16.0,
+            altitude: nil,
+            horizontalAccuracy: 5.0,
+            verticalAccuracy: nil,
+            heading: nil,
+            timestamp: Date()
+        )
+        XCTAssertFalse(invalidLoc.isValidCoordinate)
+        XCTAssertNil(ReportPreviewRenderer.renderLocationMapFigure(for: invalidLoc, scanTitle: "Invalid", allowNetworkSnapshot: false))
+
+        let fig = try XCTUnwrap(ReportPreviewRenderer.renderLocationMapFigure(
+            for: loc,
+            scanTitle: "Grabung Schnitt 1",
+            allowNetworkSnapshot: false
+        ))
+        XCTAssertEqual(fig.id, "gnss-map")
+        XCTAssertEqual(fig.pixelWidth, 1080)
+        XCTAssertEqual(fig.pixelHeight, 640)
+        let renderedImage = try XCTUnwrap(UIImage(data: fig.pngData))
+        XCTAssertEqual(Int(renderedImage.size.width * renderedImage.scale), 1080)
+        XCTAssertEqual(Int(renderedImage.size.height * renderedImage.scale), 640)
+
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("GNSSMapTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let pcMetaWithLoc = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(),
+            title: "Stephansplatz Trench", startedAt: Date(), savedAt: Date(), pointCount: 50,
+            acceptedSamples: 50, processedFrames: 5, activeSeconds: 2.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: "GNSS map test",
+            location: loc
+        )
+        let pcScanWithLoc = SavedScan(directory: tempDir.appendingPathComponent("pc1", isDirectory: true), metadata: pcMetaWithLoc)
+        let pcMetaWithoutLoc = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(),
+            title: "No GNSS Scan", startedAt: Date(), savedAt: Date(), pointCount: 50,
+            acceptedSamples: 50, processedFrames: 5, activeSeconds: 2.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: "No GNSS",
+            location: nil
+        )
+        let pcScanWithoutLoc = SavedScan(directory: tempDir.appendingPathComponent("pc2", isDirectory: true), metadata: pcMetaWithoutLoc)
+
+        let pcPDF = try ScanReport.pointCloud(pcScanWithLoc, format: .pdf)
+        defer { try? FileManager.default.removeItem(at: pcPDF.deletingLastPathComponent()) }
+        let pcPDFDoc = try XCTUnwrap(PDFDocument(url: pcPDF))
+        XCTAssertTrue(pcPDFDoc.string?.contains("GNSS") == true)
+        XCTAssertTrue(pcPDFDoc.string?.contains("48.208174") == true)
+
+        let pcDOCX = try ScanReport.pointCloud(pcScanWithLoc, format: .docx)
+        defer { try? FileManager.default.removeItem(at: pcDOCX.deletingLastPathComponent()) }
+        let pcDOCXDir = tempDir.appendingPathComponent("pc_docx", isDirectory: true)
+        try ZipArchive.extract(from: pcDOCX, to: pcDOCXDir)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: pcDOCXDir.appendingPathComponent("word/media/figure_1.png").path))
+        let pcDocXML = try String(contentsOf: pcDOCXDir.appendingPathComponent("word/document.xml"), encoding: .utf8)
+        XCTAssertTrue(pcDocXML.contains("WGS84"))
+
+        var gProjectWithLoc = project()
+        gProjectWithLoc.location = loc
+        var gProjectWithoutLoc = project()
+        gProjectWithoutLoc.location = nil
+
+        let gPDF = try ScanReport.gaussian(gProjectWithLoc, format: .pdf)
+        defer { try? FileManager.default.removeItem(at: gPDF.deletingLastPathComponent()) }
+        let gPDFDoc = try XCTUnwrap(PDFDocument(url: gPDF))
+        XCTAssertTrue(gPDFDoc.string?.contains("48.208174") == true)
+
+        let gDOCX = try ScanReport.gaussian(gProjectWithLoc, format: .docx)
+        defer { try? FileManager.default.removeItem(at: gDOCX.deletingLastPathComponent()) }
+        let gDOCXDir = tempDir.appendingPathComponent("gs_docx", isDirectory: true)
+        try ZipArchive.extract(from: gDOCX, to: gDOCXDir)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: gDOCXDir.appendingPathComponent("word/media/figure_1.png").path))
+
+        let mapItems = ArchiveMapItem.loadAllGeoreferenced(
+            pointClouds: [pcScanWithLoc, pcScanWithoutLoc],
+            gaussians: [gProjectWithLoc, gProjectWithoutLoc]
+        )
+        XCTAssertEqual(mapItems.count, 2)
+        XCTAssertTrue(mapItems.contains(where: { $0.kind == .pointCloud && $0.title == "Stephansplatz Trench" }))
+        XCTAssertTrue(mapItems.contains(where: { $0.kind == .gaussian && $0.location == loc }))
+        XCTAssertFalse(mapItems.contains(where: { $0.title == "No GNSS Scan" }))
+    }
+
+    func testPointCloudImageSavingAndSeparateZIPExport() throws {
+        let scanID = UUID()
+        var savedDirectory: URL?
+        defer {
+            ScanStorage.cleanupStagingImages(for: scanID)
+            if let savedDirectory {
+                try? FileManager.default.removeItem(at: savedDirectory)
+            }
+        }
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            64,
+            48,
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &pixelBuffer
+        )
+        XCTAssertEqual(status, kCVReturnSuccess)
+        let pb = try XCTUnwrap(pixelBuffer)
+
+        let ciContext = CIContext(options: [.cacheIntermediates: false])
+        XCTAssertTrue(try ScanStorage.writeStagingImage(pb, index: 0, scanID: scanID, context: ciContext))
+        XCTAssertTrue(try ScanStorage.writeStagingImage(pb, index: 1, scanID: scanID, context: ciContext))
+
+        let stagingURL = try ScanStorage.stagingImagesDirectory(for: scanID)
+        var settings = ScanSettings()
+        settings.saveImages = true
+
+        guard let cloud = pc_create(settings.core) else {
+            XCTFail("pc_create returned nil")
+            return
+        }
+        defer { pc_destroy(cloud) }
+
+        let depth: [Float] = [1.0, 1.0, 1.0, 1.0]
+        let confidence: [UInt8] = [2, 2, 2, 2]
+        let luma: [UInt8] = [128, 128, 128, 128]
+        let chroma: [UInt8] = [128, 128]
+        let identity: [Float] = [
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        ]
+        let ingested: Int32 = depth.withUnsafeBytes { depthPtr in
+            confidence.withUnsafeBufferPointer { confPtr in
+                luma.withUnsafeBufferPointer { lumaPtr in
+                    chroma.withUnsafeBufferPointer { chromaPtr in
+                        identity.withUnsafeBufferPointer { matPtr in
+                            let pcFrame = PCFrame(
+                                depth: depthPtr.baseAddress,
+                                depthRowBytes: 2 * MemoryLayout<Float>.stride,
+                                width: 2,
+                                height: 2,
+                                confidence: confPtr.baseAddress,
+                                confidenceRowBytes: 2,
+                                luma: lumaPtr.baseAddress,
+                                chroma: chromaPtr.baseAddress,
+                                lumaRowBytes: 2,
+                                chromaRowBytes: 2,
+                                imageWidth: 2,
+                                imageHeight: 2,
+                                chromaWidth: 1,
+                                chromaHeight: 1,
+                                videoRange: 0,
+                                matrix709: 0,
+                                fx: 100,
+                                fy: 100,
+                                cx: 1,
+                                cy: 1,
+                                cameraToWorld: matPtr.baseAddress
+                            )
+                            return pc_ingest(cloud, pcFrame)
+                        }
+                    }
+                }
+            }
+        }
+        XCTAssertGreaterThan(ingested, 0)
+
+        let stats = pc_stats(cloud)
+        let metadata = ScanMetadata(
+            schemaVersion: 1,
+            appVersion: "1.2.0",
+            appBuild: "4",
+            scanID: scanID,
+            title: "Scan With Images",
+            startedAt: Date(timeIntervalSince1970: 1_790_000_000),
+            savedAt: Date(timeIntervalSince1970: 1_790_000_004),
+            pointCount: Int(stats.pointCount),
+            acceptedSamples: stats.acceptedSamples,
+            processedFrames: 1,
+            activeSeconds: 4.0,
+            settings: settings,
+            deviceModel: "iPhone",
+            systemVersion: "18.0",
+            depthWidth: 2,
+            depthHeight: 2,
+            unit: "metre",
+            coordinateSystem: "Local",
+            arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth",
+            confidenceMeaning: "0,1,2",
+            pointSelection: "voxel",
+            colorSource: "camera",
+            sessionNote: "",
+            savedImageCount: 2
+        )
+
+        let saved = try ScanStorage.save(
+            cloud,
+            metadata: metadata,
+            format: .binaryPLY,
+            stagingImagesURL: stagingURL
+        )
+        savedDirectory = saved.directory
+
+        XCTAssertTrue(saved.hasImages)
+        XCTAssertEqual(saved.imageCount, 2)
+        XCTAssertEqual(saved.metadata.savedImageCount, 2)
+        XCTAssertEqual(saved.imageURLs.map { $0.lastPathComponent }, ["frame_000000.jpg", "frame_000001.jpg"])
+
+        let zipURL = try ScanStorage.exportImagesZIP(for: saved)
+        defer { try? FileManager.default.removeItem(at: zipURL.deletingLastPathComponent()) }
+        XCTAssertEqual(zipURL.lastPathComponent, "Images-\(scanID.uuidString.prefix(8)).zip")
+
+        let extractDir = FileManager.default.temporaryDirectory.appendingPathComponent("extract-pc-images-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: extractDir) }
+        try ZipArchive.extract(from: zipURL, to: extractDir)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractDir.appendingPathComponent("images/frame_000000.jpg").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractDir.appendingPathComponent("images/frame_000001.jpg").path))
+    }
+
+    func testGaussianSeparateImagesZIPExport() throws {
+        let store = try GaussianStore(project: project())
+        defer { try? FileManager.default.removeItem(at: store.directory) }
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            64,
+            48,
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &pixelBuffer
+        )
+        XCTAssertEqual(status, kCVReturnSuccess)
+        let pb = try XCTUnwrap(pixelBuffer)
+
+        let ciContext = CIContext(options: [.cacheIntermediates: false])
+        let jpegBytes = try XCTUnwrap(ciContext.jpegRepresentation(
+            of: CIImage(cvPixelBuffer: pb),
+            colorSpace: CGColorSpaceCreateDeviceRGB(),
+            options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.92]
+        ))
+
+        let hash = GaussianStore.hash(jpegBytes)
+        let imagesDir = store.directory.appendingPathComponent("images", isDirectory: true)
+        try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        try jpegBytes.write(to: imagesDir.appendingPathComponent("frame_000000.jpg"), options: .atomic)
+        try jpegBytes.write(to: imagesDir.appendingPathComponent("frame_000001.jpg"), options: .atomic)
+
+        store.project.frames = [
+            GaussianFrame(
+                file_path: "images/frame_000000.jpg", w: 64, h: 48,
+                fl_x: 100, fl_y: 100, cx: 32, cy: 24,
+                transform_matrix: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+                timestamp: 1.0, savedAt: Date(timeIntervalSince1970: 1_790_000_000), sha256: hash
+            ),
+            GaussianFrame(
+                file_path: "images/frame_000001.jpg", w: 64, h: 48,
+                fl_x: 100, fl_y: 100, cx: 32, cy: 24,
+                transform_matrix: [[1,0,0,1],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+                timestamp: 2.0, savedAt: Date(timeIntervalSince1970: 1_790_000_001), sha256: hash
+            )
+        ]
+        try store.saveDataset()
+
+        let zipURL = try store.exportImages()
+        defer { try? FileManager.default.removeItem(at: zipURL.deletingLastPathComponent()) }
+        XCTAssertEqual(zipURL.lastPathComponent, "Images-\(store.project.id.uuidString.prefix(8)).zip")
+
+        let extractDir = FileManager.default.temporaryDirectory.appendingPathComponent("extract-gs-images-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: extractDir) }
+        try ZipArchive.extract(from: zipURL, to: extractDir)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractDir.appendingPathComponent("images/frame_000000.jpg").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: extractDir.appendingPathComponent("images/frame_000001.jpg").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: extractDir.appendingPathComponent("transforms.json").path))
+    }
+
+    func testProjectCollectionsAndTagsPersistenceAndThumbnails() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("OrgTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // 1. ProjectCollectionStore CRUD + tag normalization + reload
+        let storeURL = tempDir.appendingPathComponent("collections.json")
+        let collectionStore = ProjectCollectionStore(storageURL: storeURL)
+        let savedCollection = collectionStore.save(ProjectCollection(
+            title: "Kampagne 2026",
+            summary: "Schnitt 4 und Nordprofil im Bereich B",
+            tags: ["#Excavation", "excavation", "Schnitt 4", "  "]
+        ))
+        XCTAssertEqual(savedCollection.title, "Kampagne 2026")
+        XCTAssertEqual(savedCollection.summary, "Schnitt 4 und Nordprofil im Bereich B")
+        XCTAssertEqual(savedCollection.tags, ["Excavation", "Schnitt 4"])
+
+        let reloadedStore = ProjectCollectionStore(storageURL: storeURL)
+        let reloaded = try XCTUnwrap(reloadedStore.collection(for: savedCollection.id))
+        XCTAssertEqual(reloaded.summary, "Schnitt 4 und Nordprofil im Bereich B")
+        XCTAssertEqual(reloaded.tags, ["Excavation", "Schnitt 4"])
+
+        reloadedStore.delete(reloaded)
+        XCTAssertTrue(reloadedStore.collections.isEmpty)
+
+        // Register temporarily in shared store so report builders resolve the collection name
+        let sharedCollection = ProjectCollectionStore.shared.save(ProjectCollection(
+            title: "Forum Sektor B",
+            summary: "Dokumentation Südwall",
+            tags: ["Architektur"]
+        ))
+        defer { ProjectCollectionStore.shared.delete(sharedCollection) }
+
+        // 2. Point Cloud organization + preview.png + PDF report
+        let pcDir = tempDir.appendingPathComponent("pc-org", isDirectory: true)
+        try FileManager.default.createDirectory(at: pcDir, withIntermediateDirectories: true)
+        let asciiPLY = """
+        ply
+        format ascii 1.0
+        element vertex 3
+        property float x
+        property float y
+        property float z
+        property uchar red
+        property uchar green
+        property uchar blue
+        end_header
+        0.0 0.0 0.0 210 120 60
+        1.0 0.0 0.2 120 210 80
+        0.4 0.9 0.5 80 140 220
+        """
+        try asciiPLY.write(to: pcDir.appendingPathComponent(ExportFormat.asciiPLY.fileName), atomically: true, encoding: .utf8)
+
+        let pcMeta = ScanMetadata(
+            schemaVersion: 1, appVersion: "1.3.0", appBuild: "5", scanID: UUID(),
+            title: "Original Scan", startedAt: Date(), savedAt: Date(), pointCount: 3,
+            acceptedSamples: 3, processedFrames: 1, activeSeconds: 1.0,
+            settings: ScanSettings(), deviceModel: "iPad", systemVersion: "18.0",
+            depthWidth: 256, depthHeight: 192, unit: "metre",
+            coordinateSystem: "Local", arkitToExportRowMajor: [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1],
+            depthSource: "ARFrame.sceneDepth", confidenceMeaning: "0,1,2",
+            pointSelection: "voxel", colorSource: "camera", sessionNote: "Org test"
+        )
+        let initialScan = SavedScan(directory: pcDir, metadata: pcMeta)
+        let updatedScan = try ScanStorage.updateProjectOrganization(
+            for: initialScan,
+            title: "Befund 104 Nordprofil",
+            projectDescription: "Kollapsbereich aus Mauerstein mit Mörtelresten",
+            tags: ["#Befund", "Nordprofil", "befund"],
+            collectionIDs: [sharedCollection.id, sharedCollection.id]
+        )
+        XCTAssertEqual(updatedScan.metadata.title, "Befund 104 Nordprofil")
+        XCTAssertEqual(updatedScan.metadata.projectDescription, "Kollapsbereich aus Mauerstein mit Mörtelresten")
+        XCTAssertEqual(updatedScan.metadata.tags, ["Befund", "Nordprofil"])
+        XCTAssertEqual(updatedScan.metadata.collectionIDs, [sharedCollection.id])
+
+        let decodedMeta = try JSONDecoder.iso8601Decoder.decode(
+            ScanMetadata.self,
+            from: Data(contentsOf: updatedScan.metadataURL)
+        )
+        XCTAssertEqual(decodedMeta.title, "Befund 104 Nordprofil")
+        XCTAssertEqual(decodedMeta.projectDescription, "Kollapsbereich aus Mauerstein mit Mörtelresten")
+        XCTAssertEqual(decodedMeta.collectionIDs, [sharedCollection.id])
+
+        let pcThumb = ReportPreviewRenderer.pointCloudThumbnailImage(for: updatedScan)
+        XCTAssertNotNil(pcThumb)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updatedScan.previewImageURL.path))
+
+        let pcReport = try ScanReport.pointCloud(updatedScan, format: .pdf)
+        defer { try? FileManager.default.removeItem(at: pcReport.deletingLastPathComponent()) }
+        let pcPDF = try XCTUnwrap(PDFDocument(url: pcReport))
+        let pcText = pcPDF.string ?? ""
+        XCTAssertTrue(pcText.contains("Befund 104 Nordprofil"))
+        XCTAssertTrue(pcText.contains("Kollapsbereich"))
+        XCTAssertTrue(pcText.contains("#Befund"))
+        XCTAssertTrue(pcText.contains("Forum Sektor B"))
+
+        // 3. Gaussian project organization + keyframe preview.png + PDF report
+        var gProj = project()
+        let gStore = try GaussianStore(project: gProj)
+        defer { try? FileManager.default.removeItem(at: gStore.directory) }
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 64, height: 48))
+        let syntheticPhoto = renderer.image { ctx in
+            UIColor.systemTeal.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 48))
+        }
+        let imgRel = "images/frame_000000.jpg"
+        let imgURL = gStore.directory.appendingPathComponent(imgRel)
+        try XCTUnwrap(syntheticPhoto.jpegData(compressionQuality: 0.9)).write(to: imgURL, options: .atomic)
+        let imgHash = try GaussianStore.hashFile(imgURL)
+        gStore.project.frames = [
+            GaussianFrame(
+                file_path: imgRel, w: 64, h: 48,
+                fl_x: 100, fl_y: 100, cx: 32, cy: 24,
+                transform_matrix: [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]],
+                timestamp: 0.5, savedAt: Date(), sha256: imgHash
+            )
+        ]
+        try gStore.saveDataset()
+        gProj = gStore.project
+
+        let updatedGaussian = try GaussianStore.updateProjectOrganization(
+            for: gProj,
+            title: "Mausoleum Kuppel Splat",
+            projectDescription: "3D-Gaussian-Rekonstruktion des Innenraums",
+            tags: ["Architektur", "#Kuppel"],
+            collectionIDs: [sharedCollection.id]
+        )
+        XCTAssertEqual(updatedGaussian.title, "Mausoleum Kuppel Splat")
+        XCTAssertEqual(updatedGaussian.projectDescription, "3D-Gaussian-Rekonstruktion des Innenraums")
+        XCTAssertEqual(updatedGaussian.tags, ["Architektur", "Kuppel"])
+        XCTAssertEqual(updatedGaussian.collectionIDs, [sharedCollection.id])
+
+        let gThumb = ReportPreviewRenderer.gaussianThumbnailImage(for: updatedGaussian)
+        XCTAssertNotNil(gThumb)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: updatedGaussian.previewImageURL.path))
+
+        let gReport = try ScanReport.gaussian(updatedGaussian, format: .pdf)
+        defer { try? FileManager.default.removeItem(at: gReport.deletingLastPathComponent()) }
+        let gPDF = try XCTUnwrap(PDFDocument(url: gReport))
+        let gText = gPDF.string ?? ""
+        XCTAssertTrue(gText.contains("Mausoleum Kuppel Splat"))
+        XCTAssertTrue(gText.contains("Innenraums"))
+        XCTAssertTrue(gText.contains("#Kuppel"))
+        XCTAssertTrue(gText.contains("Forum Sektor B"))
+    }
+}
+
+private extension JSONDecoder {
+    static var iso8601Decoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }

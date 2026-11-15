@@ -20,6 +20,52 @@ struct GeoLocation: Codable, Equatable {
             abs(latitude), latDir, abs(longitude), lonDir
         )
     }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    var isValidCoordinate: Bool {
+        latitude.isFinite && longitude.isFinite && abs(latitude) <= 90 && abs(longitude) <= 180
+    }
+
+    /// Returns a coordinate displaced by north/east offsets in meters on the WGS84 sphere.
+    func coordinateOffset(northMeters: Double, eastMeters: Double) -> CLLocationCoordinate2D {
+        let earthRadius = 6_378_137.0
+        let latRad = latitude * .pi / 180.0
+        let dLat = (northMeters / earthRadius) * (180.0 / .pi)
+        let cosLat = max(1e-6, abs(cos(latRad)))
+        let dLon = (eastMeters / (earthRadius * cosLat)) * (180.0 / .pi)
+        let clampedLat = min(90.0, max(-90.0, latitude + dLat))
+        var wrappedLon = longitude + dLon
+        while wrappedLon > 180.0 { wrappedLon -= 360.0 }
+        while wrappedLon < -180.0 { wrappedLon += 360.0 }
+        return CLLocationCoordinate2D(latitude: clampedLat, longitude: wrappedLon)
+    }
+
+    /// Returns the endpoint of a compass heading ray at the given distance in meters, if heading is available.
+    func headingRayEndCoordinate(distanceMeters: Double) -> CLLocationCoordinate2D? {
+        guard let heading, heading.isFinite, heading >= 0, distanceMeters > 0 else { return nil }
+        let rad = heading * .pi / 180.0
+        let northMeters = distanceMeters * cos(rad)
+        let eastMeters = distanceMeters * sin(rad)
+        return coordinateOffset(northMeters: northMeters, eastMeters: eastMeters)
+    }
+
+    /// Formats the heading in degrees together with its 8-point cardinal direction (e.g. "92.5° (E)").
+    var cardinalHeadingString: String? {
+        guard let heading, heading.isFinite, heading >= 0 else { return nil }
+        let normalized = ((heading.truncatingRemainder(dividingBy: 360.0)) + 360.0)
+            .truncatingRemainder(dividingBy: 360.0)
+        let cardinals = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        let idx = Int(((normalized + 22.5) / 45.0).rounded(.down)) % 8
+        return String(
+            format: "%.1f° (%@)",
+            locale: Locale(identifier: "en_US_POSIX"),
+            normalized,
+            cardinals[idx]
+        )
+    }
 }
 
 final class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {

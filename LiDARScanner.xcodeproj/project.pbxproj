@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710CDA8C0EDC88B327170324 /* PointCloudView.swift */; };
+		06C0304495506712FFC5492C /* ProjectOrganizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9084DF31001B05C88A8DC92 /* ProjectOrganizationViews.swift */; };
 		0D3198EB1A47172D1593C06A /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2946B1B0E26120AAE5AD9A60 /* ScannerView.swift */; };
 		1B8F3D98D8CB30E963DAA256 /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA9395A1016AB2766F23C70 /* CreditsView.swift */; };
 		23C605CB505A9B32CAB6FD3D /* ThirdPartyLicenses.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6FD3D088CBFAC3C78C218D2E /* ThirdPartyLicenses.txt */; };
@@ -15,10 +16,13 @@
 		2A015C6DFCD19393CB57CF82 /* GaussianPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA4EB61C2992A068537F66 /* GaussianPreviewView.swift */; };
 		2A7CABA154D824EA1430320D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B52991869259B387973DF071 /* MetalKit.framework */; };
 		2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00745DD212891C12D2C7D923 /* ExportSheet.swift */; };
+		3280A915226325CCB80993C6 /* ScanLocationMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B500A7FA5F4E97E54EC60852 /* ScanLocationMapView.swift */; };
 		3417F99D42A34890C8C860DB /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9D4D1A0BA53D5C4F2098C6E /* CoreLocation.framework */; };
 		351CCAB228E2DF1FA9F0117B /* LiDARScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */; };
 		387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DE3BBF4A33738A02461DDD /* MeshExporter.swift */; };
 		49E6752BD21827E7933D1621 /* ScanTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591AE06B83745D2184C647E8 /* ScanTypes.swift */; };
+		4A6EFA458499204F140B8773 /* MapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 573D7E3BF7F79F00176C73FF /* MapKit.framework */; };
+		4C7003349211B69EFA1F62D1 /* GCPExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9240BAD84080EF7523A223AF /* GCPExporter.swift */; };
 		513023056F015575CFAD535C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 654E310C9A032255F34E8CED /* Localizable.strings */; };
 		54701E4CB715E3E0E35B2594 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */; };
 		57F63DC10200183E83B25234 /* ScanImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423AC76627BE2A75ED569653 /* ScanImporter.swift */; };
@@ -32,6 +36,7 @@
 		806FB9CD045A3EBB7C9CDF1E /* ScanUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D58AE35D2E5E3DFD3CCB6A /* ScanUITests.swift */; };
 		88ADB3A310D6ED4FCC7D1F3D /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 736FF58692C13F2293C3543F /* libc++.tbd */; };
 		89CF6962EF46B1F4224C27D5 /* ScanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3031CC885A856F3E3A031916 /* ScanModel.swift */; };
+		98EDBF5BEFD62A10B09210F2 /* ProjectOrganization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C10D317F3BCC3E60B84A16 /* ProjectOrganization.swift */; };
 		9C6C194F3BAD392B54CBD491 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7E1C70452383F1A34740120 /* CoreGraphics.framework */; };
 		9D25763280B54690BCBEDA61 /* TorchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33170E03775E44A0FE0F08 /* TorchService.swift */; };
 		A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */; };
@@ -97,11 +102,13 @@
 		4A8998633ABD7A09D8577682 /* ScanTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E33170E03775E44A0FE0F08 /* TorchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchService.swift; sourceTree = "<group>"; };
 		52E7560BA5CDA6710DD79AEB /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		573D7E3BF7F79F00176C73FF /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
 		57DE3BBF4A33738A02461DDD /* MeshExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshExporter.swift; sourceTree = "<group>"; };
 		591AE06B83745D2184C647E8 /* ScanTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypes.swift; sourceTree = "<group>"; };
 		618F90E24DA56B4F20ACFCCD /* GaussianTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianTypes.swift; sourceTree = "<group>"; };
 		667722F4881FB4376538BEF7 /* ScanReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReport.swift; sourceTree = "<group>"; };
 		68BE5EDD027CB5B924820AB5 /* ScanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTests.swift; sourceTree = "<group>"; };
+		69C10D317F3BCC3E60B84A16 /* ProjectOrganization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectOrganization.swift; sourceTree = "<group>"; };
 		6E0EAC368DD3FA03E7CD5069 /* GaussianScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianScannerView.swift; sourceTree = "<group>"; };
 		6EA963BDEEACA2C54A89F90F /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		6FD3D088CBFAC3C78C218D2E /* ThirdPartyLicenses.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ThirdPartyLicenses.txt; sourceTree = "<group>"; };
@@ -114,6 +121,7 @@
 		8505CA84408215458BB7A544 /* default-iossimulator.metallib */ = {isa = PBXFileReference; lastKnownFileType = "archive.metal-library"; path = "default-iossimulator.metallib"; sourceTree = "<group>"; };
 		895473BE2125005D5AC157F9 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARScannerApp.swift; sourceTree = "<group>"; };
+		9240BAD84080EF7523A223AF /* GCPExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GCPExporter.swift; sourceTree = "<group>"; };
 		9FC4178D29ECDA5B4D22C44C /* GaussianCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianCapture.swift; sourceTree = "<group>"; };
 		A24F6B44F66907CE86357497 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
 		A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -122,6 +130,7 @@
 		AFD53F2CDB1FDC573401BA06 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		B0B91C5E60FD184B07896C41 /* ScanUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B260159D7B74B26A6C98FEA1 /* GaussianNative.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GaussianNative.mm; sourceTree = "<group>"; };
+		B500A7FA5F4E97E54EC60852 /* ScanLocationMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLocationMapView.swift; sourceTree = "<group>"; };
 		B52991869259B387973DF071 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		BC7A2F9FFAE5D96BD10E57C5 /* ScanModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModeView.swift; sourceTree = "<group>"; };
 		BD88BE26E4CAF5629042A93B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -137,6 +146,7 @@
 		E82A095F022AEFDAAA906305 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EA280A898BB3F1593ACA2F93 /* E57Writer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = E57Writer.hpp; sourceTree = "<group>"; };
 		F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F9084DF31001B05C88A8DC92 /* ProjectOrganizationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectOrganizationViews.swift; sourceTree = "<group>"; };
 		F9EF4C10ACBE4CEB2AC1FAAA /* GaussianProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaussianProcessor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -154,6 +164,7 @@
 				E627B84D324EFE75D91586CB /* ImageIO.framework in Frameworks */,
 				9C6C194F3BAD392B54CBD491 /* CoreGraphics.framework in Frameworks */,
 				3417F99D42A34890C8C860DB /* CoreLocation.framework in Frameworks */,
+				4A6EFA458499204F140B8773 /* MapKit.framework in Frameworks */,
 				E1A3F25CEEAEEE03E069C2F2 /* libz.tbd in Frameworks */,
 				88ADB3A310D6ED4FCC7D1F3D /* libc++.tbd in Frameworks */,
 			);
@@ -189,12 +200,14 @@
 				0AEEBC62781B6D37155F93AE /* AppLanguage.swift */,
 				F5370A2B57ACAC79B4C2CE92 /* Assets.xcassets */,
 				240A2CB1FF47E2413F1EDB4A /* DepthProcessor.swift */,
+				9240BAD84080EF7523A223AF /* GCPExporter.swift */,
 				BD88BE26E4CAF5629042A93B /* Info.plist */,
 				3EA2DF3528684D17BD3F0544 /* LiDARScanner-Bridging-Header.h */,
 				8AFA42AE26A4DF0562ECBAD5 /* LiDARScannerApp.swift */,
 				AFD53F2CDB1FDC573401BA06 /* LocationService.swift */,
 				57DE3BBF4A33738A02461DDD /* MeshExporter.swift */,
 				A940748B878F80451AEC619D /* PrivacyInfo.xcprivacy */,
+				69C10D317F3BCC3E60B84A16 /* ProjectOrganization.swift */,
 				423AC76627BE2A75ED569653 /* ScanImporter.swift */,
 				3031CC885A856F3E3A031916 /* ScanModel.swift */,
 				591AE06B83745D2184C647E8 /* ScanTypes.swift */,
@@ -229,6 +242,7 @@
 				A24F6B44F66907CE86357497 /* ImageIO.framework */,
 				736FF58692C13F2293C3543F /* libc++.tbd */,
 				6EA963BDEEACA2C54A89F90F /* libz.tbd */,
+				573D7E3BF7F79F00176C73FF /* MapKit.framework */,
 				52E7560BA5CDA6710DD79AEB /* Metal.framework */,
 				B52991869259B387973DF071 /* MetalKit.framework */,
 				D9D26D5D5BC1292E619A84BE /* MetalPerformanceShaders.framework */,
@@ -280,6 +294,8 @@
 				2CFA4EB61C2992A068537F66 /* GaussianPreviewView.swift */,
 				6E0EAC368DD3FA03E7CD5069 /* GaussianScannerView.swift */,
 				710CDA8C0EDC88B327170324 /* PointCloudView.swift */,
+				F9084DF31001B05C88A8DC92 /* ProjectOrganizationViews.swift */,
+				B500A7FA5F4E97E54EC60852 /* ScanLocationMapView.swift */,
 				BC7A2F9FFAE5D96BD10E57C5 /* ScanModeView.swift */,
 				2946B1B0E26120AAE5AD9A60 /* ScannerView.swift */,
 				4A5EA4FBE4C3B81C38814240 /* SettingsSheet.swift */,
@@ -457,6 +473,7 @@
 				A118F28570639584DBE353DE /* DepthProcessor.swift in Sources */,
 				C1A93FCE0415CACB85267DBE /* DocxReportWriter.swift in Sources */,
 				2EBBFFD6DB69EB2A23F7BC66 /* ExportSheet.swift in Sources */,
+				4C7003349211B69EFA1F62D1 /* GCPExporter.swift in Sources */,
 				6FA705E93F11BB164DB2828D /* GaussianCapture.swift in Sources */,
 				F920F6ABA564A4EB6619FF20 /* GaussianModel.swift in Sources */,
 				ADA408CC506FA2612DD3B192 /* GaussianNative.mm in Sources */,
@@ -470,8 +487,11 @@
 				387ADCED26C3D444DC5BDDC0 /* MeshExporter.swift in Sources */,
 				E9E0878D75E8A1CFAAF51A19 /* PointCloudCore.cpp in Sources */,
 				02689EE1168D9B948E557565 /* PointCloudView.swift in Sources */,
+				98EDBF5BEFD62A10B09210F2 /* ProjectOrganization.swift in Sources */,
+				06C0304495506712FFC5492C /* ProjectOrganizationViews.swift in Sources */,
 				D388BAD9CBC6020B3D017238 /* ReportPreviewRenderer.swift in Sources */,
 				57F63DC10200183E83B25234 /* ScanImporter.swift in Sources */,
+				3280A915226325CCB80993C6 /* ScanLocationMapView.swift in Sources */,
 				E60B4B046724916013523E68 /* ScanModeView.swift in Sources */,
 				89CF6962EF46B1F4224C27D5 /* ScanModel.swift in Sources */,
 				7B0F33D5593088F1677FEA76 /* ScanReport.swift in Sources */,

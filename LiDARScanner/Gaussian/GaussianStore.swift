@@ -105,6 +105,9 @@ final class GaussianStore {
         let data = GaussianDatasetManifest(ply_file_path: project.seedFile,
                                            frames: project.frames)
         try Self.encoder.encode(data).write(to: directory.appendingPathComponent("transforms.json"), options: .atomic)
+        if !project.hasPreviewImage {
+            ReportPreviewRenderer.writeGaussianThumbnail(for: project)
+        }
         try save()
     }
 
@@ -170,6 +173,34 @@ final class GaussianStore {
         if let error = coordinatorError ?? (copyError as NSError?) { throw error }
         try FileManager.default.removeItem(at: capture)
         return output
+    }
+
+    func exportImages() throws -> URL {
+        try Self.exportImages(for: project)
+    }
+
+    static func exportImages(for project: GaussianProject) throws -> URL {
+        let imagesDir = project.directory.appendingPathComponent("images", isDirectory: true)
+        var sourceURLs: [URL] = project.frames
+            .map { project.directory.appendingPathComponent($0.file_path) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if sourceURLs.isEmpty, let diskFiles = try? FileManager.default.contentsOfDirectory(
+            at: imagesDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            sourceURLs = diskFiles
+                .filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        }
+        guard !sourceURLs.isEmpty else {
+            throw GaussianError.message(LanguageManager.string("No captured images available for export."))
+        }
+        return try ZipArchive.zipFiles(
+            sourceURLs,
+            folderName: "images",
+            zipFileName: "Images-\(project.id.uuidString.prefix(8)).zip"
+        )
     }
 
     static func importProject(from url: URL) throws -> GaussianProject {
@@ -252,6 +283,30 @@ final class GaussianStore {
                 )
                 .write(to: updated.annotationsGeoJSONURL, options: .atomic)
             }
+        }
+        return updated
+    }
+
+    static func updateProjectOrganization(
+        for project: GaussianProject,
+        title: String?,
+        projectDescription: String?,
+        tags: [String],
+        collectionIDs: [UUID]
+    ) throws -> GaussianProject {
+        var updated = project
+        let defaultTitle = project.startedAt.formatted(date: .abbreviated, time: .shortened)
+        let trimmedTitle = ProjectTagCatalog.trimmedOrNil(title)
+        updated.customTitle = (trimmedTitle == defaultTitle) ? nil : trimmedTitle
+        updated.projectDescription = ProjectTagCatalog.trimmedOrNil(projectDescription)
+        updated.tags = ProjectTagCatalog.normalizedOrNil(tags)
+        var seen = Set<UUID>()
+        let dedupedIDs = collectionIDs.filter { seen.insert($0).inserted }
+        updated.collectionIDs = dedupedIDs.isEmpty ? nil : dedupedIDs
+        updated.updatedAt = Date()
+        if FileManager.default.fileExists(atPath: updated.directory.path) {
+            let scanURL = updated.directory.appendingPathComponent("scan.json")
+            try encoder.encode(updated).write(to: scanURL, options: .atomic)
         }
         return updated
     }

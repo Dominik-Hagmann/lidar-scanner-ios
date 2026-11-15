@@ -599,6 +599,44 @@ struct AnnotationExportMenu: View {
     }
 }
 
+struct GCPExportMenu: View {
+    var titleKey: String = "Export Ground Control Points"
+    var systemImage: String = "scope"
+    let onSelect: (GCPExportKind) -> Void
+
+    var body: some View {
+        Menu {
+            Button {
+                onSelect(.csv)
+            } label: {
+                Label(L("CSV + WKT (Excel / QGIS)"), systemImage: "tablecells")
+            }
+            Button {
+                onSelect(.geojson)
+            } label: {
+                Label(L("GeoJSON (3D · QGIS / GIS)"), systemImage: "globe")
+            }
+            Button {
+                onSelect(.dxf)
+            } label: {
+                Label(L("DXF (CAD / Total Station)"), systemImage: "square.on.square.dashed")
+            }
+            Button {
+                onSelect(.cloudCompare)
+            } label: {
+                Label(L("CloudCompare / Metashape (.txt)"), systemImage: "doc.plaintext")
+            }
+            Button {
+                onSelect(.qgisPoints)
+            } label: {
+                Label(L("QGIS Georeferencer (.points)"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+        } label: {
+            Label(L(titleKey), systemImage: systemImage)
+        }
+    }
+}
+
 struct ReportExportMenu: View {
     let onSelect: (ReportFormat) -> Void
 

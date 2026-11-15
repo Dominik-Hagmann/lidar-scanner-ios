@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 import ARKit
+import CoreImage
+import ImageIO
 
 struct ScanSettings: Codable, Equatable {
     var voxelCentimeters: Double = 1
@@ -10,19 +12,21 @@ struct ScanSettings: Codable, Equatable {
     // Zero selects automatic memory monitoring instead of a fixed point count.
     var maxPoints: Int = 0
     var recordLocation: Bool = true
+    var saveImages: Bool = true
 
     init(voxelCentimeters: Double = 1, maxDepth: Double = 5, minConfidence: Int = 1,
-         pixelStep: Int = 2, maxPoints: Int = 0, recordLocation: Bool = true) {
+         pixelStep: Int = 2, maxPoints: Int = 0, recordLocation: Bool = true, saveImages: Bool = true) {
         self.voxelCentimeters = voxelCentimeters
         self.maxDepth = maxDepth
         self.minConfidence = minConfidence
         self.pixelStep = pixelStep
         self.maxPoints = maxPoints
         self.recordLocation = recordLocation
+        self.saveImages = saveImages
     }
 
     enum CodingKeys: String, CodingKey {
-        case voxelCentimeters, maxDepth, minConfidence, pixelStep, maxPoints, recordLocation
+        case voxelCentimeters, maxDepth, minConfidence, pixelStep, maxPoints, recordLocation, saveImages
     }
 
     init(from decoder: Decoder) throws {
@@ -33,6 +37,7 @@ struct ScanSettings: Codable, Equatable {
         pixelStep = try c.decodeIfPresent(Int.self, forKey: .pixelStep) ?? 2
         maxPoints = try c.decodeIfPresent(Int.self, forKey: .maxPoints) ?? 0
         recordLocation = try c.decodeIfPresent(Bool.self, forKey: .recordLocation) ?? true
+        saveImages = try c.decodeIfPresent(Bool.self, forKey: .saveImages) ?? true
     }
 
     var core: PCConfig {
@@ -87,6 +92,14 @@ struct GroundControlPoint: Codable, Equatable, Identifiable {
         SIMD3<Float>(Float(localX), Float(localZ), Float(-localY))
     }
 
+    var resolvedCRS: CRSEntry? {
+        coordinateSystem.isEmpty ? nil : CRSCatalog.lookup(coordinateSystem)
+    }
+
+    var hasTargetCoordinates: Bool {
+        targetX != nil && targetY != nil
+    }
+
     init(id: UUID = UUID(), label: String, localX: Double, localY: Double, localZ: Double,
          targetX: Double? = nil, targetY: Double? = nil, targetZ: Double? = nil,
          coordinateSystem: String = "", note: String = "", createdAt: Date = Date()) {
@@ -98,7 +111,7 @@ struct GroundControlPoint: Codable, Equatable, Identifiable {
         self.targetX = targetX
         self.targetY = targetY
         self.targetZ = targetZ
-        self.coordinateSystem = coordinateSystem
+        self.coordinateSystem = CRSCatalog.normalizeCode(coordinateSystem)
         self.note = note
         self.createdAt = createdAt
     }
@@ -257,7 +270,7 @@ struct ScanMetadata: Codable {
     let appVersion: String
     let appBuild: String?
     let scanID: UUID
-    let title: String
+    var title: String
     let startedAt: Date
     let savedAt: Date
     let pointCount: Int
@@ -279,7 +292,12 @@ struct ScanMetadata: Codable {
     let sessionNote: String
     var location: GeoLocation? = nil
     var groundControlPoints: [GroundControlPoint]? = nil
+    var georeferencing: ScanGeoreferencing? = nil
     var annotations: [CloudAnnotation]? = nil
+    var savedImageCount: Int? = nil
+    var projectDescription: String? = nil
+    var tags: [String]? = nil
+    var collectionIDs: [UUID]? = nil
 
     init(schemaVersion: Int, appVersion: String, appBuild: String?, scanID: UUID, title: String,
          startedAt: Date, savedAt: Date, pointCount: Int, acceptedSamples: UInt64,
@@ -289,7 +307,12 @@ struct ScanMetadata: Codable {
          depthSource: String, confidenceMeaning: String, pointSelection: String,
          colorSource: String, sessionNote: String,
          location: GeoLocation? = nil, groundControlPoints: [GroundControlPoint]? = nil,
-         annotations: [CloudAnnotation]? = nil) {
+         annotations: [CloudAnnotation]? = nil,
+         georeferencing: ScanGeoreferencing? = nil,
+         savedImageCount: Int? = nil,
+         projectDescription: String? = nil,
+         tags: [String]? = nil,
+         collectionIDs: [UUID]? = nil) {
         self.schemaVersion = schemaVersion
         self.appVersion = appVersion
         self.appBuild = appBuild
@@ -317,6 +340,11 @@ struct ScanMetadata: Codable {
         self.location = location
         self.groundControlPoints = groundControlPoints
         self.annotations = annotations
+        self.georeferencing = georeferencing ?? GCPRegistration.computeGeoreferencing(for: groundControlPoints ?? [])
+        self.savedImageCount = savedImageCount
+        self.projectDescription = ProjectTagCatalog.trimmedOrNil(projectDescription)
+        self.tags = ProjectTagCatalog.normalizedOrNil(tags ?? [])
+        self.collectionIDs = (collectionIDs?.isEmpty == false) ? collectionIDs : nil
     }
 }
 
@@ -325,10 +353,32 @@ struct SavedScan: Identifiable {
     let metadata: ScanMetadata
     var id: String { directory.lastPathComponent }
     var metadataURL: URL { directory.appendingPathComponent("metadata.json") }
+    var previewImageURL: URL { directory.appendingPathComponent("preview.png") }
+    var hasPreviewImage: Bool { FileManager.default.fileExists(atPath: previewImageURL.path) }
     var meshURL: URL { directory.appendingPathComponent("mesh.obj") }
     func meshURL(for format: MeshExportFormat) -> URL { directory.appendingPathComponent(format.fileName) }
     var hasMesh: Bool { FileManager.default.fileExists(atPath: meshURL.path) }
+    var imagesDirectory: URL { directory.appendingPathComponent("images", isDirectory: true) }
+    var imageURLs: [URL] {
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: imagesDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        return urls.filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+    var imageCount: Int {
+        let diskCount = imageURLs.count
+        return diskCount > 0 ? diskCount : (metadata.savedImageCount ?? 0)
+    }
+    var hasImages: Bool { !imageURLs.isEmpty }
     var gcpCSVURL: URL { directory.appendingPathComponent("gcps.csv") }
+    var gcpGeoJSONURL: URL { directory.appendingPathComponent("gcps.geojson") }
+    var gcpDXFURL: URL { directory.appendingPathComponent("gcps.dxf") }
+    var gcpCloudCompareURL: URL { directory.appendingPathComponent("gcps-cloudcompare.txt") }
+    var gcpQGISPointsURL: URL { directory.appendingPathComponent("gcps.points") }
+    func gcpURL(for kind: GCPExportKind) -> URL { directory.appendingPathComponent(kind.fileName) }
     var hasGCPs: Bool { !(metadata.groundControlPoints?.isEmpty ?? true) || FileManager.default.fileExists(atPath: gcpCSVURL.path) }
     var annotationsGeoJSONURL: URL { directory.appendingPathComponent("annotations.geojson") }
     var annotationsCSVURL: URL { directory.appendingPathComponent("annotations.csv") }
@@ -389,7 +439,74 @@ enum ScanStorage {
         if ok == 0 { throw ScanFailure.message(String(cString: error)) }
     }
 
-    static func save(_ cloud: OpaquePointer, metadata: ScanMetadata, format: ExportFormat, meshAnchors: [ARMeshAnchor] = []) throws -> SavedScan {
+    static func stagingImagesDirectory(for scanID: UUID) throws -> URL {
+        try root().appendingPathComponent(".images-" + scanID.uuidString, isDirectory: true)
+    }
+
+    static func cleanupStagingImages(for scanID: UUID? = nil) {
+        guard let base = try? root() else { return }
+        if let scanID {
+            try? FileManager.default.removeItem(at: base.appendingPathComponent(".images-" + scanID.uuidString, isDirectory: true))
+        } else if let items = try? FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: nil, options: []) {
+            for item in items where item.lastPathComponent.hasPrefix(".images-") {
+                try? FileManager.default.removeItem(at: item)
+            }
+        }
+    }
+
+    @discardableResult
+    static func writeStagingImage(_ pixelBuffer: CVPixelBuffer, index: Int, scanID: UUID, context: CIContext) throws -> Bool {
+        let dir = try stagingImagesDirectory(for: scanID)
+        let volume = try dir.deletingLastPathComponent().resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        if let avail = volume.volumeAvailableCapacityForImportantUsage, avail > 0, avail <= 256 * 1024 * 1024 {
+            return false
+        }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let image = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let bytes = context.jpegRepresentation(
+            of: image,
+            colorSpace: CGColorSpaceCreateDeviceRGB(),
+            options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.92]
+        ) else {
+            return false
+        }
+        let fileURL = dir.appendingPathComponent(String(format: "frame_%06d.jpg", index))
+        try bytes.write(to: fileURL, options: .atomic)
+        return true
+    }
+
+    static func syncStagingImages(from stagingImagesURL: URL?, to targetImagesDirectory: URL) throws -> Int {
+        guard let stagingImagesURL, FileManager.default.fileExists(atPath: stagingImagesURL.path) else { return 0 }
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: stagingImagesURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ))?.filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+          .sorted { $0.lastPathComponent < $1.lastPathComponent } ?? []
+        guard !files.isEmpty else { return 0 }
+        try FileManager.default.createDirectory(at: targetImagesDirectory, withIntermediateDirectories: true)
+        for file in files {
+            let dest = targetImagesDirectory.appendingPathComponent(file.lastPathComponent)
+            if !FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.copyItem(at: file, to: dest)
+            }
+        }
+        return files.count
+    }
+
+    static func exportImagesZIP(for scan: SavedScan) throws -> URL {
+        let images = scan.imageURLs
+        guard !images.isEmpty else {
+            throw ScanFailure.message("No captured images available for export.")
+        }
+        return try ZipArchive.zipFiles(
+            images,
+            folderName: "images",
+            zipFileName: "Images-\(scan.metadata.scanID.uuidString.prefix(8)).zip"
+        )
+    }
+
+    static func save(_ cloud: OpaquePointer, metadata: ScanMetadata, format: ExportFormat, meshAnchors: [ARMeshAnchor] = [], stagingImagesURL: URL? = nil) throws -> SavedScan {
         let base = try root()
         let id = UUID().uuidString
         let staging = base.appendingPathComponent(".pending-" + id, isDirectory: true)
@@ -407,16 +524,26 @@ enum ScanStorage {
             if !meshAnchors.isEmpty {
                 try MeshExporter.writeOBJ(anchors: meshAnchors, to: staging.appendingPathComponent("mesh.obj"))
             }
-            if let gcps = metadata.groundControlPoints, !gcps.isEmpty {
-                try gcpCSVData(for: gcps).write(to: staging.appendingPathComponent("gcps.csv"), options: .atomic)
+            var savedMetadata = metadata
+            let copiedImages = try syncStagingImages(from: stagingImagesURL, to: staging.appendingPathComponent("images", isDirectory: true))
+            if copiedImages > 0 && savedMetadata.savedImageCount == nil {
+                savedMetadata.savedImageCount = copiedImages
             }
-            if let annotations = metadata.annotations, !annotations.isEmpty {
-                try AnnotationExporter.geoJSONData(for: annotations, metadata: metadata)
+            if let gcps = savedMetadata.groundControlPoints, !gcps.isEmpty {
+                savedMetadata.georeferencing = savedMetadata.georeferencing ?? GCPRegistration.computeGeoreferencing(for: gcps)
+                try GCPExporter.csvData(for: gcps).write(to: staging.appendingPathComponent("gcps.csv"), options: .atomic)
+                try GCPExporter.geoJSONData(for: gcps, metadata: savedMetadata)
+                    .write(to: staging.appendingPathComponent("gcps.geojson"), options: .atomic)
+            }
+            if let annotations = savedMetadata.annotations, !annotations.isEmpty {
+                try AnnotationExporter.geoJSONData(for: annotations, metadata: savedMetadata)
                     .write(to: staging.appendingPathComponent("annotations.geojson"), options: .atomic)
             }
-            try encodeMetadata(metadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
+            try encodeMetadata(savedMetadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
             try FileManager.default.moveItem(at: staging, to: final)
-            return SavedScan(directory: final, metadata: metadata)
+            let savedScan = SavedScan(directory: final, metadata: savedMetadata)
+            ReportPreviewRenderer.writePointCloudThumbnail(for: savedScan)
+            return savedScan
         } catch {
             try? FileManager.default.removeItem(at: staging)
             throw error
@@ -424,32 +551,7 @@ enum ScanStorage {
     }
 
     static func gcpCSVData(for points: [GroundControlPoint]) -> Data {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var lines = ["label,local_x_m,local_y_m,local_z_m,target_x,target_y,target_z,crs,note,created_at"]
-        for p in points {
-            let fields = [
-                csvEscape(p.label),
-                String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), p.localX),
-                String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), p.localY),
-                String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), p.localZ),
-                p.targetX.map { String(format: "%.8f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? "",
-                p.targetY.map { String(format: "%.8f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? "",
-                p.targetZ.map { String(format: "%.4f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? "",
-                csvEscape(p.coordinateSystem),
-                csvEscape(p.note),
-                csvEscape(iso.string(from: p.createdAt))
-            ]
-            lines.append(fields.joined(separator: ","))
-        }
-        return Data((lines.joined(separator: "\n") + "\n").utf8)
-    }
-
-    private static func csvEscape(_ value: String) -> String {
-        if value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") {
-            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-        }
-        return value
+        GCPExporter.csvData(for: points)
     }
 
     private static func encodeMetadata(_ metadata: ScanMetadata) throws -> Data {
@@ -462,11 +564,14 @@ enum ScanStorage {
     static func updateGroundControlPoints(for scan: SavedScan, points: [GroundControlPoint]) throws -> SavedScan {
         var meta = scan.metadata
         meta.groundControlPoints = points.isEmpty ? nil : points
+        meta.georeferencing = GCPRegistration.computeGeoreferencing(for: points)
         try encodeMetadata(meta).write(to: scan.metadataURL, options: .atomic)
         if points.isEmpty {
             try? FileManager.default.removeItem(at: scan.gcpCSVURL)
+            try? FileManager.default.removeItem(at: scan.gcpGeoJSONURL)
         } else {
-            try gcpCSVData(for: points).write(to: scan.gcpCSVURL, options: .atomic)
+            try GCPExporter.csvData(for: points).write(to: scan.gcpCSVURL, options: .atomic)
+            try GCPExporter.geoJSONData(for: points, metadata: meta).write(to: scan.gcpGeoJSONURL, options: .atomic)
         }
         return SavedScan(directory: scan.directory, metadata: meta)
     }
@@ -481,6 +586,27 @@ enum ScanStorage {
             try AnnotationExporter.geoJSONData(for: annotations, metadata: meta)
                 .write(to: scan.annotationsGeoJSONURL, options: .atomic)
         }
+        return SavedScan(directory: scan.directory, metadata: meta)
+    }
+
+    static func updateProjectOrganization(
+        for scan: SavedScan,
+        title: String,
+        projectDescription: String?,
+        tags: [String],
+        collectionIDs: [UUID]
+    ) throws -> SavedScan {
+        var meta = scan.metadata
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanTitle.isEmpty {
+            meta.title = cleanTitle
+        }
+        meta.projectDescription = ProjectTagCatalog.trimmedOrNil(projectDescription)
+        meta.tags = ProjectTagCatalog.normalizedOrNil(tags)
+        var seen = Set<UUID>()
+        let dedupedIDs = collectionIDs.filter { seen.insert($0).inserted }
+        meta.collectionIDs = dedupedIDs.isEmpty ? nil : dedupedIDs
+        try encodeMetadata(meta).write(to: scan.metadataURL, options: .atomic)
         return SavedScan(directory: scan.directory, metadata: meta)
     }
 
@@ -504,7 +630,9 @@ enum ScanStorage {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             try encoder.encode(metadata).write(to: staging.appendingPathComponent("metadata.json"), options: .atomic)
             try FileManager.default.moveItem(at: staging, to: final)
-            return SavedScan(directory: final, metadata: metadata)
+            let savedScan = SavedScan(directory: final, metadata: metadata)
+            ReportPreviewRenderer.writePointCloudThumbnail(for: savedScan)
+            return savedScan
         } catch {
             try? FileManager.default.removeItem(at: staging)
             throw error
