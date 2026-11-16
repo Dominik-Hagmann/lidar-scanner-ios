@@ -268,7 +268,7 @@
 "Apple ARKit & Metal" = "Apple ARKit & Metal";
 "Hardware-accelerated LiDAR scene depth capture and high-performance GPU compute." = "Hardwarebeschleunigte LiDAR-Tiefenerfassung und Hochleistungs-GPU-Compute.";
 "AI-Assisted Development" = "KI-gestützte Entwicklung";
-"This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT." = "Diese Anwendung wurde im Rahmen eines KI-gestützten Workflows mit Google Antigravity und OpenAI Codex / ChatGPT entwickelt.";
+"This application was vibe-coded with Google Antigravity (within an AI-assisted workflow alongside OpenAI Codex / ChatGPT)." = "Diese Anwendung wurde mit Google Antigravity vibe-coded (im Rahmen eines KI-gestützten Workflows zusammen mit OpenAI Codex / ChatGPT).";
 "Released under the MIT License.\nFree and open-source software." = "Veröffentlicht unter der MIT-Lizenz.\nFreie und quelloffene Software.";
 "Version %@ (Build %@)" = "Version %@ (Build %@)";
 "3D View" = "3D-Ansicht";

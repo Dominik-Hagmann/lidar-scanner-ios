@@ -89,7 +89,7 @@ struct CreditsView: View {
 
             // AI Collaboration
             Section(L("AI-Assisted Development")) {
-                Text(L("This application was developed through an AI-assisted workflow with Google Antigravity and OpenAI Codex / ChatGPT."))
+                Text(L("This application was vibe-coded with Google Antigravity (within an AI-assisted workflow alongside OpenAI Codex / ChatGPT)."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

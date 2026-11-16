@@ -269,7 +269,7 @@ A Simulator build tests the iOS integration; LiDAR capture can be tested only on
 | `LiDARScanner/Views/` | Native interface, camera, point-cloud and Gaussian previews |
 | `scripts/` | Setup, engine preparation and test scripts |
 
-The Gaussian mode uses msplat-ios and MetalSplatter; see [third-party notices](THIRD_PARTY_NOTICES.md). Geometry and validation details: [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md), [`docs/VALIDATION.md`](docs/VALIDATION.md). Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The Gaussian mode uses msplat-ios and MetalSplatter; see [third-party notices](THIRD_PARTY_NOTICES.md). Geometry and validation details: [`docs/TECHNICAL_DESCRIPTION.md`](docs/TECHNICAL_DESCRIPTION.md), [`docs/VALIDATION.md`](docs/VALIDATION.md). This app was vibe-coded with **Google Antigravity** (see [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md)). Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -303,7 +303,7 @@ Scientific, educational or documentary use should cite the specific version and 
 
 ## License, Disclaimer and Provenance
 
-The source code is available under the [MIT License](LICENSE). Information about AI-assisted development is provided in [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md).
+The source code is available under the [MIT License](LICENSE). This app was **vibe-coded with Google Antigravity** (within an AI-assisted workflow alongside OpenAI Codex / ChatGPT); details on AI-assisted development are provided in [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md).
 
 **LiDAR Scanner is provided "AS IS", without warranty of any kind, express or implied**, as set out in the [MIT License](LICENSE).
 
@@ -315,28 +315,20 @@ This section provides additional usage guidance and does not replace or modify t
 
 ## Acknowledgments
 
-<table>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="https://rim.iarh.hr/index.php/en" target="_blank">
-        <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="90">
-      </a>
-      <br><br>
-      <a href="https://rim.iarh.hr/index.php/en" target="_blank">Roman Infrastructure Mapping<br>(RIM)</a>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="https://hrzz.hr/en/" target="_blank">
-        <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="90">
-      </a>
-      <br><br>
-      <a href="https://hrzz.hr/en/" target="_blank">Croatian Science Foundation<br>(HRZZ)</a>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="https://www.iarh.hr/en/home/" target="_blank">
-        <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="90">
-      </a>
-      <br><br>
-      <a href="https://www.iarh.hr/en/home/" target="_blank">Institute of Archaeology<br>(IARH)</a>
-    </td>
-  </tr>
-</table>
+<p align="left">
+  <a href="https://rim.iarh.hr/index.php/en" target="_blank">
+    <img src="docs/logo-rim.png" alt="Roman Infrastructure Mapping (RIM) Project Logo" height="76">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://hrzz.hr/en/" target="_blank">
+    <img src="docs/logo-hrzz.png" alt="Croatian Science Foundation (HRZZ) Logo" height="76">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://www.iarh.hr/en/home/" target="_blank">
+    <img src="docs/logo-iarh.png" alt="Institute of Archaeology (IARH) Logo" height="76">
+  </a>
+</p>
+
+- [Roman Infrastructure Mapping (RIM)](https://rim.iarh.hr/index.php/en)
+- [Croatian Science Foundation (HRZZ)](https://hrzz.hr/en/)
+- [Institute of Archaeology (IARH)](https://www.iarh.hr/en/home/)
